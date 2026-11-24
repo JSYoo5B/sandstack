@@ -15,6 +15,12 @@ environment-based until it meets the conditions in
 
 ## Code and tests
 
+Before placing new code or changing a package boundary, read
+[Code placement](CONTRIBUTING.md#code-placement) and the ADRs it links to.
+Before writing or changing tests, read
+[Writing tests](docs/contributing/testing.md#writing-tests) for assertion,
+test double, and regression guidance.
+
 - Write durable project artifacts in English. Group files by responsibility
   and wrap long calls, literals, and assertions where it improves readability.
 - Use Testify. Use `require` for prerequisites and `assert` for expected values.
@@ -27,6 +33,10 @@ environment-based until it meets the conditions in
   fails when the defect is present before relying on it.
 
 ## Changes and verification
+
+Before opening a pull request or publishing results, read
+[Documentation and review](CONTRIBUTING.md#documentation-and-review) and
+[Reporting results](docs/contributing/testing.md#reporting-results).
 
 - Keep related changes together in one pull request. When a repository template
   applies, use its fields for submissions through the CLI or API as well.

@@ -1,12 +1,20 @@
 # SandStack
 
-SandStack is a lightweight OpenStack-compatible test sandbox with programmable fault injection.
+SandStack is a project to build a lightweight OpenStack-compatible test
+sandbox with programmable fault injection.
 
-It is designed for automated tests of services that integrate with OpenStack APIs. SandStack can be started as an ephemeral test dependency, similar to Testcontainers-managed services. It provides Keystone-compatible authentication, selected Nova/Neutron/Glance/Cinder-compatible APIs, deterministic state reset, request tracing, and programmable faults for backend failures, stale reads, timing issues, and cross-service inconsistencies.
+It is designed to run as an ephemeral dependency for automated tests of
+services that integrate with OpenStack APIs. Its goals include
+Keystone-compatible authentication, selected Nova, Neutron, Glance, and
+Cinder APIs, deterministic state reset, and request tracing. Programmable
+faults would let tests exercise backend failures, stale reads, timing
+issues, and cross-service inconsistencies.
 
-SandStack is not a full OpenStack distribution and is not a DevStack replacement. Optional local backends may use Docker or Lima to provide simplified resources, but SandStack does not guarantee real OpenStack virtualization, virtual networking, or distributed storage semantics.
+The [emulation decision](docs/decisions/0002-emulate-openstack-apis.md)
+describes what the sandbox is designed to emulate.
 
 ## Status
 
-The repository was restarted from its retained design decisions, and no
-implementation exists yet. See [`docs/decisions`](docs/decisions/README.md).
+SandStack is in the design stage. The [decision index](docs/decisions/README.md)
+lists accepted and pending decisions. See [Contributing](CONTRIBUTING.md) for
+code placement, documentation, and review guidance.
