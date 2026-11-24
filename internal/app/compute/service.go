@@ -12,6 +12,7 @@ var ErrServerNotFound = errors.New("compute server not found")
 
 type Service struct {
 	mu          sync.RWMutex
+	seed        domain.Server
 	server      domain.Server
 	staleDetail *domain.Server
 	now         func() time.Time
@@ -19,7 +20,11 @@ type Service struct {
 
 // New takes a seeded server and a non-nil clock.
 func New(server domain.Server, now func() time.Time) *Service {
-	return &Service{server: cloneServer(server), now: now}
+	return &Service{
+		seed:   cloneServer(server),
+		server: cloneServer(server),
+		now:    now,
+	}
 }
 
 func (s *Service) Get(projectID, serverID string) (domain.Server, error) {
@@ -43,6 +48,15 @@ func (s *Service) List(projectID string, status *domain.Status) []domain.Server 
 		return []domain.Server{}
 	}
 	return []domain.Server{cloneServer(s.server)}
+}
+
+// Reset restores the startup fixture and discards stale snapshots.
+func (s *Service) Reset() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.server = cloneServer(s.seed)
+	s.staleDetail = nil
 }
 
 // SetStaleDetail freezes detail reads at the current live state until cleared.

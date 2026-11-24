@@ -13,6 +13,7 @@ import (
 	apiidentity "github.com/JSYoo5B/sandstack/internal/api/identity"
 	appcompute "github.com/JSYoo5B/sandstack/internal/app/compute"
 	appidentity "github.com/JSYoo5B/sandstack/internal/app/identity"
+	"github.com/JSYoo5B/sandstack/internal/app/sandbox"
 	"github.com/JSYoo5B/sandstack/internal/domain/compute"
 	"github.com/JSYoo5B/sandstack/internal/domain/identity"
 	memoryidentity "github.com/JSYoo5B/sandstack/internal/store/memory/identity"
@@ -51,20 +52,22 @@ func New(config Config) (http.Handler, error) {
 		CreatedAt: created,
 		UpdatedAt: created,
 	}, now)
+	state := sandbox.NewState(identityService.InvalidateTokens, computeService.Reset)
 
 	router := chi.NewRouter()
+	services := router.With(guardSandboxState(state))
 	endpointURL := func(r *http.Request, path string) string {
 		return resolveEndpointURL(publicURL, r, path)
 	}
-	apiidentity.Register(router, identityService, endpointURL, apiidentity.CatalogEntry{
+	apiidentity.Register(services, identityService, endpointURL, apiidentity.CatalogEntry{
 		ServiceID:  "f1746a2a9de3473aa728b42dd5da3c7d",
 		EndpointID: "8adbd297bb4a4551a7fe5676a5fece03",
 		Type:       "compute",
 		Name:       "nova",
 		Path:       apicompute.Path + "/" + fixture.Project.ID,
 	})
-	apicompute.Register(router, computeService, identityService.ProjectForToken, endpointURL)
-	registerControlRoutes(router, identityService, computeService, config.AdminToken)
+	apicompute.Register(services, computeService, identityService.ProjectForToken, endpointURL)
+	registerControlRoutes(router, identityService, computeService, state, config.AdminToken)
 	return router, nil
 }
 

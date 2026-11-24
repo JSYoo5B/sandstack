@@ -10,12 +10,14 @@ import (
 
 	appcompute "github.com/JSYoo5B/sandstack/internal/app/compute"
 	appidentity "github.com/JSYoo5B/sandstack/internal/app/identity"
+	"github.com/JSYoo5B/sandstack/internal/app/sandbox"
 )
 
 func registerControlRoutes(
 	router chi.Router,
 	identityService *appidentity.Service,
 	computeService *appcompute.Service,
+	state *sandbox.State,
 	adminToken string,
 ) {
 	router.Route("/_sandstack", func(router chi.Router) {
@@ -23,6 +25,11 @@ func registerControlRoutes(
 		router.Get("/ready", noContent)
 
 		controls := router.With(requireAdminToken(adminToken))
+		controls.Post("/reset", func(w http.ResponseWriter, r *http.Request) {
+			state.Reset()
+			noContent(w, r)
+		})
+		controls = controls.With(guardSandboxState(state))
 		controls.Post("/identity/invalidate-tokens", func(w http.ResponseWriter, r *http.Request) {
 			identityService.InvalidateTokens()
 			noContent(w, r)

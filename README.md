@@ -30,7 +30,8 @@ It listens on `127.0.0.1:8080` by default. Use
 for the user and project. The [Identity guide](docs/guides/identity.md)
 covers token invalidation and reauthentication. The
 [Compute guide](docs/guides/compute.md) covers reading a Nova server and
-observing an injected instance fault.
+observing an injected instance fault. [Reset the sandbox](docs/guides/reset.md)
+between test cases to restore the fixture and invalidate issued tokens.
 
 See the [decision index](docs/decisions/README.md) for architecture and
 [Contributing](CONTRIBUTING.md) for development guidance.
