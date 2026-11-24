@@ -35,12 +35,12 @@ test double, and regression guidance.
 
 ## Changes and verification
 
-Before opening a pull request or publishing results, read
+Before pushing changes or publishing results, read
 [Documentation and review](CONTRIBUTING.md#documentation-and-review) and
 [Reporting results](docs/contributing/testing.md#reporting-results).
 
-- Keep related changes together in one pull request. When a repository template
-  applies, use its fields for submissions through the CLI or API as well.
+- Develop on `main` and push verified commits directly. Use a separate branch
+  or pull request when the maintainer requests one.
 - For documentation changes, review the diff and check affected links. Report
   compilation, tests with substitutes, Gophercloud compatibility, and checks
   against OpenStack according to what actually ran. Tie CI results to the
