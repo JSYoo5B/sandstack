@@ -13,11 +13,8 @@ changes through a new record that supersedes the old one.
 | [0005](0005-layered-architecture.md) | Layered architecture and dependency direction | Accepted |
 | [0006](0006-runtime-determinism.md) | Injected clock and generators | Accepted |
 | [0007](0007-dependency-policy.md) | Dependency policy | Accepted |
-
-## Pending
-
-The implementation scope policy and the verification policy are being
-redefined. No implementation code is added until both are recorded here.
+| [0008](0008-implementation-scope.md) | Implementation scope | Accepted |
+| [0009](0009-verification-policy.md) | Verification policy | Accepted |
 
 ## Not Carried Over
 

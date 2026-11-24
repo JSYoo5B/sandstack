@@ -24,6 +24,5 @@ environment and result of each check. See the
 the scope of client compatibility. Cite the commit and run attempt for CI
 results.
 
-The [decision index](../decisions/README.md#pending) tracks the pending
-verification policy, including what evidence will be required for
-implementation changes.
+The [verification policy](../decisions/0009-verification-policy.md) defines
+the evidence required for implementation changes.

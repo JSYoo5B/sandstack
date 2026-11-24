@@ -4,8 +4,9 @@
 
 Read the [decision index](docs/decisions/README.md) before changing code or
 documentation. Revisit a discarded design only through a new decision record.
-Wait until the implementation scope and verification policies are recorded
-there before adding implementation code.
+Before implementing a scenario, read the
+[implementation scope](docs/decisions/0008-implementation-scope.md) and
+[verification policy](docs/decisions/0009-verification-policy.md).
 
 Follow the dependency direction in [ADR 0005](docs/decisions/0005-layered-architecture.md).
 Keep Gophercloud at the API compatibility and test boundary described in
