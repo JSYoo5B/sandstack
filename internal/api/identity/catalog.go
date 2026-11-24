@@ -7,6 +7,15 @@ import (
 	appidentity "github.com/JSYoo5B/sandstack/internal/app/identity"
 )
 
+// CatalogEntry describes a public service endpoint registered in this server.
+type CatalogEntry struct {
+	ServiceID  string
+	EndpointID string
+	Type       string
+	Name       string
+	Path       string
+}
+
 type catalogService struct {
 	ID        string            `json:"id"`
 	Type      string            `json:"type"`
@@ -32,18 +41,22 @@ type catalogLinks struct {
 }
 
 func (h handler) catalog(r *http.Request) []catalogService {
-	return []catalogService{{
-		ID:   "f67f532d68cc4616bc5b81a6eb84ab7f",
-		Type: "identity",
-		Name: "keystone",
-		Endpoints: []catalogEndpoint{{
-			ID:        "9a077ab4b7f0463b95f1baccde36b964",
-			Interface: "public",
-			Region:    "RegionOne",
-			RegionID:  "RegionOne",
-			URL:       h.endpointURL(r, identityPath),
-		}},
-	}}
+	services := make([]catalogService, 0, len(h.entries))
+	for _, entry := range h.entries {
+		services = append(services, catalogService{
+			ID:   entry.ServiceID,
+			Type: entry.Type,
+			Name: entry.Name,
+			Endpoints: []catalogEndpoint{{
+				ID:        entry.EndpointID,
+				Interface: "public",
+				Region:    "RegionOne",
+				RegionID:  "RegionOne",
+				URL:       h.endpointURL(r, entry.Path),
+			}},
+		})
+	}
+	return services
 }
 
 func (h handler) getCatalog(w http.ResponseWriter, r *http.Request) {

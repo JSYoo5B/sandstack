@@ -13,7 +13,7 @@ issues, and cross-service inconsistencies.
 The [emulation decision](docs/decisions/0002-emulate-openstack-apis.md)
 describes what the sandbox is designed to emulate.
 
-## Run the Identity sandbox
+## Run the sandbox
 
 With Go 1.25 or later, start a sandbox with a disposable user and project.
 
@@ -27,9 +27,10 @@ go run ./cmd/sandstack
 
 It listens on `127.0.0.1:8080` by default. Use
 `http://127.0.0.1:8080/identity/v3` as the Identity URL with domain `Default`
-for the user and project. The
-[Identity guide](docs/guides/identity.md) describes the authentication,
-catalog, and token invalidation scenario.
+for the user and project. The [Identity guide](docs/guides/identity.md)
+covers token invalidation and reauthentication. The
+[Compute guide](docs/guides/compute.md) covers reading a Nova server and
+observing an injected instance fault.
 
 See the [decision index](docs/decisions/README.md) for architecture and
 [Contributing](CONTRIBUTING.md) for development guidance.

@@ -8,17 +8,23 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	appcompute "github.com/JSYoo5B/sandstack/internal/app/compute"
 	appidentity "github.com/JSYoo5B/sandstack/internal/app/identity"
 )
 
-func registerControlRoutes(router chi.Router, service *appidentity.Service, adminToken string) {
+func registerControlRoutes(
+	router chi.Router,
+	identityService *appidentity.Service,
+	computeService *appcompute.Service,
+	adminToken string,
+) {
 	router.Route("/_sandstack", func(router chi.Router) {
 		router.Get("/health", noContent)
 		router.Get("/ready", noContent)
 
 		controls := router.With(requireAdminToken(adminToken))
 		controls.Post("/identity/invalidate-tokens", func(w http.ResponseWriter, r *http.Request) {
-			service.InvalidateTokens()
+			identityService.InvalidateTokens()
 			noContent(w, r)
 		})
 		controls.Post("/identity/invalidate-token", func(w http.ResponseWriter, r *http.Request) {
@@ -27,10 +33,24 @@ func registerControlRoutes(router chi.Router, service *appidentity.Service, admi
 				http.Error(w, "One X-Subject-Token header is required", http.StatusBadRequest)
 				return
 			}
-			service.InvalidateToken(tokens[0])
+			identityService.InvalidateToken(tokens[0])
 			noContent(w, r)
 		})
+		registerComputeControls(controls, computeService)
 	})
+}
+
+func registerComputeControls(router chi.Router, service *appcompute.Service) {
+	const faultPath = "/compute/servers/{serverID}/fault"
+	handleFault := func(w http.ResponseWriter, r *http.Request) {
+		if err := service.SetFault(chi.URLParam(r, "serverID"), r.Method == http.MethodPut); err != nil {
+			http.Error(w, "Server not found", http.StatusNotFound)
+			return
+		}
+		noContent(w, r)
+	}
+	router.Put(faultPath, handleFault)
+	router.Delete(faultPath, handleFault)
 }
 
 func requireAdminToken(adminToken string) func(http.Handler) http.Handler {

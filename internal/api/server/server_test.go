@@ -85,7 +85,7 @@ func TestScopedPasswordTokenWire(t *testing.T) {
 	assert.WithinDuration(t, issued.IssuedAt.Add(time.Hour), issued.ExpiresAt, time.Second)
 	assertResource(t, issued.User, username)
 	assertResource(t, issued.Project, projectName)
-	assertCatalog(t, issued.Catalog, publicOrigin+identityPath)
+	assertCatalog(t, issued.Catalog, publicOrigin, issued.Project.ID)
 
 	// The Identity v3 project ID and user ID selectors need no domain selector.
 	idBasedRequest := fmt.Sprintf(`{"auth":{
@@ -246,6 +246,9 @@ func TestScopedTokenWithoutCatalogCanReadCatalog(t *testing.T) {
 	require.NoError(t, json.Unmarshal(body, &token))
 	require.Contains(t, token.Fields, "project")
 	assert.NotContains(t, token.Fields, "catalog")
+	var project namedResource
+	require.NoError(t, json.Unmarshal(token.Fields["project"], &project))
+	require.NotEmpty(t, project.ID)
 
 	status, _, body = request(t, instance, http.MethodGet, catalogPath, "", map[string]string{
 		"X-Auth-Token": tokenID,
@@ -256,7 +259,7 @@ func TestScopedTokenWithoutCatalogCanReadCatalog(t *testing.T) {
 		Catalog []catalogService `json:"catalog"`
 	}
 	require.NoError(t, json.Unmarshal(body, &result))
-	assertCatalog(t, result.Catalog, instance.URL+identityPath)
+	assertCatalog(t, result.Catalog, instance.URL, project.ID)
 }
 
 func TestHealthAndReadinessWithoutCredentials(t *testing.T) {
@@ -297,17 +300,24 @@ func assertResource(t *testing.T, resource namedResource, name string) {
 	assert.Equal(t, "Default", resource.Domain.Name)
 }
 
-func assertCatalog(t *testing.T, entries []catalogService, endpointURL string) {
+func assertCatalog(t *testing.T, entries []catalogService, origin, projectID string) {
 	t.Helper()
-	require.Len(t, entries, 1)
-	assert.NotEmpty(t, entries[0].ID)
-	assert.Equal(t, "identity", entries[0].Type)
-	require.Len(t, entries[0].Endpoints, 1)
-	endpoint := entries[0].Endpoints[0]
-	assert.NotEmpty(t, endpoint.ID)
-	assert.Equal(t, "public", endpoint.Interface)
-	assert.Equal(t, "RegionOne", endpoint.RegionID)
-	assert.Equal(t, endpointURL, strings.TrimSuffix(endpoint.URL, "/"))
+	expectedEndpoints := map[string]string{
+		"identity": origin + identityPath,
+		"compute":  origin + computePath + "/" + projectID,
+	}
+	require.Len(t, entries, len(expectedEndpoints))
+	for _, entry := range entries {
+		require.Contains(t, expectedEndpoints, entry.Type)
+		assert.NotEmpty(t, entry.ID)
+		require.Len(t, entry.Endpoints, 1)
+		endpoint := entry.Endpoints[0]
+		assert.NotEmpty(t, endpoint.ID)
+		assert.Equal(t, "public", endpoint.Interface)
+		assert.Equal(t, "RegionOne", endpoint.RegionID)
+		assert.Equal(t, expectedEndpoints[entry.Type], strings.TrimSuffix(endpoint.URL, "/"))
+		delete(expectedEndpoints, entry.Type)
+	}
 }
 
 func assertWireError(t *testing.T, body []byte, status int) {
@@ -363,10 +373,14 @@ func checkClientCatalog(t *testing.T, client *gophercloud.ServiceClient, origin 
 	require.NoError(t, err)
 	entries, err := catalog.ExtractServiceCatalog(page)
 	require.NoError(t, err)
-	require.Len(t, entries, 1)
-	assert.Equal(t, "identity", entries[0].Type)
-	require.Len(t, entries[0].Endpoints, 1)
-	assert.Equal(t, origin+identityPath, strings.TrimSuffix(entries[0].Endpoints[0].URL, "/"))
+	for _, entry := range entries {
+		if entry.Type == "identity" {
+			require.Len(t, entry.Endpoints, 1)
+			assert.Equal(t, origin+identityPath, strings.TrimSuffix(entry.Endpoints[0].URL, "/"))
+			return
+		}
+	}
+	require.FailNow(t, "Identity service missing from catalog")
 }
 
 func assertClientUnauthorized(t *testing.T, client *gophercloud.ServiceClient) {

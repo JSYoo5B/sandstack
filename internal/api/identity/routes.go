@@ -3,7 +3,6 @@ package identity
 import (
 	"encoding/json"
 	"net/http"
-	"net/url"
 
 	"github.com/go-chi/chi/v5"
 
@@ -13,29 +12,30 @@ import (
 const identityPath = "/identity/v3"
 
 type handler struct {
-	service   *appidentity.Service
-	publicURL *url.URL
+	service     *appidentity.Service
+	endpointURL func(*http.Request, string) string
+	entries     []CatalogEntry
 }
 
 // Register installs the supported Identity v3 endpoints on the root router.
-// publicURL is the configured external origin, or nil to use the request origin.
-func Register(router chi.Router, service *appidentity.Service, publicURL *url.URL) {
-	h := handler{service: service, publicURL: publicURL}
+func Register(
+	router chi.Router,
+	service *appidentity.Service,
+	endpointURL func(*http.Request, string) string,
+	additionalEntries ...CatalogEntry,
+) {
+	entries := append([]CatalogEntry{{
+		ServiceID:  "f67f532d68cc4616bc5b81a6eb84ab7f",
+		EndpointID: "9a077ab4b7f0463b95f1baccde36b964",
+		Type:       "identity",
+		Name:       "keystone",
+		Path:       identityPath,
+	}}, additionalEntries...)
+	h := handler{service: service, endpointURL: endpointURL, entries: entries}
 	authPath := identityPath + "/auth"
 	router.Post(authPath+"/tokens", h.issueToken)
 	router.Get(authPath+"/catalog", h.getCatalog)
 	router.Head(authPath+"/catalog", h.getCatalog)
-}
-
-func (h handler) endpointURL(r *http.Request, path string) string {
-	if h.publicURL != nil {
-		return h.publicURL.ResolveReference(&url.URL{Path: path}).String()
-	}
-	scheme := "http"
-	if r.TLS != nil {
-		scheme = "https"
-	}
-	return (&url.URL{Scheme: scheme, Host: r.Host, Path: path}).String()
 }
 
 type errorResponse struct {

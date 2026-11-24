@@ -93,13 +93,19 @@ func (s *Service) Authenticate(credentials domain.Credentials) (domain.Token, er
 }
 
 func (s *Service) Validate(token string) error {
+	_, err := s.ProjectForToken(token)
+	return err
+}
+
+// ProjectForToken returns the project bound to a live token.
+func (s *Service) ProjectForToken(token string) (string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	if !s.store.Valid(token, s.now()) {
-		return ErrInvalidToken
+		return "", ErrInvalidToken
 	}
-	return nil
+	return s.fixture.Project.ID, nil
 }
 
 func (s *Service) InvalidateTokens() {
