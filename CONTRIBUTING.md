@@ -21,8 +21,9 @@ work within those decisions.
 
 ## Documentation and review
 
-- Keep design decisions in `docs/decisions/` and contributor procedures in
-  `docs/contributing/`. Link to the document that owns the rule. Put work in
+- Keep design decisions in `docs/decisions/`, contributor procedures in
+  `docs/contributing/`, and usage guides in `docs/guides/`. Link to the
+  document that owns the rule. Put work in
   progress, change rationale, and verification results in the corresponding
   issue or pull request. Keep the README focused on the project and how to
   get started.
