@@ -27,9 +27,9 @@ work within those decisions.
   progress, change rationale, and verification results in the corresponding
   issue or pull request. Keep the README focused on the project and how to
   get started.
-- Follow the [main branch workflow](AGENTS.md#changes-and-verification).
-  Use the repository's issue or pull request template when it applies,
-  including submissions through the CLI or API.
+- Keep related changes together in one pull request. Use the repository's
+  issue or pull request template when it applies, including submissions
+  through the CLI or API.
 - Before publishing, check changes and attached logs for secrets, private
   hostnames, or account-specific paths. Use repository-relative paths and
   keep the diagnostic details needed to explain the result.
