@@ -31,6 +31,16 @@ func (s *Service) Get(projectID, serverID string) (domain.Server, error) {
 	return cloneServer(s.server), nil
 }
 
+func (s *Service) List(projectID string, status *domain.Status) []domain.Server {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	if s.server.ProjectID != projectID || (status != nil && s.server.Status() != *status) {
+		return []domain.Server{}
+	}
+	return []domain.Server{cloneServer(s.server)}
+}
+
 // SetFault changes the server's fault and update timestamp on transitions.
 // Repeating the current setting preserves both timestamps.
 func (s *Service) SetFault(serverID string, enabled bool) error {

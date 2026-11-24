@@ -112,6 +112,10 @@ func TestConcurrentFaultChangesAndSnapshots(t *testing.T) {
 			if assert.NoError(t, err) && server.Fault != nil {
 				assert.Equal(t, server.UpdatedAt, server.Fault.CreatedAt)
 			}
+			servers := service.List(fixture.ProjectID, nil)
+			if assert.Len(t, servers, 1) && servers[0].Fault != nil {
+				assert.Equal(t, servers[0].UpdatedAt, servers[0].Fault.CreatedAt)
+			}
 		})
 	}
 	wait.Wait()

@@ -1,9 +1,14 @@
 package compute
 
 import (
+	"errors"
 	"net/http"
+	"strings"
 	"time"
 
+	"github.com/go-chi/chi/v5"
+
+	appcompute "github.com/JSYoo5B/sandstack/internal/app/compute"
 	domaincompute "github.com/JSYoo5B/sandstack/internal/domain/compute"
 )
 
@@ -54,6 +59,20 @@ type resourceRef struct {
 	Links []resourceLink `json:"links"`
 }
 
+func (h handler) showServer(w http.ResponseWriter, r *http.Request, scope requestScope) {
+	server, err := h.service.Get(scope.projectID, chi.URLParam(r, "serverID"))
+	if errors.Is(err, appcompute.ErrServerNotFound) {
+		writeFault(w, http.StatusNotFound, "itemNotFound", "The server could not be found.")
+		return
+	}
+	if err != nil {
+		writeFault(w, http.StatusInternalServerError, "computeFault", "Unable to read the server.")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, serverResponse{Server: h.serverBody(r, server, scope.pathProject)})
+}
+
 func (h handler) serverBody(r *http.Request, server domaincompute.Server, pathProject string) serverBody {
 	projectPath := ""
 	if pathProject != "" {
@@ -61,6 +80,7 @@ func (h handler) serverBody(r *http.Request, server domaincompute.Server, pathPr
 	}
 	serverPath := projectPath + "/servers/" + server.ID
 	bookmark := computeRoot + projectPath
+	status := string(server.Status())
 	body := serverBody{
 		ID:         server.ID,
 		Name:       server.Name,
@@ -68,8 +88,8 @@ func (h handler) serverBody(r *http.Request, server domaincompute.Server, pathPr
 		UserID:     server.UserID,
 		Created:    server.CreatedAt.UTC(),
 		Updated:    server.UpdatedAt.UTC(),
-		Status:     "ACTIVE",
-		VMState:    "active",
+		Status:     strings.ToUpper(status),
+		VMState:    status,
 		PowerState: powerRunning,
 		Links: []resourceLink{
 			{Rel: "self", Href: h.endpointURL(r, Path+serverPath)},
@@ -91,8 +111,6 @@ func (h handler) serverBody(r *http.Request, server domaincompute.Server, pathPr
 		Addresses: map[string]any{},
 	}
 	if server.Fault != nil {
-		body.Status = "ERROR"
-		body.VMState = "error"
 		body.PowerState = powerCrashed
 		body.Fault = &instanceFault{
 			Code:    server.Fault.Code,

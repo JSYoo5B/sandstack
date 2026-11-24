@@ -2,7 +2,6 @@ package compute
 
 import (
 	"encoding/json"
-	"errors"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -19,6 +18,11 @@ type handler struct {
 	endpointURL     func(*http.Request, string) string
 }
 
+type requestScope struct {
+	projectID   string
+	pathProject string
+}
+
 // Register installs the supported Compute operations on the root router.
 func Register(
 	router chi.Router,
@@ -29,41 +33,38 @@ func Register(
 	h := handler{
 		service: service, projectForToken: projectForToken, endpointURL: endpointURL,
 	}
-	router.Get(Path+"/servers/{serverID}", h.showServer)
-	router.Get(Path+"/{projectID}/servers/{serverID}", h.showServer)
+	show := h.withProject(h.showServer)
+	list := h.withProject(h.listServersDetailed)
+	for _, prefix := range []string{Path, Path + "/{projectID}"} {
+		router.Get(prefix+"/servers/{serverID}", show)
+		router.Get(prefix+"/servers/detail", list)
+	}
 }
 
-func (h handler) showServer(w http.ResponseWriter, r *http.Request) {
-	tokens := r.Header.Values("X-Auth-Token")
-	if len(tokens) != 1 || tokens[0] == "" {
-		writeFault(w, http.StatusUnauthorized, "unauthorized", "A valid authentication token is required.")
-		return
-	}
-	projectID, err := h.projectForToken(tokens[0])
-	if err != nil || projectID == "" {
-		writeFault(w, http.StatusUnauthorized, "unauthorized", "A valid authentication token is required.")
-		return
-	}
-	if !acceptVersion(w, r) {
-		return
-	}
+func (h handler) withProject(next func(http.ResponseWriter, *http.Request, requestScope)) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		tokens := r.Header.Values("X-Auth-Token")
+		if len(tokens) != 1 || tokens[0] == "" {
+			writeFault(w, http.StatusUnauthorized, "unauthorized", "A valid authentication token is required.")
+			return
+		}
+		projectID, err := h.projectForToken(tokens[0])
+		if err != nil || projectID == "" {
+			writeFault(w, http.StatusUnauthorized, "unauthorized", "A valid authentication token is required.")
+			return
+		}
+		if !acceptVersion(w, r) {
+			return
+		}
 
-	pathProject := chi.URLParam(r, "projectID")
-	if pathProject != "" && pathProject != projectID {
-		writeFault(w, http.StatusBadRequest, "badRequest", "The URL project does not match the token's project.")
-		return
+		pathProject := chi.URLParam(r, "projectID")
+		if pathProject != "" && pathProject != projectID {
+			writeFault(w, http.StatusBadRequest, "badRequest",
+				"The URL project does not match the token's project.")
+			return
+		}
+		next(w, r, requestScope{projectID: projectID, pathProject: pathProject})
 	}
-	server, err := h.service.Get(projectID, chi.URLParam(r, "serverID"))
-	if errors.Is(err, appcompute.ErrServerNotFound) {
-		writeFault(w, http.StatusNotFound, "itemNotFound", "The server could not be found.")
-		return
-	}
-	if err != nil {
-		writeFault(w, http.StatusInternalServerError, "computeFault", "Unable to read the server.")
-		return
-	}
-
-	writeJSON(w, http.StatusOK, serverResponse{Server: h.serverBody(r, server, pathProject)})
 }
 
 type httpFault struct {
