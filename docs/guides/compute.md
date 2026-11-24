@@ -36,13 +36,31 @@ an instance fault with code `500`, a message, and its creation time. The
 Send `DELETE` to the same URL to return the fixture to `ACTIVE` and remove
 the fault.
 
+## Make a detail read stale
+
+Start with an `ACTIVE` server. Send `PUT` to the `stale-detail` control to
+capture its current detail, then inject the instance fault.
+
+```sh
+stale_url="${fault_url%/fault}/stale-detail"
+curl --fail -X PUT -H "X-SandStack-Admin-Token: ${SANDSTACK_ADMIN_TOKEN}" "$stale_url"
+curl --fail -X PUT -H "X-SandStack-Admin-Token: ${SANDSTACK_ADMIN_TOKEN}" "$fault_url"
+```
+
+Both controls return `204`. `GET /servers/{server_id}` keeps returning the
+captured `ACTIVE` detail, including its original timestamp. The detailed
+list shows `ERROR` and the current instance fault. Repeating `PUT` on
+`stale-detail` keeps the original snapshot. Send `DELETE` to `stale-detail`
+to resume live detail reads. The live fault can then be cleared separately.
+
 ## Verification
 
 Run `go test ./...` to check catalog discovery and the `ACTIVE` → `ERROR` →
-`ACTIVE` sequence through Gophercloud. The raw HTTP checks cover the list and
-detail response shapes and errors. The [Compute list reference],
-[Compute detail reference], and [Compute fault guide] describe the upstream
-behavior.
+`ACTIVE` sequence through Gophercloud. The stale-detail test also checks
+that list and detail diverge while the snapshot is active and agree after
+it is cleared. The raw HTTP checks cover the list and detail response
+shapes and errors. The [Compute list reference], [Compute detail reference],
+and [Compute fault guide] describe the upstream behavior.
 
 [Compute list reference]: https://docs.openstack.org/api-ref/compute/#list-servers-detailed
 [Compute detail reference]: https://docs.openstack.org/api-ref/compute/#show-server-details

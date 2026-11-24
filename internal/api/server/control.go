@@ -41,16 +41,21 @@ func registerControlRoutes(
 }
 
 func registerComputeControls(router chi.Router, service *appcompute.Service) {
-	const faultPath = "/compute/servers/{serverID}/fault"
-	handleFault := func(w http.ResponseWriter, r *http.Request) {
-		if err := service.SetFault(chi.URLParam(r, "serverID"), r.Method == http.MethodPut); err != nil {
+	const serverPath = "/compute/servers/{serverID}"
+	registerComputeControl(router, serverPath+"/fault", service.SetFault)
+	registerComputeControl(router, serverPath+"/stale-detail", service.SetStaleDetail)
+}
+
+func registerComputeControl(router chi.Router, path string, set func(string, bool) error) {
+	handle := func(w http.ResponseWriter, r *http.Request) {
+		if err := set(chi.URLParam(r, "serverID"), r.Method == http.MethodPut); err != nil {
 			http.Error(w, "Server not found", http.StatusNotFound)
 			return
 		}
 		noContent(w, r)
 	}
-	router.Put(faultPath, handleFault)
-	router.Delete(faultPath, handleFault)
+	router.Put(path, handle)
+	router.Delete(path, handle)
 }
 
 func requireAdminToken(adminToken string) func(http.Handler) http.Handler {
