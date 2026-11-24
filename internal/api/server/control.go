@@ -10,15 +10,15 @@ import (
 
 	appcompute "github.com/JSYoo5B/sandstack/internal/app/compute"
 	appidentity "github.com/JSYoo5B/sandstack/internal/app/identity"
+	appnetwork "github.com/JSYoo5B/sandstack/internal/app/network"
 	"github.com/JSYoo5B/sandstack/internal/app/sandbox"
 )
 
 func registerControlRoutes(
 	router chi.Router,
-	identityService *appidentity.Service,
-	computeService *appcompute.Service,
 	state *sandbox.State,
 	adminToken string,
+	register ...func(chi.Router),
 ) {
 	router.Route("/_sandstack", func(router chi.Router) {
 		router.Get("/health", noContent)
@@ -30,33 +30,42 @@ func registerControlRoutes(
 			noContent(w, r)
 		})
 		controls = controls.With(guardSandboxState(state))
-		controls.Post("/identity/invalidate-tokens", func(w http.ResponseWriter, r *http.Request) {
-			identityService.InvalidateTokens()
-			noContent(w, r)
-		})
-		controls.Post("/identity/invalidate-token", func(w http.ResponseWriter, r *http.Request) {
-			tokens := r.Header.Values("X-Subject-Token")
-			if len(tokens) != 1 || strings.TrimSpace(tokens[0]) == "" {
-				http.Error(w, "One X-Subject-Token header is required", http.StatusBadRequest)
-				return
-			}
-			identityService.InvalidateToken(tokens[0])
-			noContent(w, r)
-		})
-		registerComputeControls(controls, computeService)
+		for _, route := range register {
+			route(controls)
+		}
+	})
+}
+
+func registerIdentityControls(router chi.Router, service *appidentity.Service) {
+	router.Post("/identity/invalidate-tokens", func(w http.ResponseWriter, r *http.Request) {
+		service.InvalidateTokens()
+		noContent(w, r)
+	})
+	router.Post("/identity/invalidate-token", func(w http.ResponseWriter, r *http.Request) {
+		tokens := r.Header.Values("X-Subject-Token")
+		if len(tokens) != 1 || strings.TrimSpace(tokens[0]) == "" {
+			http.Error(w, "One X-Subject-Token header is required", http.StatusBadRequest)
+			return
+		}
+		service.InvalidateToken(tokens[0])
+		noContent(w, r)
 	})
 }
 
 func registerComputeControls(router chi.Router, service *appcompute.Service) {
-	const serverPath = "/compute/servers/{serverID}"
-	registerComputeControl(router, serverPath+"/fault", service.SetFault)
-	registerComputeControl(router, serverPath+"/stale-detail", service.SetStaleDetail)
+	const serverPath = "/compute/servers/{resourceID}"
+	registerFixtureControl(router, serverPath+"/fault", "Server not found", service.SetFault)
+	registerFixtureControl(router, serverPath+"/stale-detail", "Server not found", service.SetStaleDetail)
 }
 
-func registerComputeControl(router chi.Router, path string, set func(string, bool) error) {
+func registerNetworkControls(router chi.Router, service *appnetwork.Service) {
+	registerFixtureControl(router, "/network/networks/{resourceID}/fault", "Network not found", service.SetDown)
+}
+
+func registerFixtureControl(router chi.Router, path, notFound string, set func(string, bool) error) {
 	handle := func(w http.ResponseWriter, r *http.Request) {
-		if err := set(chi.URLParam(r, "serverID"), r.Method == http.MethodPut); err != nil {
-			http.Error(w, "Server not found", http.StatusNotFound)
+		if err := set(chi.URLParam(r, "resourceID"), r.Method == http.MethodPut); err != nil {
+			http.Error(w, notFound, http.StatusNotFound)
 			return
 		}
 		noContent(w, r)

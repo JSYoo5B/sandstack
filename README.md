@@ -29,9 +29,10 @@ It listens on `127.0.0.1:8080` by default. Use
 `http://127.0.0.1:8080/identity/v3` as the Identity URL with domain `Default`
 for the user and project. The [Identity guide](docs/guides/identity.md)
 covers token invalidation and reauthentication. The
-[Compute guide](docs/guides/compute.md) covers reading a Nova server and
-observing an injected instance fault. [Reset the sandbox](docs/guides/reset.md)
-between test cases to restore the fixture and invalidate issued tokens.
+[Compute guide](docs/guides/compute.md) covers Nova server faults and stale
+reads. The [Networking guide](docs/guides/network.md) covers Neutron network
+reads and operational downtime. [Reset the sandbox](docs/guides/reset.md)
+between test cases to restore fixtures and invalidate issued tokens.
 
 See the [decision index](docs/decisions/README.md) for architecture and
 [Contributing](CONTRIBUTING.md) for development guidance.

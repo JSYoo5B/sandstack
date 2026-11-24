@@ -11,11 +11,14 @@ import (
 
 	apicompute "github.com/JSYoo5B/sandstack/internal/api/compute"
 	apiidentity "github.com/JSYoo5B/sandstack/internal/api/identity"
+	apinetwork "github.com/JSYoo5B/sandstack/internal/api/network"
 	appcompute "github.com/JSYoo5B/sandstack/internal/app/compute"
 	appidentity "github.com/JSYoo5B/sandstack/internal/app/identity"
+	appnetwork "github.com/JSYoo5B/sandstack/internal/app/network"
 	"github.com/JSYoo5B/sandstack/internal/app/sandbox"
 	"github.com/JSYoo5B/sandstack/internal/domain/compute"
 	"github.com/JSYoo5B/sandstack/internal/domain/identity"
+	"github.com/JSYoo5B/sandstack/internal/domain/network"
 	memoryidentity "github.com/JSYoo5B/sandstack/internal/store/memory/identity"
 )
 
@@ -52,7 +55,12 @@ func New(config Config) (http.Handler, error) {
 		CreatedAt: created,
 		UpdatedAt: created,
 	}, now)
-	state := sandbox.NewState(identityService.InvalidateTokens, computeService.Reset)
+	networkService := appnetwork.New(network.Network{
+		ID:        "43d92fea-ce36-4d02-aba4-29806839f902",
+		Name:      "fixture-network",
+		ProjectID: fixture.Project.ID,
+	})
+	state := sandbox.NewState(identityService.InvalidateTokens, computeService.Reset, networkService.Reset)
 
 	router := chi.NewRouter()
 	services := router.With(guardSandboxState(state))
@@ -65,9 +73,20 @@ func New(config Config) (http.Handler, error) {
 		Type:       "compute",
 		Name:       "nova",
 		Path:       apicompute.Path + "/" + fixture.Project.ID,
+	}, apiidentity.CatalogEntry{
+		ServiceID:  "930ac12606054fe897303ea77383770c",
+		EndpointID: "6fd74ac16c5246e1bc9a765172237049",
+		Type:       "network",
+		Name:       "neutron",
+		Path:       apinetwork.CatalogPath,
 	})
 	apicompute.Register(services, computeService, identityService.ProjectForToken, endpointURL)
-	registerControlRoutes(router, identityService, computeService, state, config.AdminToken)
+	apinetwork.Register(services, networkService, identityService.ProjectForToken, endpointURL)
+	registerControlRoutes(router, state, config.AdminToken,
+		func(r chi.Router) { registerIdentityControls(r, identityService) },
+		func(r chi.Router) { registerComputeControls(r, computeService) },
+		func(r chi.Router) { registerNetworkControls(r, networkService) },
+	)
 	return router, nil
 }
 
