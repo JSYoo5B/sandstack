@@ -179,6 +179,58 @@ func TestGophercloudRecoversFromInvalidatedTokens(t *testing.T) {
 	assertClientUnauthorized(t, firstClient)
 }
 
+func TestGophercloudReauthenticatesAfterTargetedInvalidation(t *testing.T) {
+	const targetPath = "/_sandstack/identity/invalidate-token"
+	instance := startServer(t, "")
+	options := authOptions(instance)
+	options.AllowReauth = true
+	target, err := openstack.AuthenticatedClient(t.Context(), options)
+	require.NoError(t, err)
+	oldToken := target.Token()
+	require.NotEmpty(t, oldToken)
+	untouched := authenticate(t, instance)
+	untouchedToken := untouched.Token()
+	require.NotEqual(t, oldToken, untouchedToken)
+	targetClient := identityClient(t, target, instance.URL)
+	untouchedClient := identityClient(t, untouched, instance.URL)
+	checkClientCatalog(t, targetClient, instance.URL)
+	checkClientCatalog(t, untouchedClient, instance.URL)
+
+	status, _, body := request(t, instance, http.MethodPost, targetPath, "", map[string]string{
+		"X-SandStack-Admin-Token": "wrong-admin-token",
+		"X-Subject-Token":         oldToken,
+	})
+	require.Equal(t, http.StatusUnauthorized, status, "%s", body)
+
+	status, _, body = request(t, instance, http.MethodPost, targetPath, "", map[string]string{
+		"X-SandStack-Admin-Token": adminToken,
+	})
+	require.Equal(t, http.StatusBadRequest, status, "%s", body)
+	checkClientCatalog(t, targetClient, instance.URL)
+	assert.Equal(t, oldToken, target.Token())
+	checkClientCatalog(t, untouchedClient, instance.URL)
+
+	for _, subject := range []string{oldToken, oldToken, "never-issued-token"} {
+		status, _, body = request(t, instance, http.MethodPost, targetPath, "", map[string]string{
+			"X-SandStack-Admin-Token": adminToken,
+			"X-Subject-Token":         subject,
+		})
+		require.Equal(t, http.StatusNoContent, status, "%s", body)
+	}
+	status, _, body = request(t, instance, http.MethodGet, catalogPath, "", map[string]string{
+		"X-Auth-Token": oldToken,
+	})
+	require.Equal(t, http.StatusUnauthorized, status, "%s", body)
+	assertWireError(t, body, http.StatusUnauthorized)
+	checkClientCatalog(t, untouchedClient, instance.URL)
+	assert.Equal(t, untouchedToken, untouched.Token())
+
+	checkClientCatalog(t, targetClient, instance.URL)
+	assert.NotEmpty(t, target.Token())
+	assert.NotEqual(t, oldToken, target.Token())
+	assert.NotEqual(t, untouchedToken, target.Token())
+}
+
 func TestScopedTokenWithoutCatalogCanReadCatalog(t *testing.T) {
 	instance := startServer(t, "")
 	status, headers, body := request(
@@ -275,7 +327,14 @@ func assertWireError(t *testing.T, body []byte, status int) {
 
 func authenticate(t *testing.T, instance *httptest.Server) *gophercloud.ProviderClient {
 	t.Helper()
-	provider, err := openstack.AuthenticatedClient(t.Context(), gophercloud.AuthOptions{
+	provider, err := openstack.AuthenticatedClient(t.Context(), authOptions(instance))
+	require.NoError(t, err)
+	require.NotEmpty(t, provider.Token())
+	return provider
+}
+
+func authOptions(instance *httptest.Server) gophercloud.AuthOptions {
+	return gophercloud.AuthOptions{
 		IdentityEndpoint: instance.URL + identityPath,
 		Username:         username,
 		Password:         password,
@@ -284,10 +343,7 @@ func authenticate(t *testing.T, instance *httptest.Server) *gophercloud.Provider
 			ProjectName: projectName,
 			DomainName:  "Default",
 		},
-	})
-	require.NoError(t, err)
-	require.NotEmpty(t, provider.Token())
-	return provider
+	}
 }
 
 func identityClient(t *testing.T, provider *gophercloud.ProviderClient, origin string) *gophercloud.ServiceClient {

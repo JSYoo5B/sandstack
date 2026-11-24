@@ -46,6 +46,13 @@ func (t *Tokens) Valid(id string, now time.Time) bool {
 	return exists
 }
 
+func (t *Tokens) Remove(id string) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	delete(t.expiresAt, id)
+}
+
 func (t *Tokens) Clear() {
 	t.mu.Lock()
 	defer t.mu.Unlock()

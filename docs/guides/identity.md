@@ -28,6 +28,7 @@ the server is running.
 | `GET /identity/v3/auth/catalog` | Returns the catalog for a valid `X-Auth-Token`. It contains the public Identity endpoint in `RegionOne`. Missing, expired, and invalidated tokens receive `401`. |
 | `HEAD /identity/v3/auth/catalog` | Returns the catalog request status and headers with an empty body. |
 | `POST /_sandstack/identity/invalidate-tokens` | Requires `X-SandStack-Admin-Token`. Invalidates all tokens issued by that server and returns `204`. Fresh authentication issues a usable token. |
+| `POST /_sandstack/identity/invalidate-token` | Requires `X-SandStack-Admin-Token` and one nonempty `X-Subject-Token` header. Invalidates the selected token and returns `204`, including when the token is already absent. |
 
 Use a versioned Identity URL. This scenario is limited to password
 authentication, a single project scope, and catalog reads.
@@ -41,15 +42,32 @@ curl --fail -X POST \
   http://127.0.0.1:8080/_sandstack/identity/invalidate-tokens
 ```
 
+To exercise one client's recovery while keeping another session active, pass
+the selected client's current token as `X-Subject-Token`.
+
+```sh
+curl --fail -X POST \
+  -H "X-SandStack-Admin-Token: ${SANDSTACK_ADMIN_TOKEN}" \
+  -H "X-Subject-Token: ${SUBJECT_TOKEN}" \
+  http://127.0.0.1:8080/_sandstack/identity/invalidate-token
+```
+
+Gophercloud clients with `AllowReauth` enabled obtain a fresh token and retry
+the catalog request after receiving `401`. The other session keeps its
+original token. See [Gophercloud's request handling].
+
 ## Verification
 
 Run `go test ./...` to exercise the assembled server with raw HTTP and
 Gophercloud v2.15.0. The client scenario authenticates, selects the catalog
 endpoint, observes the failure after invalidation, and authenticates again.
-The wire checks use the [Identity v3 API reference] and the
+The scoped control check also exercises automatic reauthentication and verifies
+that the other client's original token still works. The wire checks use the
+[Identity v3 API reference] and the
 [Keystone catalog handler] as sources. The catalog flow follows the
 [Keystone default policy] for project-scoped tokens.
 
 [Identity v3 API reference]: https://docs.openstack.org/api-ref/identity/v3/
 [Keystone catalog handler]: https://docs.openstack.org/keystone/latest/_modules/keystone/api/auth.html
 [Keystone default policy]: https://github.com/openstack/keystone/blob/master/keystone/common/policies/auth.py
+[Gophercloud's request handling]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/provider_client.go

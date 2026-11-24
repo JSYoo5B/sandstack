@@ -20,6 +20,7 @@ var (
 type TokenStore interface {
 	Save(id string, issuedAt, expiresAt time.Time)
 	Valid(id string, now time.Time) bool
+	Remove(id string)
 	Clear()
 }
 
@@ -106,6 +107,14 @@ func (s *Service) InvalidateTokens() {
 	defer s.mu.Unlock()
 
 	s.store.Clear()
+}
+
+// InvalidateToken removes one issued token and leaves other sessions usable.
+func (s *Service) InvalidateToken(token string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.store.Remove(token)
 }
 
 func matches(selector domain.Selector, id, name string, namespace domain.Domain) bool {
