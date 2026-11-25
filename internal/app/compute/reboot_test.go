@@ -63,7 +63,7 @@ func TestRebootPreservesDetailReadControls(t *testing.T) {
 
 	require.NoError(t, service.Reboot(seed.ProjectID, seed.ID, true))
 	active := domain.StatusActive
-	current := service.List(seed.ProjectID, &active)
+	current := service.List(seed.ProjectID, app.ListFilter{Status: &active})
 	require.Len(t, current, 1)
 	assert.Equal(t, start.Add(time.Minute), current[0].UpdatedAt)
 	_, err := service.Get(seed.ProjectID, seed.ID)

@@ -26,7 +26,7 @@ func TestUnavailableDetailConsumesOnlyOneMatchingRead(t *testing.T) {
 	assert.ErrorIs(t, err, app.ErrServerNotFound)
 	_, err = service.Get("another-project", seed.ID)
 	assert.ErrorIs(t, err, app.ErrServerNotFound)
-	live := service.List(seed.ProjectID, nil)
+	live := service.List(seed.ProjectID, app.ListFilter{})
 	require.Len(t, live, 1)
 	assert.Equal(t, domain.StatusError, live[0].Status())
 
@@ -35,7 +35,7 @@ func TestUnavailableDetailConsumesOnlyOneMatchingRead(t *testing.T) {
 	stale, err := service.Get(seed.ProjectID, seed.ID)
 	require.NoError(t, err)
 	assert.Equal(t, seed, stale.Server)
-	assert.Equal(t, live, service.List(seed.ProjectID, nil))
+	assert.Equal(t, live, service.List(seed.ProjectID, app.ListFilter{}))
 }
 
 func TestUnavailableDetailCanBeCanceledAndReset(t *testing.T) {

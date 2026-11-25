@@ -66,16 +66,6 @@ func (s *Service) Get(projectID, serverID string) (ServerDetail, error) {
 	return s.liveDetail(), nil
 }
 
-func (s *Service) List(projectID string, status *domain.Status) []ServerDetail {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	if s.server.ProjectID != projectID || (status != nil && s.server.Status() != *status) {
-		return []ServerDetail{}
-	}
-	return []ServerDetail{s.liveDetail()}
-}
-
 // Reset restores the startup fixture and clears detail read faults.
 func (s *Service) Reset() {
 	s.mu.Lock()

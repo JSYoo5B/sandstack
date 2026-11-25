@@ -36,7 +36,7 @@ func TestResetRestoresSeedAndClearsStaleDetail(t *testing.T) {
 	detail, err := service.Get(seed.ProjectID, seed.ID)
 	require.NoError(t, err)
 	assert.Equal(t, expected, detail.Server)
-	assert.Equal(t, []app.ServerDetail{{Server: expected}}, service.List(seed.ProjectID, nil))
+	assert.Equal(t, []app.ServerDetail{{Server: expected}}, service.List(seed.ProjectID, app.ListFilter{}))
 
 	require.NotNil(t, detail.Fault)
 	detail.Fault.Code = 400

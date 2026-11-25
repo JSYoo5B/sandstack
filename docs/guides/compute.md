@@ -14,12 +14,21 @@ responses use baseline Nova v2.1 fields for server identity, ownership,
 timestamps, and state. The image ID refers to the [Glance fixture](image.md).
 The flavor reference is a fixture value.
 
+## Filter the detailed server list
+
 The detailed list supports a single `status` filter. Use `?status=ACTIVE`,
 `?status=ERROR`, or `?status=SHUTOFF` to select a state. Values match
-without regard to case.
-Omit `status` to list all fixture servers. An empty, nonmatching, or unknown
-value produces an empty `servers` array, as in Nova v2.1. SandStack returns
-`400` for other list parameters or a repeated `status` parameter.
+without regard to case. An empty, nonmatching, or unknown status produces
+an empty `servers` array.
+
+Set `servers.ListOpts.Name` to a regular expression. An unanchored pattern
+matches a substring of the current display name. Use `^fixture-server$`
+to match the whole name. When both filters are present the server must
+match both. An omitted filter leaves its field unrestricted. SandStack uses
+Go's regular expression syntax. Nova evaluates patterns in its database,
+where the supported syntax can vary. An empty or malformed name pattern,
+a repeated parameter, or an unrelated query key returns `400`. See the
+[Compute list reference] and [Gophercloud list options].
 
 ## Rename a server
 
@@ -189,11 +198,14 @@ The reboot tests use the SDK to check state conflicts and hard reboot
 recovery and HTTP to check accepted requests and empty responses.
 The rename tests compare the Nova v2.1 update response with SDK detail and
 list reads and check that a pending detail outage still fires.
+The name filter test uses Gophercloud to find the renamed fixture and
+checks the intersection with the status filter.
 The raw HTTP checks use the [Compute list reference],
 [Compute detail reference], [Compute fault guide], and [Nova fault response]
 for the OpenStack response shapes.
 
 [Compute list reference]: https://docs.openstack.org/api-ref/compute/#list-servers-detailed
+[Gophercloud list options]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/compute/v2/servers/requests.go#L42-L55
 [Compute detail reference]: https://docs.openstack.org/api-ref/compute/#show-server-details
 [Compute fault guide]: https://docs.openstack.org/api-guide/compute/faults.html
 [Nova fault response]: https://github.com/openstack/nova/blob/master/nova/api/openstack/wsgi.py

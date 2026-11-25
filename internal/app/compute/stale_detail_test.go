@@ -36,8 +36,8 @@ func TestStaleDetailKeepsBaselineWhileListObservesLiveState(t *testing.T) {
 	assert.ErrorIs(t, service.SetStaleDetail("other-server", false), app.ErrServerNotFound)
 
 	active, faulted := domain.StatusActive, domain.StatusError
-	assert.Empty(t, service.List(fixture.ProjectID, &active))
-	live := service.List(fixture.ProjectID, &faulted)
+	assert.Empty(t, service.List(fixture.ProjectID, app.ListFilter{Status: &active}))
+	live := service.List(fixture.ProjectID, app.ListFilter{Status: &faulted})
 	require.Len(t, live, 1)
 	assert.Equal(t, start.Add(time.Minute), live[0].UpdatedAt)
 

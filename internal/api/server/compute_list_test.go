@@ -67,7 +67,7 @@ func TestComputeServerListWire(t *testing.T) {
 		assert.Empty(t, decodeWireComputeList(t, body), "status=%q", filter)
 	}
 
-	// This scenario supports one status filter. Other query keys are rejected.
+	// The list accepts a single status value and rejects unrelated query keys.
 	for _, query := range []string{"?limit=1", "?status=ACTIVE&status=ERROR"} {
 		status, headers, body = request(t, instance, http.MethodGet, listPath+query, "", auth)
 

@@ -46,7 +46,7 @@ func TestUpdateNameReturnsLiveDetailAndPreservesReadControls(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, want, repeated.Server)
 	assert.Equal(t, []string{"volume"}, repeated.AttachedVolumeIDs)
-	assert.Equal(t, []app.ServerDetail{repeated}, service.List(seed.ProjectID, nil))
+	assert.Equal(t, []app.ServerDetail{repeated}, service.List(seed.ProjectID, app.ListFilter{}))
 	_, err = service.Get(seed.ProjectID, seed.ID)
 	assert.ErrorIs(t, err, app.ErrDetailUnavailable)
 	stale, err := service.Get(seed.ProjectID, seed.ID)
