@@ -15,8 +15,8 @@ const (
 
 type Volume struct {
 	ID          string
-	Name        string
-	Description string
+	Name        NullableText
+	Description NullableText
 	ProjectID   string
 	UserID      string
 	SnapshotID  string
@@ -25,4 +25,10 @@ type Volume struct {
 	UpdatedAt   time.Time
 	State       State
 	Attachment  Attachment
+}
+
+// NullableText distinguishes a stored empty string from an unset field.
+type NullableText struct {
+	Value string
+	Valid bool
 }

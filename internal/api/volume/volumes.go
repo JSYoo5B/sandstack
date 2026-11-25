@@ -75,8 +75,8 @@ func (h handler) describeVolume(r *http.Request, volume domain.Volume) volumeBod
 	resourcePath := "/" + volume.ProjectID + "/volumes/" + volume.ID
 	return volumeBody{
 		ID:                volume.ID,
-		Name:              optionalText(volume.Name),
-		Description:       optionalText(volume.Description),
+		Name:              describeNullableText(volume.Name),
+		Description:       describeNullableText(volume.Description),
 		ProjectID:         volume.ProjectID,
 		UserID:            volume.UserID,
 		Size:              volume.Size,
@@ -95,6 +95,13 @@ func (h handler) describeVolume(r *http.Request, volume domain.Volume) volumeBod
 			{Href: h.endpointURL(r, serviceRoot+resourcePath), Rel: "bookmark"},
 		},
 	}
+}
+
+func describeNullableText(text domain.NullableText) *string {
+	if !text.Valid {
+		return nil
+	}
+	return &text.Value
 }
 
 func optionalText(value string) *string {

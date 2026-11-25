@@ -69,7 +69,7 @@ func New(config Config) (http.Handler, error) {
 	}, randomUUID)
 	volumeService := appvolume.New(volume.Volume{
 		ID:        "7b37635e-be9b-4bfb-bc2e-d163b75921e6",
-		Name:      "fixture-volume",
+		Name:      volume.NullableText{Value: "fixture-volume", Valid: true},
 		ProjectID: fixture.Project.ID,
 		UserID:    fixture.User.ID,
 		Size:      1,

@@ -1,0 +1,74 @@
+package volume
+
+import (
+	"encoding/json"
+	"errors"
+	"net/http"
+	"strings"
+	"unicode/utf8"
+
+	"github.com/go-chi/chi/v5"
+
+	app "github.com/JSYoo5B/sandstack/internal/app/volume"
+	domain "github.com/JSYoo5B/sandstack/internal/domain/volume"
+)
+
+func (h handler) updateVolume(w http.ResponseWriter, r *http.Request, projectID string) {
+	data, ok := readJSONBody(w, r, "volume")
+	if !ok {
+		return
+	}
+	changes, err := parseUpdateVolume(data)
+	if err != nil {
+		writeFault(w, http.StatusBadRequest, "badRequest", err.Error())
+		return
+	}
+
+	volume, err := h.service.Update(projectID, chi.URLParam(r, "volumeID"), changes)
+	switch {
+	case errors.Is(err, app.ErrVolumeNotFound):
+		writeFault(w, http.StatusNotFound, "itemNotFound", "The volume could not be found.")
+	case err != nil:
+		writeFault(w, http.StatusInternalServerError, "computeFault", "Unable to update the volume.")
+	default:
+		writeJSON(w, http.StatusOK, volumeResponse{Volume: h.describeVolume(r, volume)})
+	}
+}
+
+func parseUpdateVolume(data []byte) (app.VolumeUpdate, error) {
+	if !utf8.Valid(data) {
+		return app.VolumeUpdate{}, errInvalidVolumeObject
+	}
+	envelope, err := readUniqueObject(data)
+	if err != nil || len(envelope) != 1 {
+		return app.VolumeUpdate{}, errInvalidVolumeObject
+	}
+	fields, err := readUniqueObject(envelope["volume"])
+	if err != nil {
+		return app.VolumeUpdate{}, errInvalidVolumeObject
+	}
+	var changes app.VolumeUpdate
+	for field, value := range fields {
+		var raw *string
+		if err := json.Unmarshal(value, &raw); err != nil {
+			return app.VolumeUpdate{}, errInvalidVolumeObject
+		}
+		text := &domain.NullableText{}
+		if raw != nil {
+			text.Value = strings.TrimSpace(*raw)
+			text.Valid = true
+			if utf8.RuneCountInString(text.Value) > maxVolumeTextLength {
+				return app.VolumeUpdate{}, errors.New("volume name and description may contain up to 255 characters")
+			}
+		}
+		switch field {
+		case "name":
+			changes.Name = text
+		case "description":
+			changes.Description = text
+		default:
+			return app.VolumeUpdate{}, errInvalidVolumeObject
+		}
+	}
+	return changes, nil
+}

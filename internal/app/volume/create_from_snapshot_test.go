@@ -48,8 +48,8 @@ func TestCreateFromSnapshotPreservesSizeAndProvenance(t *testing.T) {
 	assert.NotEqual(t, snapshot.ID, defaultSize.ID)
 	assert.Equal(t, domain.Volume{
 		ID:          defaultSize.ID,
-		Name:        "clone",
-		Description: "recovered data",
+		Name:        domain.NullableText{Value: "clone", Valid: true},
+		Description: domain.NullableText{Value: "recovered data", Valid: true},
 		ProjectID:   seed.ProjectID,
 		UserID:      seed.UserID,
 		SnapshotID:  snapshot.ID,

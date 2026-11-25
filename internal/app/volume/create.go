@@ -58,8 +58,8 @@ func (s *Service) createVolume(name, description string, size int, snapshotID st
 	}
 	volume := domain.Volume{
 		ID:          id,
-		Name:        name,
-		Description: description,
+		Name:        domain.NullableText{Value: name, Valid: name != ""},
+		Description: domain.NullableText{Value: description, Valid: description != ""},
 		ProjectID:   s.seed.ProjectID,
 		UserID:      s.seed.UserID,
 		SnapshotID:  snapshotID,

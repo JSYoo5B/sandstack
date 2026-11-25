@@ -38,6 +38,23 @@ removed. The response is `202` with an empty body and the volume is absent
 from subsequent reads. Reset discards created volumes and restores the
 initial fixture.
 
+## Update a volume name or description
+
+Send `PUT /volumes/{volume_id}` on the project endpoint with a `volume`
+object. The sandbox accepts `name` and `description` and returns `200`
+with the updated volume. Each field accepts a string of up to 255
+characters. SandStack trims surrounding whitespace. Omit a field to keep
+its value. An empty `volume` object is a no-op. A raw request can set a
+field to JSON `null` to clear it to `null`. See the [update volume
+reference], [Cinder volume update schema], and [Cinder volume update
+controller].
+
+In Gophercloud v2.15.0, pass `volumes.UpdateOpts` to `volumes.Update`.
+Leave `Name` or `Description` nil to omit it, or pass a pointer to an
+empty string to write `""` explicitly. The update preserves volume status
+and attachments, including when the volume is `in-use`. See the
+[Gophercloud volume update options].
+
 ## Create a volume from a snapshot
 
 Pass an `available` snapshot from the same project as `SnapshotID` in
@@ -156,10 +173,16 @@ failed extension. The HTTP tests use the
 [create volume reference], [delete volume reference],
 [create snapshot reference], [snapshot details reference],
 [snapshot list reference], and [delete snapshot reference].
+The volume update tests check field omission, explicit clearing, validation,
+and preservation of an existing attachment.
 The [Cinder snapshot lookup], [Cinder size default], and
 [Cinder volume creation flow] describe source and size validation.
 
 [create volume reference]: https://docs.openstack.org/api-ref/block-storage/v3/#create-a-volume
+[update volume reference]: https://docs.openstack.org/api-ref/block-storage/v3/#update-a-volume
+[Cinder volume update schema]: https://github.com/openstack/cinder/blob/master/cinder/api/schemas/volumes.py#L82-L110
+[Cinder volume update controller]: https://github.com/openstack/cinder/blob/master/cinder/api/v3/volumes.py#L438-L460
+[Gophercloud volume update options]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/blockstorage/v3/volumes/requests.go#L285-L307
 [delete volume reference]: https://docs.openstack.org/api-ref/block-storage/v3/#delete-a-volume
 [volume details reference]: https://docs.openstack.org/api-ref/block-storage/v3/#show-a-volume-s-details
 [create snapshot reference]: https://docs.openstack.org/api-ref/block-storage/v3/#create-a-snapshot
