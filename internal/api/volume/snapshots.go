@@ -44,7 +44,7 @@ func describeSnapshot(snapshot domain.Snapshot) snapshotBody {
 		Status:      string(snapshot.State),
 		CreatedAt:   snapshot.CreatedAt.UTC().Format(timestampLayout),
 		UpdatedAt:   optionalTimestamp(snapshot.UpdatedAt),
-		Metadata:    map[string]string{},
+		Metadata:    snapshot.Metadata,
 	}
 }
 

@@ -203,6 +203,31 @@ The `200` response shows the new name or description with the previous
 timestamp, as Cinder returns the saved snapshot without reloading it.
 See the [Cinder snapshot save implementation].
 
+## Read and replace snapshot metadata
+
+Use `GET /snapshots/{snapshot_id}/metadata` on the project endpoint to
+read the metadata map. `PUT` to the same path replaces the entire map.
+Both return `200` with a `metadata` object. Send `{"metadata":{}}` in a
+raw `PUT` to clear all entries. A snapshot absent from the token's
+project returns `404`. See the [read snapshot metadata reference],
+[replace snapshot metadata reference], and [Cinder snapshot metadata controller].
+
+Keys accept 1 to 255 characters from ASCII letters, digits, spaces,
+hyphens, underscores, periods, and colons. Values must be strings of at
+most 255 characters and may be empty. A malformed payload or JSON `null`
+returns `400`.
+This scenario covers the collection read and complete replacement.
+See the [Cinder snapshot metadata schema].
+
+In Gophercloud v2.15.0, pass a nonempty `Metadata` map in
+`snapshots.UpdateMetadataOpts` to `snapshots.UpdateMetadata`. The SDK
+omits an empty map, so use a raw request to clear it. Use
+`ServiceClient.Get` to read the metadata collection. Snapshot detail and
+detailed list responses also include the updated metadata. Replacing the
+metadata preserves snapshot status and `updated_at` in the fixture.
+See the [Gophercloud snapshot
+metadata options].
+
 ## Read the attachment state
 
 After [Nova attaches a volume](compute.md#attach-and-detach-a-cinder-volume),
@@ -317,6 +342,11 @@ The [Cinder snapshot lookup], [Cinder size default], and
 [Cinder snapshot update schema]: https://github.com/openstack/cinder/blob/master/cinder/api/schemas/snapshots.py#L42-L64
 [Cinder snapshot update controller]: https://github.com/openstack/cinder/blob/master/cinder/api/v3/snapshots.py#L213-L236
 [Cinder snapshot save implementation]: https://github.com/openstack/cinder/blob/master/cinder/objects/snapshot.py#L175-L202
+[read snapshot metadata reference]: https://docs.openstack.org/api-ref/block-storage/v3/#show-a-snapshot-s-metadata
+[replace snapshot metadata reference]: https://docs.openstack.org/api-ref/block-storage/v3/#update-a-snapshot-s-metadata
+[Cinder snapshot metadata controller]: https://github.com/openstack/cinder/blob/master/cinder/api/v3/snapshot_metadata.py#L28-L91
+[Cinder snapshot metadata schema]: https://github.com/openstack/cinder/blob/master/cinder/api/schemas/snapshot_metadata.py#L13-L50
+[Gophercloud snapshot metadata options]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/blockstorage/v3/snapshots/requests.go#L177-L208
 [Gophercloud snapshot update options]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/blockstorage/v3/snapshots/requests.go#L149-L170
 [snapshot details reference]: https://docs.openstack.org/api-ref/block-storage/v3/#show-a-snapshot-s-details
 [snapshot list reference]: https://docs.openstack.org/api-ref/block-storage/v3/#list-snapshots-and-details

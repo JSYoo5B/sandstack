@@ -2,6 +2,7 @@ package volume
 
 import (
 	"errors"
+	"maps"
 	"time"
 
 	domain "github.com/JSYoo5B/sandstack/internal/domain/volume"
@@ -49,9 +50,10 @@ func (s *Service) CreateSnapshot(
 		Size:        volume.Size,
 		CreatedAt:   s.now().UTC(),
 		State:       domain.StateCreating,
+		Metadata:    map[string]string{},
 	}
 	s.snapshots[id] = snapshot
-	return snapshot, nil
+	return cloneSnapshot(snapshot), nil
 }
 
 func (s *Service) GetSnapshot(projectID, snapshotID string) (domain.Snapshot, error) {
@@ -64,7 +66,7 @@ func (s *Service) GetSnapshot(projectID, snapshotID string) (domain.Snapshot, er
 	if !ok {
 		return domain.Snapshot{}, ErrSnapshotNotFound
 	}
-	return snapshot, nil
+	return cloneSnapshot(snapshot), nil
 }
 
 func (s *Service) UpdateSnapshot(
@@ -92,7 +94,31 @@ func (s *Service) UpdateSnapshot(
 		snapshot.UpdatedAt = s.now().UTC()
 		s.snapshots[snapshotID] = snapshot
 	}
-	return snapshot, before.UpdatedAt, nil
+	return cloneSnapshot(snapshot), before.UpdatedAt, nil
+}
+
+// ReplaceSnapshotMetadata changes only the metadata on a scoped snapshot.
+func (s *Service) ReplaceSnapshotMetadata(projectID, snapshotID string, metadata map[string]string) (map[string]string, error) {
+	if s.seed.ProjectID != projectID {
+		return nil, ErrSnapshotNotFound
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	snapshot, ok := s.snapshots[snapshotID]
+	if !ok {
+		return nil, ErrSnapshotNotFound
+	}
+	// Stored metadata maps are immutable. Create a new map on each replacement.
+	snapshot.Metadata = make(map[string]string, len(metadata))
+	maps.Copy(snapshot.Metadata, metadata)
+	s.snapshots[snapshotID] = snapshot
+	return maps.Clone(snapshot.Metadata), nil
+}
+
+func cloneSnapshot(snapshot domain.Snapshot) domain.Snapshot {
+	snapshot.Metadata = maps.Clone(snapshot.Metadata)
+	return snapshot
 }
 
 // ListSnapshots returns the project's snapshots ordered by ID.
@@ -141,6 +167,9 @@ func (s *Service) ListSnapshotsPage(
 	}
 	s.mu.RUnlock()
 	snapshots, next := orderAndLimit(snapshots, limit, func(snapshot domain.Snapshot) string { return snapshot.ID })
+	for i, snapshot := range snapshots {
+		snapshots[i] = cloneSnapshot(snapshot)
+	}
 	return SnapshotPage{Snapshots: snapshots, NextMarker: next}, nil
 }
 

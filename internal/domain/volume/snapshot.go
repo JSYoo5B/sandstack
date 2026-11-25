@@ -12,4 +12,5 @@ type Snapshot struct {
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 	State       State
+	Metadata    map[string]string
 }

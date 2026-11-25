@@ -36,6 +36,7 @@ func TestSnapshotCreationAndDeletionProtectSourceVolume(t *testing.T) {
 		Size:        seed.Size,
 		CreatedAt:   start,
 		State:       domain.StateCreating,
+		Metadata:    map[string]string{},
 	}, snapshot)
 	assert.Equal(t, []domain.Snapshot{snapshot}, service.ListSnapshots(seed.ProjectID))
 	assert.Empty(t, service.ListSnapshots("foreign"))
