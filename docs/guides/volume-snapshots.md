@@ -49,7 +49,7 @@ status or a source volume with any dependent snapshot returns `400`.
 seeded volume.
 
 This scenario models the snapshot lifecycle in metadata. Use an available
-snapshot to [create a new volume](volume.md#create-a-volume-from-a-snapshot).
+snapshot to [create a new volume](volume-sources.md#create-a-volume-from-a-snapshot).
 
 ### Snapshot a volume in use
 
