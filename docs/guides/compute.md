@@ -21,6 +21,23 @@ Omit `status` to list all fixture servers. An empty, nonmatching, or unknown
 value produces an empty `servers` array, as in Nova v2.1. SandStack returns
 `400` for other list parameters or a repeated `status` parameter.
 
+## Rename a server
+
+Use `servers.Update` with the fixture server ID and
+`servers.UpdateOpts{Name: "new name"}` in Gophercloud v2.15.0. It sends
+`PUT /servers/{server_id}` with `{"server":{"name":"new name"}}`.
+SandStack supports the name field. A name must have 1 to 255 printable
+characters in Nova's supported range, with no leading or trailing whitespace.
+An empty `server` object keeps the name and update timestamp. Invalid
+requests return `400`. See the [Nova update reference], [Nova update schema],
+[Nova name validation], and [Gophercloud update options].
+
+The `200` response contains the updated server in Nova's v2.1 update
+format. Use detail and detailed list to read its extended power state and
+attached volumes. The update preserves the power state, faults, and
+attachments. It returns live state even while a detail snapshot or one-shot
+detail outage is set. See the [Nova update response].
+
 ## Stop and start a server
 
 Use the fixture server ID with `servers.Stop` and `servers.Start` in
@@ -170,6 +187,8 @@ conflicts. The [Nova stop reference] and [Nova start reference] describe
 the request bodies and response status codes.
 The reboot tests use the SDK to check state conflicts and hard reboot
 recovery and HTTP to check accepted requests and empty responses.
+The rename tests compare the Nova v2.1 update response with SDK detail and
+list reads and check that a pending detail outage still fires.
 The raw HTTP checks use the [Compute list reference],
 [Compute detail reference], [Compute fault guide], and [Nova fault response]
 for the OpenStack response shapes.
@@ -180,6 +199,11 @@ for the OpenStack response shapes.
 [Nova fault response]: https://github.com/openstack/nova/blob/master/nova/api/openstack/wsgi.py
 [Nova stop reference]: https://docs.openstack.org/api-ref/compute/#stop-server-os-stop-action
 [Nova start reference]: https://docs.openstack.org/api-ref/compute/#start-server-os-start-action
+[Nova update reference]: https://docs.openstack.org/api-ref/compute/#update-server
+[Nova update schema]: https://github.com/openstack/nova/blob/master/nova/api/openstack/compute/schemas/servers.py#L350-L373
+[Nova name validation]: https://github.com/openstack/nova/blob/master/nova/api/validation/parameter_types.py#L73-L87
+[Gophercloud update options]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/compute/v2/servers/requests.go#L639-L681
+[Nova update response]: https://github.com/openstack/nova/blob/master/nova/api/openstack/compute/servers.py#L955-L994
 [Nova reboot reference]: https://docs.openstack.org/api-ref/compute/#reboot-server-reboot-action
 [Nova reboot schema]: https://github.com/openstack/nova/blob/master/nova/api/openstack/compute/schemas/servers.py#L495-L512
 [Nova reboot state checks]: https://github.com/openstack/nova/blob/master/nova/compute/vm_states.py#L62-L67

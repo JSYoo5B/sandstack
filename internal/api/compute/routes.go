@@ -36,6 +36,7 @@ func Register(
 		service: service, attachments: attachments, projectForToken: projectForToken, endpointURL: endpointURL,
 	}
 	show := h.withProject(h.showServer)
+	update := h.withProject(h.updateServer)
 	list := h.withProject(h.listServersDetailed)
 	power := h.withProject(h.changeServerPower)
 	listAttachments := h.withAttachmentProject(h.listAttachments)
@@ -45,6 +46,7 @@ func Register(
 	for _, prefix := range []string{Path, Path + "/{projectID}"} {
 		server := prefix + "/servers/{serverID}"
 		router.Get(server, show)
+		router.Put(server, update)
 		router.Post(server+"/action", power)
 		router.Get(prefix+"/servers/detail", list)
 		collection := server + "/os-volume_attachments"
