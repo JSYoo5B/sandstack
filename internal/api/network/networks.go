@@ -51,12 +51,20 @@ func (h handler) listNetworks(w http.ResponseWriter, r *http.Request, projectID 
 		return
 	}
 	for field := range query {
-		if field != "name" && field != "status" {
-			writeError(w, http.StatusBadRequest, "BadRequest", "Network lists accept only name and status query parameters.")
+		switch field {
+		case "name", "status", "admin_state_up":
+		default:
+			writeError(w, http.StatusBadRequest, "BadRequest",
+				"Network lists accept only name, status, and admin_state_up query parameters.")
 			return
 		}
 	}
-	filter := app.ListFilter{Names: query["name"], Statuses: query["status"]}
+	adminStates, ok := parseBooleanFilters(query["admin_state_up"])
+	if !ok {
+		writeError(w, http.StatusBadRequest, "InvalidInput", "The network list admin_state_up filter requires a boolean.")
+		return
+	}
+	filter := app.ListFilter{Names: query["name"], Statuses: query["status"], AdminStates: adminStates}
 	networks := h.service.List(projectID, filter)
 	response := struct {
 		Networks []networkBody `json:"networks"`

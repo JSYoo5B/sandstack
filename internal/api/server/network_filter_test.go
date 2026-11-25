@@ -50,6 +50,17 @@ func TestNetworkListFilterWire(t *testing.T) {
 		},
 		{name: "one matching status", query: "status=unknown&status=DOWN", want: []string{disabled, red}},
 		{name: "name and status use AND", query: blueFilter + "&status=DOWN", want: []string{disabled}},
+		{
+			name:  "repeated admin states use OR within a name",
+			query: blueFilter + "&admin_state_up=false&admin_state_up=yes&admin_state_up=false",
+			want:  []string{active, disabled},
+		},
+		{
+			name:  "administrative state combines with name and status",
+			query: blueFilter + "&status=DOWN&admin_state_up=off",
+			want:  []string{disabled},
+		},
+		{name: "incompatible admin state and status", query: "status=ACTIVE&admin_state_up=0"},
 		{name: "empty name matches unnamed", query: "name=", want: []string{unnamed}},
 		{name: "partial name", query: "name=blue"},
 		{name: "missing name", query: "name=missing"},
@@ -79,6 +90,12 @@ func TestNetworkListFilterWire(t *testing.T) {
 		})
 	}
 
+	for _, query := range []string{"admin_state_up=maybe", "admin_state_up=", "admin_state_up=false&admin_state_up=maybe"} {
+		status, headers, body := request(t, instance, http.MethodGet, networksPath+"?"+query, "", auth)
+		require.Equal(t, http.StatusBadRequest, status, "%s: %s", query, body)
+		requireJSON(t, headers)
+		assertPortNeutronError(t, body, "InvalidInput")
+	}
 	for _, path := range []string{
 		networksPath + "?name=%zz",
 		networksPath + "?id=" + active,
@@ -123,8 +140,15 @@ func TestGophercloudFiltersNetworksAcrossOperationalFault(t *testing.T) {
 	// https://docs.openstack.org/api-ref/network/v2/#list-networks
 	activeFilter := networks.ListOpts{Name: networkName, Status: "ACTIVE"}
 	downFilter := networks.ListOpts{Name: networkName, Status: "DOWN"}
+	administrativelyDown := downFilter
+	administrativelyDown.AdminStateUp = &adminUp
+	enabled := true
+	faultedAndEnabled := downFilter
+	faultedAndEnabled.AdminStateUp = &enabled
 	assert.Equal(t, []networks.Network{*active}, readList(activeFilter))
 	assert.Equal(t, []networks.Network{*disabled}, readList(downFilter))
+	assert.Equal(t, []networks.Network{*disabled}, readList(administrativelyDown))
+	assert.Empty(t, readList(faultedAndEnabled))
 	assert.Empty(t, readList(networks.ListOpts{Name: "sdk + FILTER"}))
 
 	path := "/_sandstack/network/networks/" + active.ID + "/fault"
@@ -135,10 +159,14 @@ func TestGophercloudFiltersNetworksAcrossOperationalFault(t *testing.T) {
 	down.Status = "DOWN"
 	assert.Empty(t, readList(activeFilter))
 	assert.ElementsMatch(t, []networks.Network{down, *disabled}, readList(downFilter))
+	assert.Equal(t, []networks.Network{*disabled}, readList(administrativelyDown))
+	assert.Equal(t, []networks.Network{down}, readList(faultedAndEnabled))
 
 	status, _, body = request(t, instance, http.MethodDelete, path, "", control)
 
 	require.Equal(t, http.StatusNoContent, status, "%s", body)
 	assert.Equal(t, []networks.Network{*active}, readList(activeFilter))
 	assert.Equal(t, []networks.Network{*disabled}, readList(downFilter))
+	assert.Equal(t, []networks.Network{*disabled}, readList(administrativelyDown))
+	assert.Empty(t, readList(faultedAndEnabled))
 }

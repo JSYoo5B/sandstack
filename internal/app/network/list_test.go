@@ -10,7 +10,7 @@ import (
 	domain "github.com/JSYoo5B/sandstack/internal/domain/network"
 )
 
-func TestListFiltersNamesAndLiveStatusWithinProject(t *testing.T) {
+func TestListFiltersNamesAdministrativeStateAndLiveStatusWithinProject(t *testing.T) {
 	seed := domain.Network{ID: fixtureID(1), Name: "fixture", ProjectID: "owner"}
 	id := 5
 	service := app.New(seed, func() string {
@@ -40,6 +40,11 @@ func TestListFiltersNamesAndLiveStatusWithinProject(t *testing.T) {
 	require.NoError(t, service.SetDown(worker.ID, true))
 	worker.Down = true
 	assert.Equal(t, []domain.Network{unnamed, worker}, service.List(seed.ProjectID, filter))
+	filter.AdminStates = []bool{true}
+	assert.Equal(t, []domain.Network{worker}, service.List(seed.ProjectID, filter))
+	filter.AdminStates = []bool{false}
+	assert.Equal(t, []domain.Network{unnamed}, service.List(seed.ProjectID, filter))
+	filter.AdminStates = nil
 	assert.Equal(t, []domain.Network{seed, unnamed, worker}, service.List(seed.ProjectID, app.ListFilter{
 		Names:    []string{},
 		Statuses: []string{"DOWN", "ACTIVE"},

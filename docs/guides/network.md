@@ -44,19 +44,26 @@ an injected outage. Re-enabling it during an outage keeps the status
 status `DOWN`. The network reports `ACTIVE` once it is enabled and the
 outage is clear.
 
-## Find a network by name or status
+## Filter the network list
 
-The list accepts `name` and `status` filters, including both in a single
-request. Matches are exact. For example, `?name=fixture-network&status=DOWN`
-selects that network while it is down. A repeated key selects any of its
-values. For example, `?status=ACTIVE&status=DOWN` selects either status.
-Omit a key to leave that criterion unrestricted. An explicit `name=`
-matches unnamed networks, and `status=` matches no networks. A list
-without matches returns `{"networks":[]}`.
+Filter by `name`, `status`, or `admin_state_up`. Name and status matches
+are exact. A repeated key matches any of its values, and different keys
+must all match. For example,
+`?status=ACTIVE&status=DOWN` selects either status. Omit a key to leave it
+unrestricted. An explicit `name=` matches unnamed networks, and `status=`
+matches no networks. A list without matches returns `{"networks":[]}`.
+See the [Neutron list reference] and [Neutron network filter schema].
 
-Use `Name` and `Status` in Gophercloud's `networks.ListOpts`. SandStack
-returns `400` for other list query parameters and for query parameters on
-network detail, creation, update, and deletion.
+`?status=DOWN&admin_state_up=false` selects administratively disabled
+networks, including any that also have an injected outage. Use
+`?status=DOWN&admin_state_up=true` to find enabled networks with an
+injected outage. With Gophercloud v2.15.0, set `Name`, `Status`, or
+`AdminStateUp` in `networks.ListOpts`. Pass a pointer to `false` to
+select disabled networks. A nil pointer omits the filter.
+
+SandStack returns `400` for invalid boolean values, unsupported list
+keys, and query parameters on network detail, creation, update, and
+deletion.
 
 ## Add an IPv4 subnet
 
@@ -435,6 +442,7 @@ blocked deletions using the [add interface reference] and
 
 [Neutron filtering reference]: https://docs.openstack.org/api-ref/network/v2/#filtering-and-column-selection
 [Neutron list reference]: https://docs.openstack.org/api-ref/network/v2/#list-networks
+[Neutron network filter schema]: https://github.com/openstack/neutron-lib/blob/master/neutron_lib/api/definitions/network.py#L48-L61
 [Neutron detail reference]: https://docs.openstack.org/api-ref/network/v2/#show-network-details
 [Neutron create reference]: https://docs.openstack.org/api-ref/network/v2/#create-network
 [Neutron update reference]: https://docs.openstack.org/api-ref/network/v2/#update-network

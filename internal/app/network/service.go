@@ -31,8 +31,9 @@ type Service struct {
 }
 
 type ListFilter struct {
-	Names    []string
-	Statuses []string
+	Names       []string
+	Statuses    []string
+	AdminStates []bool
 }
 
 // New starts a service with one private network. The generator
@@ -67,7 +68,8 @@ func (s *Service) List(projectID string, filter ListFilter) []domain.Network {
 	for _, network := range s.networks {
 		if network.ProjectID != projectID ||
 			(len(filter.Names) > 0 && !slices.Contains(filter.Names, network.Name)) ||
-			(len(filter.Statuses) > 0 && !slices.Contains(filter.Statuses, network.Status())) {
+			(len(filter.Statuses) > 0 && !slices.Contains(filter.Statuses, network.Status())) ||
+			(len(filter.AdminStates) > 0 && !slices.Contains(filter.AdminStates, !network.AdminDown)) {
 			continue
 		}
 		networks = append(networks, snapshot(network))
