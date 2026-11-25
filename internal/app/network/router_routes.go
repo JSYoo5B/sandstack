@@ -13,6 +13,59 @@ var (
 	ErrRouterInterfaceInUseByRoute = errors.New("static route uses the router interface subnet")
 )
 
+func (s *Service) AddRouterRoutes(projectID, routerID string, routes []domain.RouterRoute) (domain.Router, error) {
+	return s.changeRouterRoutes(projectID, routerID, routes, true)
+}
+
+func (s *Service) RemoveRouterRoutes(projectID, routerID string, routes []domain.RouterRoute) (domain.Router, error) {
+	return s.changeRouterRoutes(projectID, routerID, routes, false)
+}
+
+func (s *Service) changeRouterRoutes(
+	projectID, routerID string,
+	routes []domain.RouterRoute,
+	add bool,
+) (domain.Router, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	router, ok := s.routers[routerID]
+	if !ok || router.ProjectID != projectID {
+		return domain.Router{}, ErrRouterNotFound
+	}
+	if len(routes) == 0 {
+		return cloneRouter(router), nil
+	}
+
+	updated := slices.Clone(router.Routes)
+	if add {
+		seen := make(map[domain.RouterRoute]bool, len(updated))
+		for _, route := range updated {
+			seen[route] = true
+		}
+		for _, route := range routes {
+			if !seen[route] {
+				updated = append(updated, route)
+				seen[route] = true
+			}
+		}
+	} else {
+		remove := make(map[domain.RouterRoute]bool, len(routes))
+		for _, route := range routes {
+			if !validRouterRouteSyntax(route) {
+				return domain.Router{}, ErrInvalidRouterRoutes
+			}
+			remove[route] = true
+		}
+		updated = slices.DeleteFunc(updated, func(route domain.RouterRoute) bool { return remove[route] })
+	}
+	if err := s.validateRouterRoutes(routerID, updated); err != nil {
+		return domain.Router{}, err
+	}
+	router.Routes = updated
+	s.routers[routerID] = router
+	return cloneRouter(router), nil
+}
+
 // validateRouterRoutes checks a full replacement while the write lock is held.
 func (s *Service) validateRouterRoutes(routerID string, routes []domain.RouterRoute) error {
 	if len(routes) == 0 {
@@ -28,9 +81,7 @@ func (s *Service) validateRouterRoutes(routerID string, routes []domain.RouterRo
 	}
 	seen := make(map[domain.RouterRoute]bool, len(routes))
 	for _, route := range routes {
-		if !route.Destination.Addr().Is4() || route.Destination != route.Destination.Masked() ||
-			route.Destination.Addr().IsLoopback() || !route.NextHop.Is4() ||
-			interfaceIPs[route.NextHop] || seen[route] {
+		if !validRouterRouteSyntax(route) || interfaceIPs[route.NextHop] || seen[route] {
 			return ErrInvalidRouterRoutes
 		}
 		if !slices.ContainsFunc(attached, func(cidr netip.Prefix) bool { return cidr.Contains(route.NextHop) }) {
@@ -39,6 +90,11 @@ func (s *Service) validateRouterRoutes(routerID string, routes []domain.RouterRo
 		seen[route] = true
 	}
 	return nil
+}
+
+func validRouterRouteSyntax(route domain.RouterRoute) bool {
+	return route.Destination.Addr().Is4() && route.Destination == route.Destination.Masked() &&
+		!route.Destination.Addr().IsLoopback() && route.NextHop.Is4()
 }
 
 // routerRoutesUseSubnet runs with the write lock held before removing an interface.

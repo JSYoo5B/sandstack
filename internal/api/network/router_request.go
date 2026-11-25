@@ -1,6 +1,7 @@
 package network
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"net/netip"
@@ -80,6 +81,14 @@ func parseRouterFields(data []byte, changes *app.RouterUpdate, ownership *reques
 }
 
 var errInvalidRouterRouteRequest = errors.New("routes must be an array of IPv4 destination CIDRs and next-hop addresses")
+
+func parseRouterRouteAction(data []byte) ([]domain.RouterRoute, error) {
+	fields, err := readCreateFields(data, "router")
+	if err != nil || len(fields) != 1 || bytes.Equal(fields["routes"], []byte("null")) {
+		return nil, errInvalidRouterRouteRequest
+	}
+	return parseRouterRoutes(fields["routes"])
+}
 
 func parseRouterRoutes(data json.RawMessage) ([]domain.RouterRoute, error) {
 	var entries []json.RawMessage
