@@ -22,9 +22,47 @@ size of 1 MiB. It sends `Content-Type: application/octet-stream`,
 length and checksum match the image metadata. See the
 [Glance download reference] and [Glance download serializer].
 
-The fixture supports full downloads through the baseline Glance v2.0 API.
-For an active image, range headers and query parameters such as `prefer`
-receive `400`. Upload and schema documents are outside the fixture's scope.
+## Download one byte range
+
+Use the same file URL with a single `Range` header. A closed range, an
+open-ended range, and a suffix range all return `206` and the selected
+bytes. For the seeded image the following requests each return four bytes.
+
+| Request `Range` | Response `Content-Range` |
+| --- | --- |
+| `bytes=0-3` | `bytes 0-3/1792` |
+| `bytes=1788-` | `bytes 1788-1791/1792` |
+| `bytes=-4` | `bytes 1788-1791/1792` |
+
+`Content-Length` gives the number of bytes in the response body.
+`Content-MD5` still matches the checksum of the complete image. An end
+offset past the file is clipped to the final byte. A suffix at least as
+large as the file returns all bytes with `206`.
+
+Multiple ranges or repeated `Range` headers receive `400`. A malformed
+range or a start offset at or past the end receives `416` with
+`Content-Range: bytes */1792` for this fixture. See the [Glance range parser],
+[Glance download serializer], and [HTTP range semantics].
+
+Use a low-level Gophercloud request to send the range and accept `206`.
+`imagedata.Download` remains the full-download helper.
+
+```go
+response, err := client.Get(
+    ctx, client.ServiceURL("images", imageID, "file"), nil,
+    &gophercloud.RequestOpts{
+        MoreHeaders:     map[string]string{"Range": "bytes=0-3"},
+        OkCodes:         []int{http.StatusPartialContent},
+        KeepResponseBody: true,
+    },
+)
+```
+
+On success, read and close `response.Body`. The fixture supports full and
+single-range downloads through the baseline Glance v2.0 API. On an active
+image, the legacy request `Content-Range` header and query parameters such
+as `prefer` receive `400`. Upload and schema documents are outside this
+scope.
 
 ## Deactivate and reactivate the fixture image
 
@@ -38,7 +76,7 @@ curl --fail -X PUT -H "X-SandStack-Admin-Token: ${SANDSTACK_ADMIN_TOKEN}" "$imag
 
 The control returns `204`. Image metadata remains readable and reports
 `deactivated`, while the Nova server still references the same image.
-Downloading the file with the fixture project's token now returns `403`.
+Full and ranged downloads with the fixture project's token now return `403`.
 Send `DELETE` to the control URL to reactivate the image and download the
 original bytes again. [Reset the sandbox](reset.md) also restores the
 original image and requires a fresh token. See the [Glance download policy].
@@ -48,11 +86,15 @@ original image and requires a fresh token. See the [Glance download policy].
 Run `go test ./...` to follow the Nova image reference through real
 Gophercloud clients, download the file, and observe deactivation and
 recovery. The HTTP tests check the response headers, file metadata, and
-download denial while deactivated. See the [Glance discovery reference],
-[Glance image reference], and [Glance download reference].
+download denial while deactivated. Range tests check the exact bytes and
+headers of a partial response and the rejection statuses. See the
+[Glance discovery reference], [Glance image reference], and
+[Glance download reference].
 
 [Glance discovery reference]: https://docs.openstack.org/api-ref/image/versions/index.html
 [Glance image reference]: https://docs.openstack.org/api-ref/image/v2/#show-image
 [Glance download reference]: https://docs.openstack.org/api-ref/image/v2/#download-binary-image-data
 [Glance download policy]: https://github.com/openstack/glance/blob/master/glance/api/v2/image_data.py#L442-L459
-[Glance download serializer]: https://github.com/openstack/glance/blob/master/glance/api/v2/image_data.py#L608-L651
+[Glance range parser]: https://github.com/openstack/glance/blob/master/glance/common/wsgi.py#L292-L314
+[Glance download serializer]: https://github.com/openstack/glance/blob/master/glance/api/v2/image_data.py#L569-L651
+[HTTP range semantics]: https://www.rfc-editor.org/rfc/rfc9110.html#name-content-range

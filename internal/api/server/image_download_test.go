@@ -47,11 +47,6 @@ func TestImageDownloadWire(t *testing.T) {
 
 	status, _, body = request(t, instance, http.MethodGet, path+"?prefer=filesystem", "", auth)
 	assert.Equal(t, http.StatusBadRequest, status, "%s", body)
-	status, _, body = request(t, instance, http.MethodGet, path, "", map[string]string{
-		"X-Auth-Token": provider.Token(),
-		"Range":        "bytes=0-3",
-	})
-	assert.Equal(t, http.StatusBadRequest, status, "%s", body)
 }
 
 func TestGophercloudDownloadsImageReferencedByNova(t *testing.T) {
