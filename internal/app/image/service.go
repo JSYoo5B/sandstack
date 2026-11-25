@@ -21,14 +21,16 @@ var (
 type Service struct {
 	mu                  sync.RWMutex
 	seed                domain.Image
-	image               domain.Image
+	images              map[string]domain.Image
 	now                 func() time.Time
 	data                string
+	newID               func() string
 	downloadUnavailable bool
 }
 
-// New starts a service with one private project-owned image and a non-nil clock.
-func New(seed domain.Image, now func() time.Time, data string) *Service {
+// New starts a service with one private image and a non-nil clock.
+// The generator supplies lowercase UUIDs for created images.
+func New(seed domain.Image, now func() time.Time, data string, newID func() string) *Service {
 	seed.Tags = normalizeTags(seed.Tags)
 	seed.Size = int64(len(data))
 	seed.Checksum = ""
@@ -37,17 +39,20 @@ func New(seed domain.Image, now func() time.Time, data string) *Service {
 		digest := md5.Sum([]byte(data))
 		seed.Checksum = hex.EncodeToString(digest[:])
 	}
-	return &Service{seed: seed, image: seed, now: now, data: data}
+	service := &Service{seed: seed, now: now, data: data, newID: newID}
+	service.Reset()
+	return service
 }
 
 func (s *Service) Get(projectID, imageID string) (domain.Image, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	if projectID != s.image.ProjectID || imageID != s.image.ID {
+	image, ok := s.images[imageID]
+	if !ok || projectID != image.ProjectID {
 		return domain.Image{}, ErrImageNotFound
 	}
-	return snapshot(s.image), nil
+	return snapshot(image), nil
 }
 
 type ImageUpdate struct {
@@ -59,69 +64,23 @@ func (s *Service) Update(projectID, imageID string, changes ImageUpdate) (domain
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if projectID != s.image.ProjectID || imageID != s.image.ID {
+	current, ok := s.images[imageID]
+	if !ok || projectID != current.ProjectID {
 		return domain.Image{}, ErrImageNotFound
 	}
-	image := s.image
+	image := current
 	if changes.Name != nil {
 		image.Name = *changes.Name
 	}
 	if changes.Tags != nil {
 		image.Tags = normalizeTags(changes.Tags)
 	}
-	if image.Name != s.image.Name || !slices.Equal(image.Tags, s.image.Tags) {
+	if image.Name != current.Name || !slices.Equal(image.Tags, current.Tags) {
 		image.UpdatedAt = s.now().UTC()
-		s.image = image
+		s.images[imageID] = image
+		return snapshot(image), nil
 	}
-	return snapshot(s.image), nil
-}
-
-type ListFilter struct {
-	Name   *string
-	Status *string
-	Tags   []string
-}
-
-type ImagePage struct {
-	Images     []domain.Image
-	NextMarker string
-}
-
-func (s *Service) List(projectID string, filter ListFilter) []domain.Image {
-	page, _ := s.ListPage(projectID, filter, nil, -1)
-	return page.Images
-}
-
-// ListPage resolves marker visibility before applying filters or limiting results.
-func (s *Service) ListPage(projectID string, filter ListFilter, marker *string, limit int) (ImagePage, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	page := ImagePage{Images: []domain.Image{}}
-	if marker != nil {
-		if *marker == "" || *marker != s.image.ID {
-			return ImagePage{}, ErrImageNotFound
-		}
-		if projectID != s.image.ProjectID {
-			return ImagePage{}, ErrImageMarkerForbidden
-		}
-		return page, nil
-	}
-	if limit == 0 || projectID != s.image.ProjectID ||
-		(filter.Name != nil && *filter.Name != s.image.Name) ||
-		(filter.Status != nil && *filter.Status != s.image.Status()) {
-		return page, nil
-	}
-	for _, tag := range filter.Tags {
-		if _, found := slices.BinarySearch(s.image.Tags, tag); !found {
-			return page, nil
-		}
-	}
-	page.Images = append(page.Images, snapshot(s.image))
-	if limit == 1 {
-		page.NextMarker = s.image.ID
-	}
-	return page, nil
+	return snapshot(current), nil
 }
 
 // CheckDownload returns the resource length without consuming a download fault.
@@ -129,35 +88,41 @@ func (s *Service) CheckDownload(projectID, imageID string) (int, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	if err := s.checkDownload(projectID, imageID); err != nil {
+	image, err := s.checkDownload(projectID, imageID)
+	if err != nil {
 		return 0, err
 	}
-	return len(s.data), nil
+	return int(image.Size), nil
 }
 
 func (s *Service) Download(projectID, imageID string) (data string, checksum string, err error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if err := s.checkDownload(projectID, imageID); err != nil {
+	image, err := s.checkDownload(projectID, imageID)
+	if err != nil {
 		return "", "", err
+	}
+	if image.ID != s.seed.ID {
+		return "", "", nil
 	}
 	if s.downloadUnavailable {
 		s.downloadUnavailable = false
 		return "", "", ErrDownloadUnavailable
 	}
-	return s.data, s.image.Checksum, nil
+	return s.data, image.Checksum, nil
 }
 
 // checkDownload validates the current image with the lock held.
-func (s *Service) checkDownload(projectID, imageID string) error {
-	if projectID != s.image.ProjectID || imageID != s.image.ID {
-		return ErrImageNotFound
+func (s *Service) checkDownload(projectID, imageID string) (domain.Image, error) {
+	image, ok := s.images[imageID]
+	if !ok || projectID != image.ProjectID {
+		return domain.Image{}, ErrImageNotFound
 	}
-	if s.image.Deactivated {
-		return ErrImageDeactivated
+	if image.Deactivated {
+		return domain.Image{}, ErrImageDeactivated
 	}
-	return nil
+	return image, nil
 }
 
 // SetUnavailableDownload arms or cancels one failure for the next matching Download.
@@ -165,7 +130,7 @@ func (s *Service) SetUnavailableDownload(imageID string, enabled bool) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if imageID != s.image.ID {
+	if imageID != s.seed.ID {
 		return ErrImageNotFound
 	}
 	s.downloadUnavailable = enabled
@@ -177,15 +142,17 @@ func (s *Service) SetDeactivated(imageID string, deactivated bool) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if imageID != s.image.ID {
+	if imageID != s.seed.ID {
 		return ErrImageNotFound
 	}
-	if s.image.Deactivated == deactivated {
+	image := s.images[imageID]
+	if image.Deactivated == deactivated {
 		return nil
 	}
 	updatedAt := s.now().UTC()
-	s.image.Deactivated = deactivated
-	s.image.UpdatedAt = updatedAt
+	image.Deactivated = deactivated
+	image.UpdatedAt = updatedAt
+	s.images[imageID] = image
 	return nil
 }
 
@@ -193,7 +160,7 @@ func (s *Service) Reset() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.image = s.seed
+	s.images = map[string]domain.Image{s.seed.ID: s.seed}
 	s.downloadUnavailable = false
 }
 

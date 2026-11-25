@@ -2,19 +2,30 @@ package image
 
 import "time"
 
+const (
+	ContainerFormatBare = "bare"
+	DiskFormatQCOW2     = "qcow2"
+)
+
 type Image struct {
-	ID          string
-	Name        string
-	Tags        []string
-	ProjectID   string
-	Size        int64
-	Checksum    string
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
-	Deactivated bool
+	ID              string
+	Name            string
+	Tags            []string
+	ProjectID       string
+	Size            int64
+	Checksum        string
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+	Deactivated     bool
+	Queued          bool
+	ContainerFormat string
+	DiskFormat      string
 }
 
 func (i Image) Status() string {
+	if i.Queued {
+		return "queued"
+	}
 	if i.Deactivated {
 		return "deactivated"
 	}

@@ -13,7 +13,7 @@ import (
 
 func TestImageListPageResolvesMarkerBeforeFilters(t *testing.T) {
 	seed := domain.Image{ID: "image", ProjectID: "owner", Name: "fixture", Tags: []string{"test"}}
-	service := app.New(seed, time.Now, "")
+	service := app.New(seed, time.Now, "", nil)
 	active := "active"
 	filter := app.ListFilter{Name: &seed.Name, Status: &active, Tags: []string{"test"}}
 	empty := app.ImagePage{Images: []domain.Image{}}

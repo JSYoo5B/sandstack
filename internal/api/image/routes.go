@@ -33,6 +33,7 @@ func Register(
 	router.Get(CatalogPath, h.versions)
 	router.Get(CatalogPath+"/", h.versions)
 	router.Get(imageListPath, h.withProject(h.listImages))
+	router.Post(imageListPath, h.withProject(h.createImage))
 	router.Get(imageSchemaPath, h.withProject(showSchema(imageSchema)))
 	router.Get(imageListSchemaPath, h.withProject(showSchema(imageListSchema)))
 	resource := Path + "/images/{imageID}"

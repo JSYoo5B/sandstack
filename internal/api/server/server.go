@@ -55,13 +55,15 @@ func New(config Config) (http.Handler, error) {
 	)
 	created := now().UTC()
 	imageFixture := image.Image{
-		ID:        "962a0750-d2e0-4400-88e0-a9ad35758eac",
-		Name:      "fixture-image",
-		ProjectID: fixture.Project.ID,
-		CreatedAt: created,
-		UpdatedAt: created,
+		ID:              "962a0750-d2e0-4400-88e0-a9ad35758eac",
+		Name:            "fixture-image",
+		ProjectID:       fixture.Project.ID,
+		ContainerFormat: image.ContainerFormatBare,
+		DiskFormat:      image.DiskFormatQCOW2,
+		CreatedAt:       created,
+		UpdatedAt:       created,
 	}
-	imageService := appimage.New(imageFixture, now, fixtureImageData)
+	imageService := appimage.New(imageFixture, now, fixtureImageData, randomUUID)
 	networkService := appnetwork.New(network.Network{
 		ID:        "43d92fea-ce36-4d02-aba4-29806839f902",
 		Name:      "fixture-network",

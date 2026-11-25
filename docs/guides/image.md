@@ -10,10 +10,30 @@ Authenticate with the [Identity fixture](identity.md), read the
 The unversioned `/image/` URL returns the v2 discovery document. Use
 `GET /image/v2/images/{image_id}` with `X-Auth-Token` for metadata.
 
+## Create a private queued image
+
+Use `images.Create` in Gophercloud v2.15.0 with a nonempty `Name`.
+It sends `POST /images` with an `application/json` body. SandStack's
+v2.0 fixture defaults to `private`. You can also set `Visibility` to
+`private` explicitly. The optional formats are `bare` and `qcow2`.
+The response is `201` with a `queued` image owned by the authenticated
+project. Its `Location` points to the image metadata. Omitted formats,
+size, virtual size, and checksum are `null`. See the [Glance create
+reference], [Glance v2.0 image defaults], and [Gophercloud image create
+options].
+
+Read the new image through `images.Get` and find it in `images.List`.
+A file request for a queued image returns `204` with an empty body.
+Creating an image leaves the startup fixture and its download controls
+intact. A [sandbox reset](reset.md) removes queued images.
+The fixture's create operation accepts the name, private visibility, and
+the optional formats. A public request returns `403`; unsupported
+fields and invalid values return `400`.
+
 ## List and filter images
 
 Use `GET /image/v2/images` with the fixture project's token to list its
-image. In Gophercloud v2.15.0, call `images.List` with `images.ListOpts`.
+images. In Gophercloud v2.15.0, call `images.List` with `images.ListOpts`.
 Set `Name`, `Status`, or both for exact matching. Both fields must match
 when supplied together. Use a bare value or the `eq:` prefix. For example,
 `?name=fixture-image&status=eq:active` selects the fixture while it is
@@ -38,8 +58,10 @@ image list serializer].
 
 Set `Limit` and `Marker` in `images.ListOpts` and use the SDK pager to
 follow `next`. The default limit is 25 and the maximum is 1,000. A raw
-`limit=0` returns an empty array. A full page contains a `next` link,
-so `Limit: 1` returns the fixture and links to an empty page. The
+`limit=0` returns an empty array. Pages list newer images first and use
+descending ID order to break timestamp ties. A full page contains a
+`next` link, so on a fresh sandbox `Limit: 1` returns the fixture and
+links to an empty page. The
 marker must identify an image visible to the project even when current
 filters exclude it. An unknown or empty marker returns `400`. See the
 [Glance image pagination] and [Glance marker lookup].
@@ -208,9 +230,14 @@ Schema tests resolve the links from detail and list responses and check
 the fixture response types against the returned schemas.
 The transient download test checks `503`, a byte-identical SDK retry,
 and a ranged retry over HTTP.
+The creation tests check the location and queued metadata over HTTP and
+read the new record through SDK detail and paginated list requests.
 
 [Glance discovery reference]: https://docs.openstack.org/api-ref/image/versions/index.html
 [Glance image reference]: https://docs.openstack.org/api-ref/image/v2/#show-image
+[Glance create reference]: https://docs.openstack.org/api-ref/image/v2/#create-image
+[Glance v2.0 image defaults]: https://github.com/openstack/glance/blob/12.0.0/glance/domain/__init__.py#L71-L93
+[Gophercloud image create options]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/image/v2/images/requests.go#L145-L218
 [Glance image schema reference]: https://docs.openstack.org/api-ref/image/v2/#show-image-schema
 [Glance collection schema reference]: https://docs.openstack.org/api-ref/image/v2/#show-images-schema
 [Glance schema builders]: https://github.com/openstack/glance/blob/master/glance/api/v2/images.py#L1963-L2008

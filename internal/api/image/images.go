@@ -13,8 +13,8 @@ import (
 )
 
 const (
-	fixtureContainerFormat = "bare"
-	fixtureDiskFormat      = "qcow2"
+	fixtureContainerFormat = domain.ContainerFormatBare
+	fixtureDiskFormat      = domain.DiskFormatQCOW2
 	fixtureVisibility      = "private"
 )
 
@@ -26,14 +26,15 @@ type imageBody struct {
 	Visibility      string    `json:"visibility"`
 	CreatedAt       time.Time `json:"created_at"`
 	UpdatedAt       time.Time `json:"updated_at"`
-	ContainerFormat string    `json:"container_format"`
-	DiskFormat      string    `json:"disk_format"`
+	ContainerFormat *string   `json:"container_format"`
+	DiskFormat      *string   `json:"disk_format"`
 	MinDisk         int       `json:"min_disk"`
 	MinRAM          int       `json:"min_ram"`
 	Protected       bool      `json:"protected"`
 	Tags            []string  `json:"tags"`
 	Checksum        *string   `json:"checksum"`
 	Size            *int64    `json:"size"`
+	VirtualSize     *int64    `json:"virtual_size"`
 	Self            string    `json:"self"`
 	File            string    `json:"file"`
 	Schema          string    `json:"schema"`
@@ -49,8 +50,8 @@ func describeImage(image domain.Image) imageBody {
 		Visibility:      fixtureVisibility,
 		CreatedAt:       image.CreatedAt,
 		UpdatedAt:       image.UpdatedAt,
-		ContainerFormat: fixtureContainerFormat,
-		DiskFormat:      fixtureDiskFormat,
+		ContainerFormat: optionalImageFormat(image.ContainerFormat),
+		DiskFormat:      optionalImageFormat(image.DiskFormat),
 		Tags:            append([]string{}, image.Tags...),
 		Self:            self,
 		File:            self + "/file",
@@ -61,6 +62,13 @@ func describeImage(image domain.Image) imageBody {
 		body.Size = &image.Size
 	}
 	return body
+}
+
+func optionalImageFormat(value string) *string {
+	if value == "" {
+		return nil
+	}
+	return &value
 }
 
 func (h handler) showImage(w http.ResponseWriter, r *http.Request, projectID string) {

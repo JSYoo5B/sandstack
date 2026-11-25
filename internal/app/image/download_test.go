@@ -16,7 +16,7 @@ func TestDownloadUsesFixtureMetadataAndRespectsScopeAndState(t *testing.T) {
 	const data = "QFI\xfb\x00\x01payload"
 	const checksum = "281a54781cf7c2b024e7755ac5be21d3"
 	seed := domain.Image{ID: "image", ProjectID: "owner"}
-	service := app.New(seed, time.Now, data)
+	service := app.New(seed, time.Now, data, nil)
 	metadata, err := service.Get(seed.ProjectID, seed.ID)
 	require.NoError(t, err)
 	assert.Equal(t, int64(len(data)), metadata.Size)
@@ -54,7 +54,7 @@ func TestDownloadUsesFixtureMetadataAndRespectsScopeAndState(t *testing.T) {
 
 func TestDownloadWithNoDataReturnsEmptyBodyAndChecksum(t *testing.T) {
 	seed := domain.Image{ID: "image", ProjectID: "owner", Size: 4, Checksum: "old checksum"}
-	service := app.New(seed, time.Now, "")
+	service := app.New(seed, time.Now, "", nil)
 	metadata, err := service.Get(seed.ProjectID, seed.ID)
 	require.NoError(t, err)
 	assert.Zero(t, metadata.Size)
@@ -69,7 +69,7 @@ func TestDownloadWithNoDataReturnsEmptyBodyAndChecksum(t *testing.T) {
 func TestConcurrentDownloadsConsumeOnlyOneFailure(t *testing.T) {
 	const data = "fixture image bytes"
 	seed := domain.Image{ID: "image", ProjectID: "owner"}
-	service := app.New(seed, time.Now, data)
+	service := app.New(seed, time.Now, data, nil)
 	assert.ErrorIs(t, service.SetUnavailableDownload("missing", true), app.ErrImageNotFound)
 	require.NoError(t, service.SetUnavailableDownload(seed.ID, true))
 	require.NoError(t, service.SetUnavailableDownload(seed.ID, true))
