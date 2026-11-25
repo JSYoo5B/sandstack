@@ -61,6 +61,21 @@ Network reads include the IDs of their subnets. Deleting a subnet removes
 its ID from the network. Deleting a network with no ports also deletes its subnets.
 The subnet list is unfiltered. A sandbox reset clears created subnets.
 
+### Update subnet metadata
+
+Send `PUT /network/v2.0/subnets/{subnet_id}` with a `subnet` object to
+update `name` or `enable_dhcp` for a subnet in the token's project. A
+successful request returns `200` with the updated subnet. Omitted fields
+keep their values. Use an explicit empty string to clear the name or
+`false` to disable the DHCP flag. In Gophercloud, pass `Name` and
+`EnableDHCP` pointers in `subnets.UpdateOpts` to `subnets.Update`.
+See the [subnet update reference].
+
+SandStack records `enable_dhcp` as metadata. The subnet's existing IPv4
+allocations and router attachment remain in place. This update accepts
+only `name` and `enable_dhcp`. The CIDR, gateway, and allocation pool are
+set when the subnet is created.
+
 ## Allocate and release a port address
 
 Use `POST /network/v2.0/ports` with a `port` object containing `network_id`.
@@ -334,6 +349,7 @@ blocked deletions using the [add interface reference] and
 [Neutron create reference]: https://docs.openstack.org/api-ref/network/v2/#create-network
 [Neutron delete reference]: https://docs.openstack.org/api-ref/network/v2/#delete-network
 [subnet create reference]: https://docs.openstack.org/api-ref/network/v2/#create-subnet
+[subnet update reference]: https://docs.openstack.org/api-ref/network/v2/#update-subnet
 [port create reference]: https://docs.openstack.org/api-ref/network/v2/#create-port
 [port list reference]: https://docs.openstack.org/api-ref/network/v2/#list-ports
 [port update reference]: https://docs.openstack.org/api-ref/network/v2/#update-port

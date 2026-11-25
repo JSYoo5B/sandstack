@@ -114,6 +114,25 @@ func (h handler) showSubnet(w http.ResponseWriter, r *http.Request, projectID st
 	writeJSON(w, http.StatusOK, subnetResponse{Subnet: describeSubnet(subnet)})
 }
 
+func (h handler) updateSubnet(w http.ResponseWriter, r *http.Request, projectID string) {
+	data, ok := readCreateBody(w, r, "subnet")
+	if !ok {
+		return
+	}
+	changes, err := parseUpdateSubnet(data)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "BadRequest", err.Error())
+		return
+	}
+	subnetID := chi.URLParam(r, "subnetID")
+	subnet, err := h.service.UpdateSubnet(projectID, subnetID, changes)
+	if err != nil {
+		writeSubnetError(w, subnetID, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, subnetResponse{Subnet: describeSubnet(subnet)})
+}
+
 func (h handler) deleteSubnet(w http.ResponseWriter, r *http.Request, projectID string) {
 	if !requireEmptyDeleteBody(w, r) {
 		return

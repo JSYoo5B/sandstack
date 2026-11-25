@@ -81,6 +81,29 @@ func (s *Service) GetSubnet(projectID, subnetID string) (domain.Subnet, error) {
 	return subnet, nil
 }
 
+type SubnetUpdate struct {
+	Name       *string
+	EnableDHCP *bool
+}
+
+func (s *Service) UpdateSubnet(projectID, subnetID string, changes SubnetUpdate) (domain.Subnet, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	subnet, ok := s.subnets[subnetID]
+	if !ok || subnet.ProjectID != projectID {
+		return domain.Subnet{}, ErrSubnetNotFound
+	}
+	if changes.Name != nil {
+		subnet.Name = *changes.Name
+	}
+	if changes.EnableDHCP != nil {
+		subnet.EnableDHCP = *changes.EnableDHCP
+	}
+	s.subnets[subnetID] = subnet
+	return subnet, nil
+}
+
 // ListSubnets returns the project's subnets ordered by ID.
 func (s *Service) ListSubnets(projectID string) []domain.Subnet {
 	subnets := []domain.Subnet{}
