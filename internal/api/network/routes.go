@@ -49,7 +49,7 @@ func Register(
 	router.Get(Path+"/ports/{portID}", h.withProject(withEmptyQuery(h.showPort)))
 	router.Put(Path+"/ports/{portID}", h.withProject(withEmptyQuery(h.updatePort)))
 	router.Delete(Path+"/ports/{portID}", h.withProject(withEmptyQuery(h.deletePort)))
-	router.Get(Path+"/routers", h.withProject(withEmptyQuery(h.listRouters)))
+	router.Get(Path+"/routers", h.withProject(h.listRouters))
 	router.Post(Path+"/routers", h.withProject(withEmptyQuery(h.createRouter)))
 	router.Get(Path+"/routers/{routerID}", h.withProject(withEmptyQuery(h.showRouter)))
 	router.Put(Path+"/routers/{routerID}", h.withProject(withEmptyQuery(h.updateRouter)))

@@ -38,7 +38,7 @@ func TestRouterRouteReplacementValidatesAndKeepsDetachedSnapshots(t *testing.T) 
 	require.NoError(t, err)
 	require.Equal(t, expected, loaded.Routes)
 	loaded.Routes[0] = domain.RouterRoute{}
-	listed := service.ListRouters(router.ProjectID)
+	listed := service.ListRouters(router.ProjectID, app.RouterListFilter{})
 	require.Len(t, listed, 1)
 	require.Equal(t, expected, listed[0].Routes)
 	listed[0].Routes[1] = domain.RouterRoute{}

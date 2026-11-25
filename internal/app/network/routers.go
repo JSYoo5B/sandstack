@@ -78,12 +78,22 @@ func (s *Service) UpdateRouter(projectID, routerID string, changes RouterUpdate)
 	return cloneRouter(router), nil
 }
 
-// ListRouters returns the project's routers ordered by ID.
-func (s *Service) ListRouters(projectID string) []domain.Router {
+type RouterListFilter struct {
+	Names       []string
+	AdminStates []bool
+}
+
+func (f RouterListFilter) matches(router domain.Router) bool {
+	return (len(f.Names) == 0 || slices.Contains(f.Names, router.Name)) &&
+		(len(f.AdminStates) == 0 || slices.Contains(f.AdminStates, router.AdminStateUp))
+}
+
+// ListRouters returns the project's matching routers ordered by ID.
+func (s *Service) ListRouters(projectID string, filter RouterListFilter) []domain.Router {
 	routers := []domain.Router{}
 	s.mu.RLock()
 	for _, router := range s.routers {
-		if router.ProjectID == projectID {
+		if router.ProjectID == projectID && filter.matches(router) {
 			routers = append(routers, cloneRouter(router))
 		}
 	}

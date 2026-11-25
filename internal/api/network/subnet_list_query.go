@@ -4,7 +4,6 @@ import (
 	"errors"
 	"net/netip"
 	"net/url"
-	"strings"
 
 	app "github.com/JSYoo5B/sandstack/internal/app/network"
 )
@@ -37,15 +36,10 @@ func parseSubnetListQuery(rawQuery string) (app.SubnetListFilter, error) {
 		}
 		filter.CIDRs = append(filter.CIDRs, prefix)
 	}
-	for _, value := range query["enable_dhcp"] {
-		switch strings.ToLower(strings.TrimSpace(value)) {
-		case "1", "t", "true", "on", "y", "yes":
-			filter.DHCPStates = append(filter.DHCPStates, true)
-		case "0", "f", "false", "off", "n", "no":
-			filter.DHCPStates = append(filter.DHCPStates, false)
-		default:
-			return app.SubnetListFilter{}, errSubnetListDHCP
-		}
+	dhcpStates, ok := parseBooleanFilters(query["enable_dhcp"])
+	if !ok {
+		return app.SubnetListFilter{}, errSubnetListDHCP
 	}
+	filter.DHCPStates = dhcpStates
 	return filter, nil
 }

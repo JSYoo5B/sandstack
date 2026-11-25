@@ -18,7 +18,7 @@ func TestScopedRouterLifecycleUsesSharedNetworkIDs(t *testing.T) {
 		ids = ids[1:]
 		return fixtureID(id)
 	})
-	assert.Equal(t, []domain.Router{}, service.ListRouters(seed.ProjectID))
+	assert.Equal(t, []domain.Router{}, service.ListRouters(seed.ProjectID, app.RouterListFilter{}))
 
 	first, err := service.CreateRouter(seed.ProjectID, "private router", "description", false)
 	require.NoError(t, err)
@@ -35,14 +35,16 @@ func TestScopedRouterLifecycleUsesSharedNetworkIDs(t *testing.T) {
 	foreign, err := service.CreateRouter("other-project", "", "", true)
 	require.NoError(t, err)
 
-	assert.Equal(t, []domain.Router{second, first}, service.ListRouters(seed.ProjectID))
-	assert.Equal(t, []domain.Router{foreign}, service.ListRouters(foreign.ProjectID))
+	assert.Equal(t, []domain.Router{second, first}, service.ListRouters(seed.ProjectID, app.RouterListFilter{}))
+	assert.Equal(t, []domain.Router{foreign}, service.ListRouters(foreign.ProjectID, app.RouterListFilter{}))
+	filter := app.RouterListFilter{Names: []string{""}, AdminStates: []bool{true}}
+	assert.Equal(t, []domain.Router{second}, service.ListRouters(seed.ProjectID, filter))
 	_, err = service.GetRouter(seed.ProjectID, foreign.ID)
 	assert.ErrorIs(t, err, app.ErrRouterNotFound)
 	foreignName := "unauthorized name"
 	_, err = service.UpdateRouter(seed.ProjectID, foreign.ID, app.RouterUpdate{Name: &foreignName})
 	assert.ErrorIs(t, err, app.ErrRouterNotFound)
-	assert.Equal(t, []domain.Router{foreign}, service.ListRouters(foreign.ProjectID))
+	assert.Equal(t, []domain.Router{foreign}, service.ListRouters(foreign.ProjectID, app.RouterListFilter{}))
 	assert.ErrorIs(t, service.DeleteRouter(seed.ProjectID, foreign.ID), app.ErrRouterNotFound)
 	loaded, err := service.GetRouter(seed.ProjectID, first.ID)
 	require.NoError(t, err)
@@ -52,10 +54,10 @@ func TestScopedRouterLifecycleUsesSharedNetworkIDs(t *testing.T) {
 	_, err = service.GetRouter(seed.ProjectID, first.ID)
 	assert.ErrorIs(t, err, app.ErrRouterNotFound)
 	assert.ErrorIs(t, service.DeleteRouter(seed.ProjectID, first.ID), app.ErrRouterNotFound)
-	assert.Equal(t, []domain.Router{second}, service.ListRouters(seed.ProjectID))
+	assert.Equal(t, []domain.Router{second}, service.ListRouters(seed.ProjectID, app.RouterListFilter{}))
 
 	service.Reset()
-	assert.Empty(t, service.ListRouters(seed.ProjectID))
-	assert.Empty(t, service.ListRouters(foreign.ProjectID))
+	assert.Empty(t, service.ListRouters(seed.ProjectID, app.RouterListFilter{}))
+	assert.Empty(t, service.ListRouters(foreign.ProjectID, app.RouterListFilter{}))
 	assert.Equal(t, []domain.Network{seed}, service.List(seed.ProjectID, app.ListFilter{}))
 }

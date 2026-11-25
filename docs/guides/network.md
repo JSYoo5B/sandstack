@@ -242,14 +242,28 @@ router starts with `status: ACTIVE` even if you create it with
 | Request | Gophercloud call | Result |
 | --- | --- | --- |
 | `POST /network/v2.0/routers` | `routers.Create` | `201` with the created router. |
-| `GET /network/v2.0/routers` | `routers.List` | `200` with an unfiltered list of the project's routers. |
+| `GET /network/v2.0/routers` | `routers.List` | `200` with the project's routers matching any supplied filters. |
 | `GET /network/v2.0/routers/{router_id}` | `routers.Get` | `200` with the router's current metadata. |
 | `PUT /network/v2.0/routers/{router_id}` | `routers.Update` | `200` with updated router metadata. |
 | `DELETE /network/v2.0/routers/{router_id}` | `routers.Delete` | `204` and the router disappears from subsequent reads. |
 
-List query parameters return `400`. Router responses show
+Router responses show
 `external_gateway_info: null` and `gw_port_id: null`. A new router starts
 with `routes: []`.
+
+### Filter the router list
+
+Filter the token's routers by exact `name` or `admin_state_up`. A repeated
+key matches any of its values. Supplying both keys requires both fields
+to match. Omitted keys leave those fields unrestricted. SandStack returns
+`400` for other query keys, including `status`. The fixture reports
+operational `status: ACTIVE` for both administrative states. See the
+[router list reference] and [Neutron router filter schema].
+
+In Gophercloud v2.15.0, pass `Name` and `AdminStateUp` in
+`routers.ListOpts` to `routers.List`. Set `AdminStateUp` to a pointer to
+`false` to find administratively disabled routers. Leave it nil to
+include both states.
 
 ### Update router metadata
 
@@ -426,6 +440,7 @@ blocked deletions using the [add interface reference] and
 [Neutron IP allocation update]: https://github.com/openstack/neutron/blob/master/neutron/db/ipam_pluggable_backend.py#L439-L506
 [router create reference]: https://docs.openstack.org/api-ref/network/v2/#create-router
 [router list reference]: https://docs.openstack.org/api-ref/network/v2/#list-routers
+[Neutron router filter schema]: https://github.com/openstack/neutron-lib/blob/master/neutron_lib/api/definitions/l3.py#L65-L78
 [router details reference]: https://docs.openstack.org/api-ref/network/v2/#show-router-details
 [router update reference]: https://docs.openstack.org/api-ref/network/v2/#update-router
 [router delete reference]: https://docs.openstack.org/api-ref/network/v2/#delete-router

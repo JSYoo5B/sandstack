@@ -72,8 +72,17 @@ func (h handler) createRouter(w http.ResponseWriter, r *http.Request, projectID 
 	writeJSON(w, http.StatusCreated, routerResponse{Router: describeRouter(router)})
 }
 
-func (h handler) listRouters(w http.ResponseWriter, _ *http.Request, projectID string) {
-	routers := h.service.ListRouters(projectID)
+func (h handler) listRouters(w http.ResponseWriter, r *http.Request, projectID string) {
+	filter, err := parseRouterListQuery(r.URL.RawQuery)
+	if err != nil {
+		kind := "BadRequest"
+		if errors.Is(err, errRouterListAdminState) {
+			kind = "InvalidInput"
+		}
+		writeError(w, http.StatusBadRequest, kind, err.Error())
+		return
+	}
+	routers := h.service.ListRouters(projectID, filter)
 	response := struct {
 		Routers []routerBody `json:"routers"`
 	}{Routers: make([]routerBody, len(routers))}
