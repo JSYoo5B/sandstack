@@ -87,19 +87,20 @@ func (s *Service) createVolume(
 		return domain.Volume{}, err
 	}
 	volume := domain.Volume{
-		ID:             id,
-		Name:           domain.NullableText{Value: name, Valid: name != ""},
-		Description:    domain.NullableText{Value: description, Valid: description != ""},
-		ProjectID:      s.seed.ProjectID,
-		UserID:         s.seed.UserID,
-		SnapshotID:     source.snapshotID,
-		SourceVolumeID: source.volumeID,
-		Size:           size,
-		CreatedAt:      s.now().UTC(),
-		State:          domain.StateCreating,
-		Metadata:       maps.Clone(metadata),
-		ImageSource:    source.image,
-		Bootable:       source.bootable,
+		ID:                  id,
+		Name:                domain.NullableText{Value: name, Valid: name != ""},
+		Description:         domain.NullableText{Value: description, Valid: description != ""},
+		ProjectID:           s.seed.ProjectID,
+		UserID:              s.seed.UserID,
+		SnapshotID:          source.snapshotID,
+		SourceVolumeID:      source.volumeID,
+		Size:                size,
+		CreatedAt:           s.now().UTC(),
+		State:               domain.StateCreating,
+		Metadata:            maps.Clone(metadata),
+		ImageSource:         source.image,
+		Bootable:            source.bootable,
+		BootableOnProvision: source.bootable || source.image.ID != "",
 	}
 	s.volumes[id] = volume
 	return cloneVolume(volume), nil

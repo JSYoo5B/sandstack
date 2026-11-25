@@ -106,6 +106,22 @@ empty string to write `""` explicitly. The update preserves volume status
 and attachments, including when the volume is `in-use`. See the
 [Gophercloud volume update options].
 
+## Set the volume bootable flag
+
+Use `volumes.SetBootable` with `volumes.BootableOpts{Bootable: true}` or
+`false`. Gophercloud sends `os-set_bootable` to
+`POST /volumes/{volume_id}/action`. An accepted update returns `200`
+with an empty body. Use detail or the detailed list to read the string
+`bootable` value. See the [Cinder bootable action], [Cinder bootable
+schema], and [Gophercloud bootable options].
+
+Both values preserve the volume's status, attachment, user metadata,
+and published image metadata. Each accepted action refreshes the
+update timestamp and leaves a scheduled
+[detail failure](#fail-the-next-volume-detail-read) pending. Pending
+provisioning from a Glance image or a bootable source volume applies
+its captured bootable flag on successful completion.
+
 ## Read and replace volume metadata
 
 Use `GET /volumes/{volume_id}/metadata` to read a volume's user metadata.
@@ -243,8 +259,8 @@ also clears pending failures.
 
 Run `go test ./...` to exercise discovery, creation, provisioning, volume
 reads, deletion, faults, and reset through Gophercloud. The extension
-tests check `extending` with the original size, both completion outcomes, and recovery after a
-failed extension. The HTTP tests use the
+tests check `extending` with the original size, both completion outcomes,
+and recovery after a failed extension. The HTTP tests use the
 [create volume reference] and [delete volume reference].
 The volume update tests check field omission, explicit clearing, validation,
 and preservation of an existing attachment.
@@ -266,6 +282,9 @@ reads the live volume on retry through Gophercloud.
 [Cinder volume update schema]: https://github.com/openstack/cinder/blob/master/cinder/api/schemas/volumes.py#L82-L110
 [Cinder volume update controller]: https://github.com/openstack/cinder/blob/master/cinder/api/v3/volumes.py#L438-L460
 [Gophercloud volume update options]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/blockstorage/v3/volumes/requests.go#L285-L307
+[Cinder bootable action]: https://github.com/openstack/cinder/blob/10.0.0/cinder/api/contrib/volume_actions.py#L333-L357
+[Cinder bootable schema]: https://github.com/openstack/cinder/blob/134790e4206f4effa503c47965b7d0cc888695a1/cinder/api/schemas/volume_actions.py#L145-L159
+[Gophercloud bootable options]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/blockstorage/v3/volumes/requests.go#L626-L656
 [Cinder volume metadata controller]: https://github.com/openstack/cinder/blob/master/cinder/api/v3/volume_metadata.py
 [Cinder volume metadata schema]: https://github.com/openstack/cinder/blob/master/cinder/api/schemas/volume_metadata.py
 [merge volume metadata reference]: https://docs.openstack.org/api-ref/block-storage/v3/#create-a-volumes-metadata

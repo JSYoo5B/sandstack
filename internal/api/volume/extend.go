@@ -6,19 +6,13 @@ import (
 	"math"
 	"net/http"
 
-	"github.com/go-chi/chi/v5"
-
 	app "github.com/JSYoo5B/sandstack/internal/app/volume"
 )
 
 var errInvalidExtendAction = errors.New("expected one os-extend action with an integer new_size")
 
 func parseExtendVolume(data []byte) (int, error) {
-	envelope, err := readUniqueObject(data)
-	if err != nil || len(envelope) != 1 {
-		return 0, errInvalidExtendAction
-	}
-	fields, err := readUniqueObject(envelope["os-extend"])
+	fields, err := readUniqueObject(data)
 	if err != nil || len(fields) != 1 {
 		return 0, errInvalidExtendAction
 	}
@@ -32,17 +26,13 @@ func parseExtendVolume(data []byte) (int, error) {
 	return int(*newSize), nil
 }
 
-func (h handler) extendVolume(w http.ResponseWriter, r *http.Request, projectID string) {
-	data, ok := readJSONBody(w, r, "volume extension")
-	if !ok {
-		return
-	}
+func (h handler) extendVolume(w http.ResponseWriter, projectID, volumeID string, data json.RawMessage) {
 	newSize, err := parseExtendVolume(data)
 	if err != nil {
 		writeFault(w, http.StatusBadRequest, "badRequest", err.Error())
 		return
 	}
-	err = h.service.StartExtension(projectID, chi.URLParam(r, "volumeID"), newSize)
+	err = h.service.StartExtension(projectID, volumeID, newSize)
 	switch {
 	case errors.Is(err, app.ErrVolumeNotFound):
 		writeFault(w, http.StatusNotFound, "itemNotFound", "The volume could not be found.")

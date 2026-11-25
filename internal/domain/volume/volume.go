@@ -14,22 +14,23 @@ const (
 )
 
 type Volume struct {
-	ID                 string
-	Name               NullableText
-	Description        NullableText
-	ProjectID          string
-	UserID             string
-	SnapshotID         string
-	SourceVolumeID     string
-	Size               int
-	CreatedAt          time.Time
-	UpdatedAt          time.Time
-	State              State
-	Attachment         Attachment
-	Metadata           map[string]string
-	ImageSource        ImageSource
-	ImageMetadataReady bool
-	Bootable           bool
+	ID                  string
+	Name                NullableText
+	Description         NullableText
+	ProjectID           string
+	UserID              string
+	SnapshotID          string
+	SourceVolumeID      string
+	Size                int
+	CreatedAt           time.Time
+	UpdatedAt           time.Time
+	State               State
+	Attachment          Attachment
+	Metadata            map[string]string
+	ImageSource         ImageSource
+	ImageMetadataReady  bool
+	Bootable            bool
+	BootableOnProvision bool
 }
 
 // ImageSource is the Glance image metadata captured for volume provisioning.

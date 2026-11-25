@@ -40,7 +40,7 @@ func Register(
 	router.Get(collection+"/{volumeID}", h.withProject(withoutQuery(h.showVolume)))
 	router.Put(collection+"/{volumeID}", h.withProject(withoutQuery(h.updateVolume)))
 	router.Delete(collection+"/{volumeID}", h.withProject(withoutQuery(h.deleteVolume)))
-	router.Post(collection+"/{volumeID}/action", h.withProject(withoutQuery(h.extendVolume)))
+	router.Post(collection+"/{volumeID}/action", h.withProject(withoutQuery(h.volumeAction)))
 	volumeMetadata := collection + "/{volumeID}/metadata"
 	router.Get(volumeMetadata, h.withProject(withoutQuery(h.showVolumeMetadata)))
 	router.Put(volumeMetadata, h.withProject(withoutQuery(changeVolumeMetadata(service.ReplaceVolumeMetadata))))
