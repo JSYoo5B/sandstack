@@ -113,8 +113,10 @@ func writeRouterInterfaceError(w http.ResponseWriter, routerID, portID, subnetID
 		writeError(w, http.StatusNotFound, "RouterInterfaceNotFoundForSubnet",
 			fmt.Sprintf("Router %s has no interface on subnet %s.", routerID, subnetID))
 	case errors.Is(err, app.ErrRouterSubnetAttached), errors.Is(err, app.ErrRouterSubnetOverlap),
-		errors.Is(err, app.ErrRouterPortNoFixedIP):
+		errors.Is(err, app.ErrRouterPortNoFixedIP), errors.Is(err, app.ErrRouterSubnetNoGateway):
 		writeError(w, http.StatusBadRequest, "BadRequest", err.Error())
+	case errors.Is(err, app.ErrPortInvalidIPForSubnet):
+		writePortAddressError(w, err)
 	case errors.Is(err, app.ErrRouterInterfaceSubnetMismatch):
 		writeError(w, http.StatusBadRequest, "SubnetMismatchForPort",
 			fmt.Sprintf("Port %s does not belong to subnet %s.", portID, subnetID))

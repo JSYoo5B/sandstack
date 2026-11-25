@@ -88,6 +88,28 @@ Network reads include the IDs of their subnets. Deleting a subnet removes
 its ID from the network. Deleting a network with no ports also deletes its subnets.
 A sandbox reset clears created subnets.
 
+### Choose an IPv4 subnet gateway
+
+Set `gateway_ip` at creation to choose the subnet gateway. Omitting it
+selects the first usable address. Send JSON `null` to create a subnet
+with no gateway. In Gophercloud v2.15.0, set `subnets.CreateOpts.GatewayIP`
+to a pointer to the address, or leave it nil for the default. A pointer
+to an empty string sends JSON `null`. See the [subnet create reference] and
+[Gophercloud gateway encoding].
+
+An IPv4 gateway within the subnet is excluded from the default allocation
+pools. An interior gateway splits the usable range into two pools. A
+gateway outside the subnet is accepted, and the entire usable range is
+available by default, as it is when there is no gateway. An IPv6 address
+or the subnet's own network or broadcast address returns `400`. A custom
+pool containing the gateway returns `409`. See the [Neutron gateway
+validation], [Neutron gateway pool generation], and [Neutron allocation
+pool gateway check].
+
+SandStack uses this gateway as subnet metadata and to allocate an address
+for a router interface attached by subnet ID. Gateway configuration is
+set at creation and models no packet forwarding.
+
 ### Set IPv4 allocation pools
 
 At subnet creation, send `allocation_pools` with one or more `start`
@@ -386,13 +408,16 @@ is the router's ID, `port_id` identifies the interface port, and
 ### Attach by subnet ID
 
 SandStack creates a port with the subnet's gateway address as its fixed
-IP. A subnet gateway already in use by another router returns `409`. See
-[Neutron interface creation].
+IP. The subnet must have a usable gateway within its CIDR. A missing or
+off-subnet gateway returns `400` for this attachment method. A subnet
+gateway already in use by another router returns `409`. See [Neutron
+interface creation].
 
 ### Attach by port ID
 
 Pass an existing unbound port with one IPv4 fixed IP. The port keeps its
-original ID, fixed IP, and MAC address. A port that is already attached
+original ID, fixed IP, and MAC address. The port's fixed IP is used even
+if the subnet has no usable gateway. A port that is already attached
 returns `409`. A port with no fixed IP returns `400`. See
 [Neutron port validation] and [Neutron attachment by port].
 
@@ -469,6 +494,9 @@ blocked deletions using the [add interface reference] and
 [Neutron delete reference]: https://docs.openstack.org/api-ref/network/v2/#delete-network
 [Gophercloud network options]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/networking/v2/networks/requests.go#L119-L143
 [subnet create reference]: https://docs.openstack.org/api-ref/network/v2/#create-subnet
+[Gophercloud gateway encoding]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/networking/v2/subnets/requests.go#L158-L169
+[Neutron gateway validation]: https://github.com/openstack/neutron/blob/master/neutron/db/db_base_plugin_v2.py#L687-L699
+[Neutron gateway pool generation]: https://github.com/openstack/neutron/blob/master/neutron/ipam/utils.py#L33-L73
 [Neutron allocation pool defaults]: https://github.com/openstack/neutron/blob/master/neutron/ipam/drivers/neutrondb_ipam/driver.py#L56-L77
 [Neutron allocation pool bounds]: https://github.com/openstack/neutron/blob/master/neutron/db/ipam_backend_mixin.py#L270-L329
 [Neutron allocation pool gateway check]: https://github.com/openstack/neutron/blob/master/neutron/db/ipam_backend_mixin.py#L415-L430

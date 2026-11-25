@@ -18,9 +18,11 @@ var (
 )
 
 type SubnetCreate struct {
-	Name            string
-	CIDR            netip.Prefix
-	EnableDHCP      bool
+	Name       string
+	CIDR       netip.Prefix
+	EnableDHCP bool
+	// A nil Gateway selects the default. A pointer to an invalid address omits the gateway.
+	Gateway         *netip.Addr
 	DNSNameservers  []netip.Addr
 	HostRoutes      []domain.SubnetHostRoute
 	AllocationPools []domain.AllocationPool
@@ -45,7 +47,10 @@ func (s *Service) CreateSubnet(projectID, networkID string, options SubnetCreate
 		}
 	}
 
-	gateway := prefix.Addr().Next()
+	gateway, err := subnetGateway(prefix, options.Gateway)
+	if err != nil {
+		return domain.Subnet{}, err
+	}
 	pools, err := subnetAllocationPools(prefix, gateway, options.AllocationPools)
 	if err != nil {
 		return domain.Subnet{}, err

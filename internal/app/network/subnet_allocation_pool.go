@@ -23,7 +23,7 @@ func subnetAllocationPools(
 	first := prefix.Addr().Next()
 	last := lastUsableAddress(prefix)
 	if len(requested) == 0 {
-		return []domain.AllocationPool{{Start: gateway.Next(), End: last}}, nil
+		return defaultAllocationPools(prefix, first, last, gateway), nil
 	}
 	for _, pool := range requested {
 		if !pool.Start.Is4() || !pool.End.Is4() || pool.Start.Compare(pool.End) > 0 {
@@ -41,9 +41,23 @@ func subnetAllocationPools(
 		}
 	}
 	for _, pool := range pools {
-		if gateway.Compare(pool.Start) >= 0 && gateway.Compare(pool.End) <= 0 {
+		if gateway.IsValid() && gateway.Compare(pool.Start) >= 0 && gateway.Compare(pool.End) <= 0 {
 			return nil, ErrSubnetAllocationPoolGateway
 		}
 	}
 	return pools, nil
+}
+
+func defaultAllocationPools(prefix netip.Prefix, first, last, gateway netip.Addr) []domain.AllocationPool {
+	if !prefix.Contains(gateway) {
+		return []domain.AllocationPool{{Start: first, End: last}}
+	}
+	pools := make([]domain.AllocationPool, 0, 2)
+	if gateway.Compare(first) > 0 {
+		pools = append(pools, domain.AllocationPool{Start: first, End: gateway.Prev()})
+	}
+	if gateway.Compare(last) < 0 {
+		pools = append(pools, domain.AllocationPool{Start: gateway.Next(), End: last})
+	}
+	return pools
 }

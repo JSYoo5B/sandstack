@@ -10,6 +10,7 @@ var (
 	ErrRouterSubnetAttached    = errors.New("subnet is already attached to the router")
 	ErrRouterSubnetOverlap     = errors.New("subnet CIDR overlaps a router interface")
 	ErrRouterGatewayInUse      = errors.New("subnet gateway IP is already in use")
+	ErrRouterSubnetNoGateway   = errors.New("the subnet has no gateway IP address")
 	ErrRouterInterfaceNotFound = errors.New("router interface for subnet not found")
 )
 
@@ -19,6 +20,12 @@ func (s *Service) AddRouterInterface(projectID, routerID, subnetID string) (doma
 	subnet, err := s.routerSubnet(projectID, routerID, subnetID)
 	if err != nil {
 		return domain.Port{}, err
+	}
+	if !subnet.Gateway.IsValid() {
+		return domain.Port{}, ErrRouterSubnetNoGateway
+	}
+	if !isUsableIPv4(subnet, subnet.Gateway) {
+		return domain.Port{}, ErrPortInvalidIPForSubnet
 	}
 
 	gatewayInUse := false

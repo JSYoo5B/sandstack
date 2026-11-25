@@ -22,6 +22,7 @@ type createSubnetParams struct {
 	cidr            string
 	ipVersion       int
 	enableDHCP      bool
+	gateway         *netip.Addr
 	dnsNameservers  []netip.Addr
 	hostRoutes      []domain.SubnetHostRoute
 	allocationPools []domain.AllocationPool
@@ -47,6 +48,12 @@ func parseCreateSubnet(data []byte) (createSubnetParams, error) {
 			target = &params.ipVersion
 		case "enable_dhcp":
 			target = &params.enableDHCP
+		case "gateway_ip":
+			params.gateway, err = parseSubnetGateway(value)
+			if err != nil {
+				return createSubnetParams{}, err
+			}
+			continue
 		case "dns_nameservers":
 			params.dnsNameservers, err = parseDNSNameservers(value)
 			if err != nil {
@@ -84,6 +91,22 @@ func parseCreateSubnet(data []byte) (createSubnetParams, error) {
 	}
 	params.networkID = strings.ToLower(params.networkID)
 	return params, nil
+}
+
+func parseSubnetGateway(value json.RawMessage) (*netip.Addr, error) {
+	var text *string
+	if json.Unmarshal(value, &text) != nil {
+		return nil, errInvalidSubnetRequest
+	}
+	var gateway netip.Addr
+	if text == nil {
+		return &gateway, nil
+	}
+	gateway, err := netip.ParseAddr(*text)
+	if err != nil || gateway.Zone() != "" {
+		return nil, app.ErrSubnetGateway
+	}
+	return &gateway, nil
 }
 
 func parseUpdateSubnet(data []byte) (app.SubnetUpdate, error) {

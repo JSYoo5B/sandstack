@@ -19,7 +19,7 @@ type subnetBody struct {
 	ProjectID       string           `json:"project_id"`
 	TenantID        string           `json:"tenant_id"`
 	CIDR            string           `json:"cidr"`
-	GatewayIP       string           `json:"gateway_ip"`
+	GatewayIP       *string          `json:"gateway_ip"`
 	IPVersion       int              `json:"ip_version"`
 	EnableDHCP      bool             `json:"enable_dhcp"`
 	AllocationPools []allocationPool `json:"allocation_pools"`
@@ -42,6 +42,11 @@ type subnetResponse struct {
 }
 
 func describeSubnet(subnet domain.Subnet) subnetBody {
+	var gateway *string
+	if subnet.Gateway.IsValid() {
+		address := subnet.Gateway.String()
+		gateway = &address
+	}
 	nameservers := make([]string, len(subnet.DNSNameservers))
 	for i, address := range subnet.DNSNameservers {
 		nameservers[i] = address.String()
@@ -61,7 +66,7 @@ func describeSubnet(subnet domain.Subnet) subnetBody {
 		ProjectID:       subnet.ProjectID,
 		TenantID:        subnet.ProjectID,
 		CIDR:            subnet.CIDR.String(),
-		GatewayIP:       subnet.Gateway.String(),
+		GatewayIP:       gateway,
 		IPVersion:       4,
 		EnableDHCP:      subnet.EnableDHCP,
 		AllocationPools: pools,
@@ -98,6 +103,7 @@ func (h handler) createSubnet(w http.ResponseWriter, r *http.Request, projectID 
 		Name:            params.name,
 		CIDR:            prefix,
 		EnableDHCP:      params.enableDHCP,
+		Gateway:         params.gateway,
 		DNSNameservers:  params.dnsNameservers,
 		HostRoutes:      params.hostRoutes,
 		AllocationPools: params.allocationPools,
@@ -105,7 +111,7 @@ func (h handler) createSubnet(w http.ResponseWriter, r *http.Request, projectID 
 	switch {
 	case errors.Is(err, app.ErrNetworkNotFound):
 		writeNetworkNotFound(w, params.networkID)
-	case errors.Is(err, app.ErrSubnetCIDR), errors.Is(err, app.ErrSubnetOverlap):
+	case errors.Is(err, app.ErrSubnetCIDR), errors.Is(err, app.ErrSubnetOverlap), errors.Is(err, app.ErrSubnetGateway):
 		writeError(w, http.StatusBadRequest, "InvalidInput", err.Error())
 	case errors.Is(err, app.ErrSubnetAllocationPool):
 		writeError(w, http.StatusBadRequest, "InvalidAllocationPool", err.Error())
@@ -176,7 +182,8 @@ func writeSubnetRequestError(w http.ResponseWriter, err error) {
 	case errors.Is(err, errInvalidNameservers), errors.Is(err, errInvalidHostRoutes),
 		errors.Is(err, errInvalidSubnetPoolRequest):
 		writeError(w, http.StatusBadRequest, "HTTPBadRequest", err.Error())
-	case errors.Is(err, errNameserverIPVersion), errors.Is(err, errHostRouteIPVersion):
+	case errors.Is(err, errNameserverIPVersion), errors.Is(err, errHostRouteIPVersion),
+		errors.Is(err, app.ErrSubnetGateway):
 		writeError(w, http.StatusBadRequest, "InvalidInput", err.Error())
 	case errors.Is(err, errNameserverLimit):
 		writeError(w, http.StatusBadRequest, "DNSNameServersExhausted", err.Error())
