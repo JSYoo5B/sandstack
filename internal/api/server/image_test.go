@@ -82,8 +82,8 @@ func TestImageDetailsWire(t *testing.T) {
 		Schema          string          `json:"schema"`
 		Tags            []string        `json:"tags"`
 		Protected       *bool           `json:"protected"`
-		Checksum        json.RawMessage `json:"checksum"`
-		Size            json.RawMessage `json:"size"`
+		Checksum        string          `json:"checksum"`
+		Size            *int            `json:"size"`
 		Wrapper         json.RawMessage `json:"image"`
 	}
 	require.NoError(t, json.Unmarshal(body, &image))
@@ -102,8 +102,9 @@ func TestImageDetailsWire(t *testing.T) {
 	assert.Equal(t, []string{}, image.Tags)
 	require.NotNil(t, image.Protected)
 	assert.False(t, *image.Protected)
-	assert.Equal(t, "null", string(image.Checksum))
-	assert.Equal(t, "null", string(image.Size))
+	assert.Equal(t, fixtureImageMD5, image.Checksum)
+	require.NotNil(t, image.Size)
+	assert.Equal(t, fixtureImageDataSize, *image.Size)
 	assert.Empty(t, image.Wrapper)
 
 	const missingID = "00000000-0000-0000-0000-000000000000"

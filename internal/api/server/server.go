@@ -61,7 +61,7 @@ func New(config Config) (http.Handler, error) {
 		CreatedAt: created,
 		UpdatedAt: created,
 	}
-	imageService := appimage.New(imageFixture, now)
+	imageService := appimage.New(imageFixture, now, fixtureImageData)
 	networkService := appnetwork.New(network.Network{
 		ID:        "43d92fea-ce36-4d02-aba4-29806839f902",
 		Name:      "fixture-network",

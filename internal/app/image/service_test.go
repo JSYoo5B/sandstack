@@ -21,7 +21,7 @@ func TestDeactivationUpdatesTimestampOnlyOnTransitionAndResetRestoresSeed(t *tes
 		CreatedAt: start.Add(-time.Minute),
 		UpdatedAt: start,
 	}
-	service := app.New(seed, func() time.Time { return clock })
+	service := app.New(seed, func() time.Time { return clock }, "")
 
 	clock = clock.Add(time.Minute)
 	require.NoError(t, service.SetDeactivated(seed.ID, true))
@@ -51,7 +51,7 @@ func TestDeactivationUpdatesTimestampOnlyOnTransitionAndResetRestoresSeed(t *tes
 
 func TestImageIsPrivateToSeededProject(t *testing.T) {
 	seed := domain.Image{ID: "image", ProjectID: "project"}
-	service := app.New(seed, time.Now)
+	service := app.New(seed, time.Now, "")
 
 	_, err := service.Get("another-project", seed.ID)
 	assert.ErrorIs(t, err, app.ErrImageNotFound)

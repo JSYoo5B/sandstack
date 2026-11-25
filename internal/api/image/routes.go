@@ -32,7 +32,26 @@ func Register(
 	h := handler{service: service, projectForToken: projectForToken, endpointURL: endpointURL}
 	router.Get(CatalogPath, h.versions)
 	router.Get(CatalogPath+"/", h.versions)
-	router.Get(Path+"/images/{imageID}", h.showImage)
+	resource := Path + "/images/{imageID}"
+	router.Get(resource, h.withProject(h.showImage))
+	router.Get(resource+"/file", h.withProject(h.downloadImage))
+}
+
+func (h handler) withProject(next func(http.ResponseWriter, *http.Request, string)) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-store")
+		tokens := r.Header.Values("X-Auth-Token")
+		if len(tokens) != 1 || tokens[0] == "" {
+			writeUnauthorized(w)
+			return
+		}
+		projectID, err := h.projectForToken(tokens[0])
+		if err != nil || projectID == "" {
+			writeUnauthorized(w)
+			return
+		}
+		next(w, r, projectID)
+	}
 }
 
 type versionInfo struct {
@@ -61,4 +80,9 @@ func writeJSON(w http.ResponseWriter, code int, body any) {
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(code)
 	_ = json.NewEncoder(w).Encode(body)
+}
+
+func writeUnauthorized(w http.ResponseWriter) {
+	w.Header().Set("WWW-Authenticate", "Keystone")
+	http.Error(w, "A valid authentication token is required.", http.StatusUnauthorized)
 }

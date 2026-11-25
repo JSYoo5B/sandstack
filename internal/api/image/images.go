@@ -39,7 +39,7 @@ func describeImage(image domain.Image) imageBody {
 		status = "deactivated"
 	}
 	self := Path + "/images/" + url.PathEscape(image.ID)
-	return imageBody{
+	body := imageBody{
 		ID:              image.ID,
 		Name:            image.Name,
 		Owner:           image.ProjectID,
@@ -54,20 +54,14 @@ func describeImage(image domain.Image) imageBody {
 		File:            self + "/file",
 		Schema:          Path + "/schemas/image",
 	}
+	if image.Checksum != "" {
+		body.Checksum = &image.Checksum
+		body.Size = &image.Size
+	}
+	return body
 }
 
-func (h handler) showImage(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Cache-Control", "no-store")
-	tokens := r.Header.Values("X-Auth-Token")
-	if len(tokens) != 1 || tokens[0] == "" {
-		writeUnauthorized(w)
-		return
-	}
-	projectID, err := h.projectForToken(tokens[0])
-	if err != nil || projectID == "" {
-		writeUnauthorized(w)
-		return
-	}
+func (h handler) showImage(w http.ResponseWriter, r *http.Request, projectID string) {
 	image, err := h.service.Get(projectID, chi.URLParam(r, "imageID"))
 	if errors.Is(err, app.ErrImageNotFound) {
 		http.Error(w, "Image not found.", http.StatusNotFound)
@@ -78,9 +72,4 @@ func (h handler) showImage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, describeImage(image))
-}
-
-func writeUnauthorized(w http.ResponseWriter) {
-	w.Header().Set("WWW-Authenticate", "Keystone")
-	http.Error(w, "A valid authentication token is required.", http.StatusUnauthorized)
 }

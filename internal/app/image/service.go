@@ -1,6 +1,8 @@
 package image
 
 import (
+	"crypto/md5"
+	"encoding/hex"
 	"errors"
 	"sync"
 	"time"
@@ -8,18 +10,29 @@ import (
 	domain "github.com/JSYoo5B/sandstack/internal/domain/image"
 )
 
-var ErrImageNotFound = errors.New("image not found")
+var (
+	ErrImageNotFound    = errors.New("image not found")
+	ErrImageDeactivated = errors.New("image is deactivated")
+)
 
 type Service struct {
 	mu    sync.RWMutex
 	seed  domain.Image
 	image domain.Image
 	now   func() time.Time
+	data  string
 }
 
 // New starts a service with one private project-owned image and a non-nil clock.
-func New(seed domain.Image, now func() time.Time) *Service {
-	return &Service{seed: seed, image: seed, now: now}
+func New(seed domain.Image, now func() time.Time, data string) *Service {
+	seed.Size = int64(len(data))
+	seed.Checksum = ""
+	if data != "" {
+		// Glance v2.0 uses MD5 for its legacy checksum field.
+		digest := md5.Sum([]byte(data))
+		seed.Checksum = hex.EncodeToString(digest[:])
+	}
+	return &Service{seed: seed, image: seed, now: now, data: data}
 }
 
 func (s *Service) Get(projectID, imageID string) (domain.Image, error) {
@@ -30,6 +43,19 @@ func (s *Service) Get(projectID, imageID string) (domain.Image, error) {
 		return domain.Image{}, ErrImageNotFound
 	}
 	return s.image, nil
+}
+
+func (s *Service) Download(projectID, imageID string) (data string, checksum string, err error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	if projectID != s.image.ProjectID || imageID != s.image.ID {
+		return "", "", ErrImageNotFound
+	}
+	if s.image.Deactivated {
+		return "", "", ErrImageDeactivated
+	}
+	return s.data, s.image.Checksum, nil
 }
 
 // SetDeactivated changes the timestamp only when the state changes.
