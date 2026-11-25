@@ -3,6 +3,7 @@ package volume
 import (
 	"errors"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -120,17 +121,36 @@ func optionalTimestamp(value time.Time) *string {
 }
 
 func (h handler) listVolumes(w http.ResponseWriter, r *http.Request, projectID string) {
-	filter, err := parseVolumeListQuery(r.URL.RawQuery)
+	query, err := url.ParseQuery(r.URL.RawQuery)
+	if err != nil {
+		writeFault(w, http.StatusBadRequest, "badRequest", "The volume list query is malformed.")
+		return
+	}
+	options, err := parseVolumeListQuery(query)
 	if err != nil {
 		writeFault(w, http.StatusBadRequest, "badRequest", err.Error())
 		return
 	}
-	volumes := h.service.List(projectID, filter)
+	page, err := h.service.ListPage(projectID, options.filter, options.marker, options.limit)
+	if errors.Is(err, app.ErrVolumeNotFound) {
+		writeFault(w, http.StatusNotFound, "itemNotFound", "The marker volume could not be found.")
+		return
+	}
+	if err != nil {
+		writeFault(w, http.StatusInternalServerError, "computeFault", "Unable to list volumes.")
+		return
+	}
 	response := struct {
 		Volumes []volumeBody `json:"volumes"`
-	}{Volumes: make([]volumeBody, len(volumes))}
-	for i, volume := range volumes {
+		Links   []volumeLink `json:"volumes_links,omitempty"`
+	}{Volumes: make([]volumeBody, len(page.Volumes))}
+	for i, volume := range page.Volumes {
 		response.Volumes[i] = h.describeVolume(r, volume)
+	}
+	if page.NextMarker != "" {
+		query.Set("marker", page.NextMarker)
+		href := h.endpointURL(r, Path+"/"+projectID+"/volumes/detail") + "?" + query.Encode()
+		response.Links = []volumeLink{{Rel: "next", Href: href}}
 	}
 	writeJSON(w, http.StatusOK, response)
 }

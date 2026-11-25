@@ -93,7 +93,7 @@ func TestVolumeWire(t *testing.T) {
 	assert.Equal(t, http.StatusUnauthorized, status, "%s", body)
 	status, _, body = request(t, instance, http.MethodGet, volumePath+"/"+missingID+"/volumes/detail", "", auth)
 	assert.Equal(t, http.StatusBadRequest, status, "%s", body)
-	status, _, body = request(t, instance, http.MethodGet, collection+"/detail?limit=1", "", auth)
+	status, _, body = request(t, instance, http.MethodGet, collection+"/detail?limit=-1", "", auth)
 	assert.Equal(t, http.StatusBadRequest, status, "%s", body)
 	status, _, body = request(t, instance, http.MethodGet, detail, "", map[string]string{
 		"X-Auth-Token":          provider.Token(),

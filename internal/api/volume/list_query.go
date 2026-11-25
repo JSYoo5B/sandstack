@@ -3,30 +3,48 @@ package volume
 import (
 	"errors"
 	"net/url"
+	"strconv"
+	"strings"
 
 	app "github.com/JSYoo5B/sandstack/internal/app/volume"
 	domain "github.com/JSYoo5B/sandstack/internal/domain/volume"
 )
 
-func parseVolumeListQuery(rawQuery string) (app.ListFilter, error) {
-	query, err := url.ParseQuery(rawQuery)
-	if err != nil {
-		return app.ListFilter{}, errors.New("the volume list query is malformed")
-	}
-	var filter app.ListFilter
+const maxVolumePageLimit = 1000
+
+type volumeListOptions struct {
+	filter app.ListFilter
+	marker *string
+	limit  int
+}
+
+func parseVolumeListQuery(query url.Values) (volumeListOptions, error) {
+	options := volumeListOptions{limit: maxVolumePageLimit}
 	for field, values := range query {
 		if len(values) != 1 {
-			return app.ListFilter{}, errors.New("volume list filters accept one value per parameter")
+			return volumeListOptions{}, errors.New("volume list parameters accept one value each")
 		}
 		switch field {
 		case "name":
-			filter.Name = &values[0]
+			options.filter.Name = &values[0]
 		case "status":
 			status := domain.State(values[0])
-			filter.Status = &status
+			options.filter.Status = &status
+		case "marker":
+			options.marker = &values[0]
+		case "limit":
+			limit, err := strconv.Atoi(strings.TrimSpace(values[0]))
+			if err != nil || limit < 0 {
+				return volumeListOptions{}, errors.New("the volume list limit must be a nonnegative integer")
+			}
+			options.limit = min(limit, maxVolumePageLimit)
+		case "sort":
+			if values[0] != "id:asc" {
+				return volumeListOptions{}, errors.New("the volume list supports only sort=id:asc")
+			}
 		default:
-			return app.ListFilter{}, errors.New("volume lists accept only name and status query parameters")
+			return volumeListOptions{}, errors.New("the volume list query contains an unsupported parameter")
 		}
 	}
-	return filter, nil
+	return options, nil
 }

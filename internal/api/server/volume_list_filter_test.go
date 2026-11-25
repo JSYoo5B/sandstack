@@ -154,7 +154,7 @@ func TestDetailedVolumeFiltersWire(t *testing.T) {
 		"name=fixture-volume&name=another",
 		"status=available&status=creating",
 		"name=%zz",
-		"limit=1",
+		"offset=1",
 	} {
 		status, headers, body := request(t, instance, http.MethodGet, detailList+"?"+invalid, "", auth)
 		require.Equal(t, http.StatusBadRequest, status, "%s: %s", invalid, body)
