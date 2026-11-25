@@ -25,6 +25,20 @@ zero swap as an empty string, which Gophercloud decodes as zero. Unknown
 flavors return `404`. See the [Nova flavor reference], [Nova flavor
 response], and [Gophercloud flavor lookup].
 
+### Select a flavor by minimum capacity
+
+Use `flavors.ListDetail` with `flavors.ListOpts{MinRAM: 512, MinDisk: 1}`
+to select flavors through `GET /flavors/detail`. RAM is measured in MiB
+and disk in GiB. Each supplied minimum is inclusive. A flavor must meet
+both when they are supplied together. The list uses the same fields as
+the detail response. When the fixture falls below a minimum, the response
+is `200` with an empty `flavors` array.
+
+SandStack accepts one `minRam` and one `minDisk` integer query value.
+Other query keys, repeated keys, and malformed values return `400`.
+The single-fixture list returns at most one row in one page. See the
+[Nova detailed flavor list] and [Gophercloud flavor list options].
+
 ## Filter the detailed server list
 
 The detailed list supports a single `status` filter. Use `?status=ACTIVE`,
@@ -178,6 +192,8 @@ The raw HTTP checks follow the [Compute list reference] and
 [Nova flavor reference]: https://docs.openstack.org/api-ref/compute/#show-flavor-details
 [Nova flavor response]: https://github.com/openstack/nova/blob/master/nova/api/openstack/compute/views/flavors.py#L39-L68
 [Gophercloud flavor lookup]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/compute/v2/flavors/requests.go#L191-L197
+[Nova detailed flavor list]: https://docs.openstack.org/api-ref/compute/#list-flavors-with-details
+[Gophercloud flavor list options]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/compute/v2/flavors/requests.go#L43-L94
 [Nova stop reference]: https://docs.openstack.org/api-ref/compute/#stop-server-os-stop-action
 [Nova start reference]: https://docs.openstack.org/api-ref/compute/#start-server-os-start-action
 [Nova update reference]: https://docs.openstack.org/api-ref/compute/#update-server

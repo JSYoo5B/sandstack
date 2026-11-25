@@ -3,10 +3,13 @@ package compute
 import (
 	"errors"
 	"net/http"
+	"net/url"
+	"strconv"
 
 	"github.com/go-chi/chi/v5"
 
 	appcompute "github.com/JSYoo5B/sandstack/internal/app/compute"
+	domaincompute "github.com/JSYoo5B/sandstack/internal/domain/compute"
 )
 
 type flavorBody struct {
@@ -33,16 +36,57 @@ func (h handler) showFlavor(w http.ResponseWriter, r *http.Request, scope reques
 		writeFault(w, http.StatusInternalServerError, "computeFault", "Unable to read the flavor.")
 		return
 	}
+	writeJSON(w, http.StatusOK, struct {
+		Flavor flavorBody `json:"flavor"`
+	}{Flavor: h.describeFlavor(r, flavor, scope.pathProject)})
+}
+
+func (h handler) listFlavorsDetailed(w http.ResponseWriter, r *http.Request, scope requestScope) {
+	query, err := url.ParseQuery(r.URL.RawQuery)
+	if err != nil {
+		writeFault(w, http.StatusBadRequest, "badRequest", "The flavor list query is malformed.")
+		return
+	}
+
+	var minRAM, minDisk int
+	for parameter, values := range query {
+		if len(values) != 1 || (parameter != "minRam" && parameter != "minDisk") {
+			writeFault(w, http.StatusBadRequest, "badRequest", "Only one minRam and one minDisk query parameter are supported.")
+			return
+		}
+		value, err := strconv.Atoi(values[0])
+		if err != nil {
+			writeFault(w, http.StatusBadRequest, "badRequest", "Flavor minimums must be integers.")
+			return
+		}
+		if parameter == "minRam" {
+			minRAM = value
+		} else {
+			minDisk = value
+		}
+	}
+
+	results := h.service.ListFlavors(scope.projectID, minRAM, minDisk)
+	flavors := make([]flavorBody, len(results))
+	for index, flavor := range results {
+		flavors[index] = h.describeFlavor(r, flavor, scope.pathProject)
+	}
+	writeJSON(w, http.StatusOK, struct {
+		Flavors []flavorBody `json:"flavors"`
+	}{Flavors: flavors})
+}
+
+func (h handler) describeFlavor(r *http.Request, flavor domaincompute.Flavor, pathProject string) flavorBody {
 	projectPath := ""
-	if scope.pathProject != "" {
-		projectPath = "/" + scope.pathProject
+	if pathProject != "" {
+		projectPath = "/" + pathProject
 	}
 	resourcePath := projectPath + "/flavors/" + flavor.ID
 	var swap any = flavor.SwapMiB
 	if flavor.SwapMiB == 0 {
 		swap = ""
 	}
-	body := flavorBody{
+	return flavorBody{
 		ID:         flavor.ID,
 		Name:       flavor.Name,
 		RAM:        flavor.RAMMiB,
@@ -58,7 +102,4 @@ func (h handler) showFlavor(w http.ResponseWriter, r *http.Request, scope reques
 			{Rel: "bookmark", Href: h.endpointURL(r, computeRoot+resourcePath)},
 		},
 	}
-	writeJSON(w, http.StatusOK, struct {
-		Flavor flavorBody `json:"flavor"`
-	}{Flavor: body})
 }
