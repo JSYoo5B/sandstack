@@ -45,6 +45,23 @@ func (s *Service) Get(projectID, imageID string) (domain.Image, error) {
 	return s.image, nil
 }
 
+type ListFilter struct {
+	Name   *string
+	Status *string
+}
+
+func (s *Service) List(projectID string, filter ListFilter) []domain.Image {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	if projectID != s.image.ProjectID ||
+		(filter.Name != nil && *filter.Name != s.image.Name) ||
+		(filter.Status != nil && *filter.Status != s.image.Status()) {
+		return []domain.Image{}
+	}
+	return []domain.Image{s.image}
+}
+
 func (s *Service) Download(projectID, imageID string) (data string, checksum string, err error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()

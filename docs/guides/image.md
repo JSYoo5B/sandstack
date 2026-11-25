@@ -10,6 +10,23 @@ Authenticate with the [Identity fixture](identity.md), read the
 The unversioned `/image/` URL returns the v2 discovery document. Use
 `GET /image/v2/images/{image_id}` with `X-Auth-Token` for metadata.
 
+## List and filter images
+
+Use `GET /image/v2/images` with the fixture project's token to list its
+image. In Gophercloud v2.15.0, call `images.List` with `images.ListOpts`.
+Set `Name`, `Status`, or both for exact matching. Both fields must match
+when supplied together. Use a bare value or the `eq:` prefix. For example,
+`?name=fixture-image&status=eq:active` selects the fixture while it is
+active. The list reflects status changes immediately after deactivation or
+reactivation. See the [Glance list reference], [Glance image list filters],
+and [Gophercloud image list options].
+
+The response includes `images`, a `first` link that preserves the filters,
+and a `schema` link. A query with no matches returns `images: []`. The
+single-image fixture returns one page. SandStack accepts one value each
+for `name` and `status`. Repeated values, other query keys, and operators
+other than `eq:` return `400`. See the [Glance image list serializer].
+
 ## Download the fixture image
 
 Use Gophercloud's `imagedata.Download(ctx, client, imageID).Extract()` to
@@ -90,9 +107,15 @@ download denial while deactivated. Range tests check the exact bytes and
 headers of a partial response and the rejection statuses. See the
 [Glance discovery reference], [Glance image reference], and
 [Glance download reference].
+The list tests exercise exact filters and the live activation state
+through Gophercloud and check the HTTP response shape and query errors.
 
 [Glance discovery reference]: https://docs.openstack.org/api-ref/image/versions/index.html
 [Glance image reference]: https://docs.openstack.org/api-ref/image/v2/#show-image
+[Glance list reference]: https://docs.openstack.org/api-ref/image/v2/#list-images
+[Glance image list serializer]: https://github.com/openstack/glance/blob/master/glance/api/v2/images.py#L1697-L1713
+[Glance image list filters]: https://github.com/openstack/glance/blob/master/glance/db/sqlalchemy/api.py#L508-L524
+[Gophercloud image list options]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/image/v2/images/requests.go#L25-L59
 [Glance download reference]: https://docs.openstack.org/api-ref/image/v2/#download-binary-image-data
 [Glance download policy]: https://github.com/openstack/glance/blob/master/glance/api/v2/image_data.py#L442-L459
 [Glance range parser]: https://github.com/openstack/glance/blob/master/glance/common/wsgi.py#L292-L314

@@ -12,3 +12,10 @@ type Image struct {
 	UpdatedAt   time.Time
 	Deactivated bool
 }
+
+func (i Image) Status() string {
+	if i.Deactivated {
+		return "deactivated"
+	}
+	return "active"
+}

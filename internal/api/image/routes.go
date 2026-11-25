@@ -32,6 +32,7 @@ func Register(
 	h := handler{service: service, projectForToken: projectForToken, endpointURL: endpointURL}
 	router.Get(CatalogPath, h.versions)
 	router.Get(CatalogPath+"/", h.versions)
+	router.Get(Path+"/images", h.withProject(h.listImages))
 	resource := Path + "/images/{imageID}"
 	router.Get(resource, h.withProject(h.showImage))
 	router.Get(resource+"/file", h.withProject(h.downloadImage))

@@ -55,6 +55,8 @@ func TestImageIsPrivateToSeededProject(t *testing.T) {
 
 	_, err := service.Get("another-project", seed.ID)
 	assert.ErrorIs(t, err, app.ErrImageNotFound)
+	assert.Empty(t, service.List("another-project", app.ListFilter{}))
+	assert.Equal(t, []domain.Image{seed}, service.List(seed.ProjectID, app.ListFilter{}))
 	_, err = service.Get(seed.ProjectID, "another-image")
 	assert.ErrorIs(t, err, app.ErrImageNotFound)
 	assert.ErrorIs(t, service.SetDeactivated("another-image", true), app.ErrImageNotFound)

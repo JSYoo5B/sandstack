@@ -34,16 +34,12 @@ type imageBody struct {
 }
 
 func describeImage(image domain.Image) imageBody {
-	status := "active"
-	if image.Deactivated {
-		status = "deactivated"
-	}
 	self := Path + "/images/" + url.PathEscape(image.ID)
 	body := imageBody{
 		ID:              image.ID,
 		Name:            image.Name,
 		Owner:           image.ProjectID,
-		Status:          status,
+		Status:          image.Status(),
 		Visibility:      "private",
 		CreatedAt:       image.CreatedAt,
 		UpdatedAt:       image.UpdatedAt,
