@@ -10,6 +10,7 @@ import (
 
 	appcompute "github.com/JSYoo5B/sandstack/internal/app/compute"
 	appidentity "github.com/JSYoo5B/sandstack/internal/app/identity"
+	appimage "github.com/JSYoo5B/sandstack/internal/app/image"
 	appnetwork "github.com/JSYoo5B/sandstack/internal/app/network"
 	"github.com/JSYoo5B/sandstack/internal/app/sandbox"
 )
@@ -60,6 +61,10 @@ func registerComputeControls(router chi.Router, service *appcompute.Service) {
 
 func registerNetworkControls(router chi.Router, service *appnetwork.Service) {
 	registerFixtureControl(router, "/network/networks/{resourceID}/fault", "Network not found", service.SetDown)
+}
+
+func registerImageControls(router chi.Router, service *appimage.Service) {
+	registerFixtureControl(router, "/image/images/{resourceID}/deactivated", "Image not found", service.SetDeactivated)
 }
 
 func registerFixtureControl(router chi.Router, path, notFound string, set func(string, bool) error) {

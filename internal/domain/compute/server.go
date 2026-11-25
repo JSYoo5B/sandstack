@@ -14,6 +14,7 @@ type Server struct {
 	Name      string
 	ProjectID string
 	UserID    string
+	ImageID   string
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	Fault     *Fault

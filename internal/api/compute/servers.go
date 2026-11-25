@@ -14,7 +14,6 @@ import (
 
 const (
 	computeRoot   = "/compute"
-	fixtureImage  = "962a0750-d2e0-4400-88e0-a9ad35758eac"
 	fixtureFlavor = "1"
 	powerRunning  = 1
 	powerCrashed  = 6
@@ -102,9 +101,9 @@ func (h handler) serverBody(r *http.Request, server domaincompute.Server, pathPr
 			}},
 		},
 		Image: resourceRef{
-			ID: fixtureImage,
+			ID: server.ImageID,
 			Links: []resourceLink{{
-				Rel: "bookmark", Href: h.endpointURL(r, bookmark+"/images/"+fixtureImage),
+				Rel: "bookmark", Href: h.endpointURL(r, bookmark+"/images/"+server.ImageID),
 			}},
 		},
 		Metadata:  map[string]string{},

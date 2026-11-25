@@ -306,6 +306,7 @@ func assertCatalog(t *testing.T, entries []catalogService, origin, projectID str
 		"identity": origin + identityPath,
 		"compute":  origin + computePath + "/" + projectID,
 		"network":  origin + networkPath,
+		"image":    origin + imagePath,
 	}
 	require.Len(t, entries, len(expectedEndpoints))
 	for _, entry := range entries {

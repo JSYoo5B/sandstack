@@ -11,13 +11,16 @@ import (
 
 	apicompute "github.com/JSYoo5B/sandstack/internal/api/compute"
 	apiidentity "github.com/JSYoo5B/sandstack/internal/api/identity"
+	apiimage "github.com/JSYoo5B/sandstack/internal/api/image"
 	apinetwork "github.com/JSYoo5B/sandstack/internal/api/network"
 	appcompute "github.com/JSYoo5B/sandstack/internal/app/compute"
 	appidentity "github.com/JSYoo5B/sandstack/internal/app/identity"
+	appimage "github.com/JSYoo5B/sandstack/internal/app/image"
 	appnetwork "github.com/JSYoo5B/sandstack/internal/app/network"
 	"github.com/JSYoo5B/sandstack/internal/app/sandbox"
 	"github.com/JSYoo5B/sandstack/internal/domain/compute"
 	"github.com/JSYoo5B/sandstack/internal/domain/identity"
+	"github.com/JSYoo5B/sandstack/internal/domain/image"
 	"github.com/JSYoo5B/sandstack/internal/domain/network"
 	memoryidentity "github.com/JSYoo5B/sandstack/internal/store/memory/identity"
 )
@@ -47,11 +50,20 @@ func New(config Config) (http.Handler, error) {
 		fixture, config.Password, time.Hour, now, randomID, memoryidentity.New(),
 	)
 	created := now().UTC()
+	imageFixture := image.Image{
+		ID:        "962a0750-d2e0-4400-88e0-a9ad35758eac",
+		Name:      "fixture-image",
+		ProjectID: fixture.Project.ID,
+		CreatedAt: created,
+		UpdatedAt: created,
+	}
+	imageService := appimage.New(imageFixture, now)
 	computeService := appcompute.New(compute.Server{
 		ID:        "d8ba25c2-8224-4e09-88ef-fab16c654770",
 		Name:      "fixture-server",
 		ProjectID: fixture.Project.ID,
 		UserID:    fixture.User.ID,
+		ImageID:   imageFixture.ID,
 		CreatedAt: created,
 		UpdatedAt: created,
 	}, now)
@@ -60,7 +72,9 @@ func New(config Config) (http.Handler, error) {
 		Name:      "fixture-network",
 		ProjectID: fixture.Project.ID,
 	})
-	state := sandbox.NewState(identityService.InvalidateTokens, computeService.Reset, networkService.Reset)
+	state := sandbox.NewState(
+		identityService.InvalidateTokens, computeService.Reset, networkService.Reset, imageService.Reset,
+	)
 
 	router := chi.NewRouter()
 	services := router.With(guardSandboxState(state))
@@ -79,13 +93,21 @@ func New(config Config) (http.Handler, error) {
 		Type:       "network",
 		Name:       "neutron",
 		Path:       apinetwork.CatalogPath,
+	}, apiidentity.CatalogEntry{
+		ServiceID:  "fa5eee918aad4975b49e8ffa7010629f",
+		EndpointID: "a2fbad23b2084836bff2ecf5f6ca4ed2",
+		Type:       "image",
+		Name:       "glance",
+		Path:       apiimage.CatalogPath,
 	})
 	apicompute.Register(services, computeService, identityService.ProjectForToken, endpointURL)
 	apinetwork.Register(services, networkService, identityService.ProjectForToken, endpointURL)
+	apiimage.Register(services, imageService, identityService.ProjectForToken, endpointURL)
 	registerControlRoutes(router, state, config.AdminToken,
 		func(r chi.Router) { registerIdentityControls(r, identityService) },
 		func(r chi.Router) { registerComputeControls(r, computeService) },
 		func(r chi.Router) { registerNetworkControls(r, networkService) },
+		func(r chi.Router) { registerImageControls(r, imageService) },
 	)
 	return router, nil
 }

@@ -2,8 +2,8 @@
 
 Reset returns a running sandbox to its starting fixture state so the next
 test case can use the same endpoint. It invalidates all issued Identity
-tokens, restores the original Compute timestamps, and clears the instance
-fault, stale detail snapshot, and Neutron network outage.
+tokens, restores the original fixture values and timestamps, and clears
+service faults and stale detail snapshots.
 
 ```sh
 curl --fail -X POST -H "X-SandStack-Admin-Token: ${SANDSTACK_ADMIN_TOKEN}" \

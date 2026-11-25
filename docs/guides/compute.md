@@ -11,7 +11,8 @@ In Gophercloud, `NewComputeV2` selects the endpoint and `servers.List` and
 The catalog uses `/compute/v2.1/{project_id}`. The project-qualified and
 projectless URLs accept an `X-Auth-Token` from the fixture project. The
 responses use baseline Nova v2.1 fields for server identity, ownership,
-timestamps, and state. Image and flavor references are fixture values.
+timestamps, and state. The image ID refers to the [Glance fixture](image.md).
+The flavor reference is a fixture value.
 
 The detailed list supports a single `status` filter. Use `?status=ACTIVE`
 or `?status=ERROR` to select a state. Values match without regard to case.
