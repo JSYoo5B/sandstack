@@ -29,6 +29,33 @@ func (s *Service) portSubnet(network domain.Network, requested *string) (domain.
 	return subnet, nil
 }
 
+func (s *Service) portFixedIPSubnet(
+	network domain.Network, requested *string, address netip.Addr,
+) (domain.Subnet, error) {
+	if requested != nil {
+		subnet, err := s.portSubnet(network, requested)
+		if err != nil || subnet.ID == "" {
+			return domain.Subnet{}, ErrPortInvalidSubnet
+		}
+		if !isUsableIPv4(subnet, address) {
+			return domain.Subnet{}, ErrPortInvalidIPForSubnet
+		}
+		return subnet, nil
+	}
+	for _, id := range network.SubnetIDs {
+		subnet := s.subnets[id]
+		if isUsableIPv4(subnet, address) {
+			return subnet, nil
+		}
+	}
+	return domain.Subnet{}, ErrPortInvalidIPForNetwork
+}
+
+func isUsableIPv4(subnet domain.Subnet, address netip.Addr) bool {
+	return address.Is4() && address.Compare(subnet.CIDR.Addr().Next()) >= 0 &&
+		address.Compare(lastUsableAddress(subnet.CIDR)) <= 0
+}
+
 func firstFreeAddress(subnet domain.Subnet, used map[netip.Addr]bool) (netip.Addr, error) {
 	if subnet.ID == "" {
 		return netip.Addr{}, nil

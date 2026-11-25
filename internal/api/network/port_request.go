@@ -3,17 +3,19 @@ package network
 import (
 	"encoding/json"
 	"errors"
+	"net/netip"
 	"strings"
 )
 
 var errInvalidPortRequest = errors.New("expected one port object with valid fields")
-var errInvalidFixedIPs = errors.New("fixed_ips must be empty or contain one subnet UUID")
+var errInvalidFixedIPs = errors.New("fixed_ips must be empty or contain one subnet UUID, IPv4 address, or both")
 
 type createPortParams struct {
 	networkID    string
 	name         string
 	adminStateUp bool
 	subnetID     *string
+	fixedIP      netip.Addr
 	requestOwnership
 }
 
@@ -52,29 +54,51 @@ func parseCreatePort(data []byte) (createPortParams, error) {
 		return createPortParams{}, errors.New("port name must be printable and contain at most 255 characters")
 	}
 	params.networkID = strings.ToLower(params.networkID)
-	params.subnetID, err = parsePortSubnet(fields["fixed_ips"])
+	params.subnetID, params.fixedIP, err = parsePortFixedIP(fields["fixed_ips"])
 	if err != nil {
 		return createPortParams{}, err
 	}
 	return params, nil
 }
 
-func parsePortSubnet(value json.RawMessage) (*string, error) {
+func parsePortFixedIP(value json.RawMessage) (*string, netip.Addr, error) {
 	if value == nil {
-		return nil, nil
+		return nil, netip.Addr{}, nil
 	}
 	var requested []json.RawMessage
 	if !decodeCreateField(value, &requested) || len(requested) > 1 {
-		return nil, errInvalidFixedIPs
+		return nil, netip.Addr{}, errInvalidFixedIPs
 	}
-	var subnetID string
-	if len(requested) == 1 {
-		fields, err := readUniqueObject(requested[0])
-		if err != nil || len(fields) != 1 || !decodeCreateField(fields["subnet_id"], &subnetID) ||
-			!resourceUUIDPattern.MatchString(subnetID) {
-			return nil, errInvalidFixedIPs
+	if len(requested) == 0 {
+		noSubnet := ""
+		return &noSubnet, netip.Addr{}, nil
+	}
+	fields, err := readUniqueObject(requested[0])
+	if err != nil || len(fields) == 0 {
+		return nil, netip.Addr{}, errInvalidFixedIPs
+	}
+	var subnetID *string
+	var fixedIP netip.Addr
+	for field, value := range fields {
+		var text string
+		if !decodeCreateField(value, &text) {
+			return nil, netip.Addr{}, errInvalidFixedIPs
 		}
-		subnetID = strings.ToLower(subnetID)
+		switch field {
+		case "subnet_id":
+			if !resourceUUIDPattern.MatchString(text) {
+				return nil, netip.Addr{}, errInvalidFixedIPs
+			}
+			id := strings.ToLower(text)
+			subnetID = &id
+		case "ip_address":
+			fixedIP, err = netip.ParseAddr(text)
+			if err != nil || !fixedIP.Is4() {
+				return nil, netip.Addr{}, errInvalidFixedIPs
+			}
+		default:
+			return nil, netip.Addr{}, errInvalidFixedIPs
+		}
 	}
-	return &subnetID, nil
+	return subnetID, fixedIP, nil
 }

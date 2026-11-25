@@ -10,17 +10,38 @@ import (
 )
 
 var (
-	ErrPortNotFound       = errors.New("port not found")
-	ErrPortSubnetRequired = errors.New("port requires a subnet selection on a network with multiple subnets")
-	ErrPortInvalidSubnet  = errors.New("port subnet does not belong to the network")
-	ErrPortIPExhausted    = errors.New("port subnet allocation pool is exhausted")
-	ErrServicePortInUse   = errors.New("port is managed by a network service")
+	ErrPortNotFound            = errors.New("port not found")
+	ErrPortSubnetRequired      = errors.New("port requires a subnet selection on a network with multiple subnets")
+	ErrPortInvalidSubnet       = errors.New("port subnet does not belong to the network")
+	ErrPortIPExhausted         = errors.New("port subnet allocation pool is exhausted")
+	ErrServicePortInUse        = errors.New("port is managed by a network service")
+	ErrPortInvalidIPForNetwork = errors.New("port address is not usable on a subnet of the network")
+	ErrPortInvalidIPForSubnet  = errors.New("port address is not usable on the specified subnet")
+	ErrPortIPAlreadyAllocated  = errors.New("port address is already allocated on the subnet")
 )
 
 func (s *Service) CreatePort(
 	projectID, networkID, name string,
 	adminDown bool,
 	subnetID *string,
+) (domain.Port, error) {
+	return s.createRequestedPort(projectID, networkID, name, adminDown, subnetID, nil)
+}
+
+func (s *Service) CreatePortWithFixedIP(
+	projectID, networkID, name string,
+	adminDown bool,
+	subnetID *string,
+	address netip.Addr,
+) (domain.Port, error) {
+	return s.createRequestedPort(projectID, networkID, name, adminDown, subnetID, &address)
+}
+
+func (s *Service) createRequestedPort(
+	projectID, networkID, name string,
+	adminDown bool,
+	subnetID *string,
+	address *netip.Addr,
 ) (domain.Port, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -29,7 +50,13 @@ func (s *Service) CreatePort(
 	if !ok || network.ProjectID != projectID {
 		return domain.Port{}, ErrNetworkNotFound
 	}
-	subnet, err := s.portSubnet(network, subnetID)
+	var subnet domain.Subnet
+	var err error
+	if address == nil {
+		subnet, err = s.portSubnet(network, subnetID)
+	} else {
+		subnet, err = s.portFixedIPSubnet(network, subnetID, *address)
+	}
 	if err != nil {
 		return domain.Port{}, err
 	}
@@ -44,9 +71,17 @@ func (s *Service) CreatePort(
 			usedIPs[port.FixedIP] = true
 		}
 	}
-	fixedIP, err := firstFreeAddress(subnet, usedIPs)
-	if err != nil {
-		return domain.Port{}, err
+	var fixedIP netip.Addr
+	if address == nil {
+		fixedIP, err = firstFreeAddress(subnet, usedIPs)
+		if err != nil {
+			return domain.Port{}, err
+		}
+	} else {
+		fixedIP = *address
+		if usedIPs[fixedIP] {
+			return domain.Port{}, ErrPortIPAlreadyAllocated
+		}
 	}
 	return s.createPort(domain.Port{
 		NetworkID: networkID,

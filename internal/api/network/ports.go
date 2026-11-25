@@ -69,7 +69,14 @@ func (h handler) createPort(w http.ResponseWriter, r *http.Request, projectID st
 		return
 	}
 
-	port, err := h.service.CreatePort(projectID, params.networkID, params.name, !params.adminStateUp, params.subnetID)
+	var port domain.Port
+	if params.fixedIP.IsValid() {
+		port, err = h.service.CreatePortWithFixedIP(
+			projectID, params.networkID, params.name, !params.adminStateUp, params.subnetID, params.fixedIP,
+		)
+	} else {
+		port, err = h.service.CreatePort(projectID, params.networkID, params.name, !params.adminStateUp, params.subnetID)
+	}
 	switch {
 	case errors.Is(err, app.ErrNetworkNotFound):
 		writeNetworkNotFound(w, params.networkID)
@@ -77,6 +84,12 @@ func (h handler) createPort(w http.ResponseWriter, r *http.Request, projectID st
 		writeError(w, http.StatusBadRequest, "InvalidInput", err.Error())
 	case errors.Is(err, app.ErrPortIPExhausted):
 		writeError(w, http.StatusConflict, "IpAddressGenerationFailure", "The subnet has no available addresses.")
+	case errors.Is(err, app.ErrPortInvalidIPForNetwork):
+		writeError(w, http.StatusBadRequest, "InvalidIpForNetwork", err.Error())
+	case errors.Is(err, app.ErrPortInvalidIPForSubnet):
+		writeError(w, http.StatusBadRequest, "InvalidIpForSubnet", err.Error())
+	case errors.Is(err, app.ErrPortIPAlreadyAllocated):
+		writeError(w, http.StatusConflict, "IpAddressAlreadyAllocated", err.Error())
 	case err != nil:
 		writeError(w, http.StatusInternalServerError, "HTTPInternalServerError", "Unable to create the port.")
 	default:

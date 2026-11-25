@@ -88,9 +88,34 @@ the port. The corresponding Gophercloud operations are `ports.Create`,
 `ports.List`, `ports.Get`, and `ports.Delete`. Use `NetworkID`, `DeviceID`,
 and `DeviceOwner` in `ports.ListOpts`.
 
-Deleting an unbound port returns its IP to the pool. Network deletion returns
+Deleting an unbound port releases its IP. Network deletion returns
 `409` while ports remain on it. Subnet deletion returns `409` while a port
 holds an IP from it. Reset clears ports and their allocations.
+
+### Request a specific IPv4 address
+
+Send one `fixed_ips` entry with `ip_address` to request that address. You
+can also include `subnet_id` to select a subnet on the project's network.
+If you omit it, SandStack selects the subnet on that network that contains
+the address. A network address, broadcast address, or address outside the
+selected subnet receives `400`. An already allocated address receives
+`409`. See the [port create reference] and [Neutron IP allocation validation].
+
+For a subnet containing `192.0.2.10`, use `ports.Create` with
+`ports.CreateOpts.FixedIPs` in Gophercloud.
+
+```go
+port, err := ports.Create(ctx, client, ports.CreateOpts{
+    NetworkID: networkID,
+    FixedIPs:  []ports.IP{{SubnetID: subnetID, IPAddress: "192.0.2.10"}},
+}).Extract()
+```
+
+Leave `SubnetID` out of the entry to select the subnet by address. To claim
+an unused subnet gateway, request that address explicitly. Automatic
+allocation skips the gateway. A router interface and a port requesting the
+same gateway conflict with `409`. Deleting an unbound port releases its
+address so it can be requested again.
 
 ## Manage a router
 
@@ -264,6 +289,7 @@ blocked deletions using the [add interface reference] and
 [subnet create reference]: https://docs.openstack.org/api-ref/network/v2/#create-subnet
 [port create reference]: https://docs.openstack.org/api-ref/network/v2/#create-port
 [port list reference]: https://docs.openstack.org/api-ref/network/v2/#list-ports
+[Neutron IP allocation validation]: https://github.com/openstack/neutron/blob/master/neutron/ipam/drivers/neutrondb_ipam/driver.py#L125-L141
 [router create reference]: https://docs.openstack.org/api-ref/network/v2/#create-router
 [router list reference]: https://docs.openstack.org/api-ref/network/v2/#list-routers
 [router details reference]: https://docs.openstack.org/api-ref/network/v2/#show-router-details
