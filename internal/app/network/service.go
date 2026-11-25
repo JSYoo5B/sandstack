@@ -26,6 +26,7 @@ type Service struct {
 	networks map[string]domain.Network
 	subnets  map[string]domain.Subnet
 	ports    map[string]domain.Port
+	routers  map[string]domain.Router
 	newID    func() string
 }
 
@@ -43,6 +44,7 @@ func New(seed domain.Network, newID func() string) *Service {
 		networks: map[string]domain.Network{seed.ID: seed},
 		subnets:  make(map[string]domain.Subnet),
 		ports:    make(map[string]domain.Port),
+		routers:  make(map[string]domain.Router),
 		newID:    newID,
 	}
 }
@@ -103,7 +105,8 @@ func (s *Service) allocateID(available func(string) bool) (string, error) {
 		_, networkExists := s.networks[id]
 		_, subnetExists := s.subnets[id]
 		_, portExists := s.ports[id]
-		if networkExists || subnetExists || portExists || id == s.seed.ID ||
+		_, routerExists := s.routers[id]
+		if networkExists || subnetExists || portExists || routerExists || id == s.seed.ID ||
 			(available != nil && !available(id)) {
 			continue
 		}
@@ -152,6 +155,7 @@ func (s *Service) Reset() {
 	s.networks = map[string]domain.Network{s.seed.ID: s.seed}
 	s.subnets = make(map[string]domain.Subnet)
 	s.ports = make(map[string]domain.Port)
+	s.routers = make(map[string]domain.Router)
 }
 
 func snapshot(network domain.Network) domain.Network {

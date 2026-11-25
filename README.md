@@ -4,8 +4,8 @@ SandStack is a lightweight OpenStack test sandbox with programmable faults.
 It runs as an ephemeral dependency for automated tests of OpenStack clients.
 The fixture supports Keystone authentication and catalog discovery, selected
 Nova reads, Glance metadata and image download, Nova volume attachment, and
-lifecycle operations for Neutron networks, IPv4 subnets, ports, and Cinder
-volumes and snapshots.
+lifecycle operations for Neutron networks, IPv4 subnets, ports, and logical
+routers, as well as Cinder volumes and snapshots.
 Tests can alter fixture state, observe stale reads, and reset the sandbox
 between cases.
 

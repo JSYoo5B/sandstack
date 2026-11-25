@@ -47,6 +47,10 @@ func Register(
 	router.Post(Path+"/ports", h.withProject(withEmptyQuery(h.createPort)))
 	router.Get(Path+"/ports/{portID}", h.withProject(withEmptyQuery(h.showPort)))
 	router.Delete(Path+"/ports/{portID}", h.withProject(withEmptyQuery(h.deletePort)))
+	router.Get(Path+"/routers", h.withProject(withEmptyQuery(h.listRouters)))
+	router.Post(Path+"/routers", h.withProject(withEmptyQuery(h.createRouter)))
+	router.Get(Path+"/routers/{routerID}", h.withProject(withEmptyQuery(h.showRouter)))
+	router.Delete(Path+"/routers/{routerID}", h.withProject(withEmptyQuery(h.deleteRouter)))
 }
 
 func (h handler) withProject(next projectHandler) http.HandlerFunc {

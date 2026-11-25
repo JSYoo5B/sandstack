@@ -85,6 +85,29 @@ Deleting the port returns its IP to the pool. Network deletion returns
 `409` while ports remain on it. Subnet deletion returns `409` while a port
 holds an IP from it. Reset clears ports and their allocations.
 
+## Manage an unattached router
+
+Use the project's `X-Auth-Token` on the v2.0 network endpoint. SandStack
+creates each router in the token's project. A supplied `project_id` or
+`tenant_id` must match that project. Send a `router` object with an optional
+`name`, `description`, and `admin_state_up`. The name and description
+default to empty strings and the administrative state defaults to up. The
+router starts with `status: ACTIVE` even if you create it with
+`admin_state_up: false`. See [Neutron router initialization].
+
+| Request | Gophercloud call | Result |
+| --- | --- | --- |
+| `POST /network/v2.0/routers` | `routers.Create` | `201` with the created router. |
+| `GET /network/v2.0/routers` | `routers.List` | `200` with an unfiltered list of the project's routers. |
+| `GET /network/v2.0/routers/{router_id}` | `routers.Get` | `200` with the router's current metadata. |
+| `DELETE /network/v2.0/routers/{router_id}` | `routers.Delete` | `204` and the router disappears from subsequent reads. |
+
+List query parameters return `400`. Router responses show
+`external_gateway_info: null`, `gw_port_id: null`, and `routes: []`.
+Gateway configuration, interface attachment, router updates, and packet
+routing are outside this scope. [Reset the sandbox](reset.md) to clear the
+created routers.
+
 ## Inject and clear a network outage
 
 Use a created or listed network ID. This example uses the seeded ID.
@@ -101,12 +124,14 @@ or [reset the sandbox](reset.md) to restore all fixtures.
 
 ## Verification
 
-Run `go test ./...` to check discovery, network, subnet, and port lifecycle,
-filtered lists, the injected outage, and reset through Gophercloud.
+Run `go test ./...` to check discovery, network, subnet, port, and router
+lifecycle, filtered lists, the injected outage, and reset through Gophercloud.
 The raw HTTP tests use the [Neutron filtering reference], [Neutron list reference],
 [Neutron detail reference], [Neutron create reference], [Neutron delete reference],
 [subnet create reference], and [port create reference]. The [Neutron database
 implementation] and [exception types] explain deletion and exhaustion conflicts.
+The router tests use the [router create reference], [router list reference],
+[router details reference], and [router delete reference].
 
 [Neutron filtering reference]: https://docs.openstack.org/api-ref/network/v2/#filtering-and-column-selection
 [Neutron list reference]: https://docs.openstack.org/api-ref/network/v2/#list-networks
@@ -115,5 +140,10 @@ implementation] and [exception types] explain deletion and exhaustion conflicts.
 [Neutron delete reference]: https://docs.openstack.org/api-ref/network/v2/#delete-network
 [subnet create reference]: https://docs.openstack.org/api-ref/network/v2/#create-subnet
 [port create reference]: https://docs.openstack.org/api-ref/network/v2/#create-port
+[router create reference]: https://docs.openstack.org/api-ref/network/v2/#create-router
+[router list reference]: https://docs.openstack.org/api-ref/network/v2/#list-routers
+[router details reference]: https://docs.openstack.org/api-ref/network/v2/#show-router-details
+[router delete reference]: https://docs.openstack.org/api-ref/network/v2/#delete-router
+[Neutron router initialization]: https://github.com/openstack/neutron/blob/master/neutron/db/l3_db.py#L218-L256
 [Neutron database implementation]: https://github.com/openstack/neutron/blob/master/neutron/db/db_base_plugin_v2.py
 [exception types]: https://github.com/openstack/neutron-lib/blob/master/neutron_lib/exceptions/__init__.py
