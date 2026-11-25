@@ -11,18 +11,12 @@ import (
 var errSubnetListCIDR = errors.New("the subnet list CIDR filter requires an address with a prefix length")
 var errSubnetListDHCP = errors.New("the subnet list enable_dhcp filter requires a boolean")
 
-func parseSubnetListQuery(rawQuery string) (app.SubnetListFilter, error) {
-	query, err := url.ParseQuery(rawQuery)
-	if err != nil {
-		return app.SubnetListFilter{}, errors.New("the subnet list query is malformed")
-	}
+func parseSubnetListQuery(query url.Values) (app.SubnetListFilter, error) {
 	for field := range query {
 		switch field {
-		case "id", "name", "network_id", "cidr", "gateway_ip", "enable_dhcp":
+		case "id", "name", "network_id", "cidr", "gateway_ip", "enable_dhcp", "limit", "marker", "page_reverse":
 		default:
-			return app.SubnetListFilter{}, errors.New(
-				"subnet lists accept only id, name, network_id, cidr, gateway_ip, and enable_dhcp query parameters",
-			)
+			return app.SubnetListFilter{}, errors.New("the subnet list query contains an unsupported parameter")
 		}
 	}
 	filter := app.SubnetListFilter{

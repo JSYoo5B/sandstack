@@ -135,7 +135,22 @@ func TestSubnetOwnershipAndNetworkScopedOverlap(t *testing.T) {
 		CIDR:       prefix,
 		EnableDHCP: true,
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
+
+	foreignNetwork, err := service.Create("other-project", "foreign network", false)
+	require.NoError(t, err)
+	foreignSubnet, err := service.CreateSubnet(foreignNetwork.ProjectID, foreignNetwork.ID, app.SubnetCreate{
+		CIDR: prefix,
+	})
+	require.NoError(t, err)
+
+	filter := app.SubnetListFilter{}
+	for _, reverse := range []bool{false, true} {
+		options := app.PageOptions{Limit: 1, Reverse: reverse}
+		baseline := service.ListSubnetsPage(seed.ProjectID, filter, options)
+		options.Marker = foreignSubnet.ID
+		assert.Equal(t, baseline, service.ListSubnetsPage(seed.ProjectID, filter, options))
+	}
 }
 
 func TestNetworkDeletionAndResetRemoveChildSubnets(t *testing.T) {

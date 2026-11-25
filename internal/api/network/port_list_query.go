@@ -4,7 +4,6 @@ import (
 	"errors"
 	"net/url"
 	"slices"
-	"strconv"
 	"strings"
 
 	app "github.com/JSYoo5B/sandstack/internal/app/network"
@@ -48,31 +47,6 @@ func parsePortListQuery(query url.Values) (app.PortListFilter, error) {
 		return app.PortListFilter{}, errors.New("A fixed_ips filter requires ip_address=value or subnet_id=value.")
 	}
 	return filter, nil
-}
-
-func parsePortPageOptions(query url.Values) (app.PortPageOptions, error) {
-	if len(query["limit"]) > 1 || len(query["marker"]) > 1 || len(query["page_reverse"]) > 1 {
-		return app.PortPageOptions{}, errors.New("Port pagination parameters cannot be repeated.")
-	}
-	values := query["limit"]
-	var limit int
-	if len(values) != 0 {
-		var err error
-		limit, err = strconv.Atoi(strings.TrimSpace(values[0]))
-		if err != nil || limit < 0 {
-			return app.PortPageOptions{}, errors.New("The port list limit must be an integer of zero or more.")
-		}
-	}
-	order, err := parsePortListOrder(query)
-	if err != nil {
-		return app.PortPageOptions{}, err
-	}
-	return app.PortPageOptions{
-		Marker:  query.Get("marker"),
-		Limit:   limit,
-		Order:   order,
-		Reverse: strings.EqualFold(query.Get("page_reverse"), "true"),
-	}, nil
 }
 
 func parsePortListOrder(query url.Values) (app.PortListOrder, error) {

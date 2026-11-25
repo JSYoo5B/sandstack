@@ -172,8 +172,18 @@ func (f SubnetListFilter) matches(subnet domain.Subnet) bool {
 
 // ListSubnets returns the project's matching subnets ordered by ID.
 func (s *Service) ListSubnets(projectID string, filter SubnetListFilter) []domain.Subnet {
+	return s.ListSubnetsPage(projectID, filter, PageOptions{}).Items
+}
+
+func (s *Service) ListSubnetsPage(projectID string, filter SubnetListFilter, options PageOptions) Page[domain.Subnet] {
 	subnets := []domain.Subnet{}
+	var marker *domain.Subnet
 	s.mu.RLock()
+	if options.Limit > 0 && options.Marker != "" {
+		if subnet, exists := s.subnets[options.Marker]; exists && subnet.ProjectID == projectID {
+			marker = &subnet
+		}
+	}
 	for _, subnet := range s.subnets {
 		if subnet.ProjectID == projectID && filter.matches(subnet) {
 			subnets = append(subnets, copySubnet(subnet))
@@ -181,8 +191,10 @@ func (s *Service) ListSubnets(projectID string, filter SubnetListFilter) []domai
 	}
 	s.mu.RUnlock()
 
-	slices.SortFunc(subnets, func(a, b domain.Subnet) int { return strings.Compare(a.ID, b.ID) })
-	return subnets
+	return paginate(subnets, options, marker,
+		func(a, b domain.Subnet) int { return strings.Compare(a.ID, b.ID) },
+		func(subnet domain.Subnet) string { return subnet.ID },
+	)
 }
 
 func copySubnet(subnet domain.Subnet) domain.Subnet {

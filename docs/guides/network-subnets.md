@@ -123,6 +123,34 @@ or `EnableDHCP` in `subnets.ListOpts` to `subnets.List`. Set `EnableDHCP`
 to a pointer to `false` to select subnets with DHCP disabled. Leave the
 pointer nil to include both DHCP states. See the [Gophercloud subnet options].
 
+### Page through the subnet list
+
+Use a positive `limit` to page through matching subnets by ascending ID.
+An optional `marker` starts the page after that subnet. Send
+`page_reverse=true` to get the page immediately before the marker, or
+omit the marker to get the last page. Results stay in ascending ID order
+in both directions. A subnet visible to the token can serve as a marker
+even if current filters exclude it. An unknown or inaccessible marker
+is treated as omitted, so the request returns the first or last page with
+`200`. See the [Neutron pagination reference], [Neutron subnet paging],
+and [Neutron object marker lookup].
+
+In a nonempty paged response, `subnets_links` contains an absolute `next`
+link when later matches exist and a `previous` link when earlier matches
+exist. Both preserve the page size and all filters, including repeated
+values. `next` uses the last subnet ID and omits `page_reverse`.
+`previous` uses the first subnet ID and sets `page_reverse=True`.
+Omit `limit` or use `0` for an unpaged response. Unpaged and empty
+responses omit navigation links. Repeated pagination keys and invalid
+limits return `400`. Only `true`, matched without regard to letter case,
+enables reverse navigation.
+
+In Gophercloud v2.15.0, set `Limit` and optionally `Marker` in
+`subnets.ListOpts`. The pager from `subnets.List` follows `next` links
+when you call `AllPages`. Read `subnets_links` from the raw response and
+follow a `previous` URL with `ServiceClient.Get` to navigate backward.
+See the [Gophercloud subnet options] and [Gophercloud subnet page links].
+
 ### Update subnet metadata
 
 Send `PUT /network/v2.0/subnets/{subnet_id}` with a `subnet` object to
@@ -195,6 +223,10 @@ and attachment with the updated gateway.
 [Neutron allocation pool gateway check]: https://github.com/openstack/neutron/blob/master/neutron/db/ipam_backend_mixin.py#L415-L430
 [Neutron automatic allocation]: https://github.com/openstack/neutron/blob/master/neutron/ipam/drivers/neutrondb_ipam/driver.py#L143-L187
 [subnet list reference]: https://docs.openstack.org/api-ref/network/v2/#list-subnets
+[Neutron pagination reference]: https://docs.openstack.org/api-ref/network/v2/#pagination
+[Neutron subnet paging]: https://github.com/openstack/neutron/blob/master/neutron/db/db_base_plugin_common.py#L293-L302
+[Neutron object marker lookup]: https://github.com/openstack/neutron/blob/master/neutron/objects/base.py#L121-L132
+[Gophercloud subnet page links]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/networking/v2/subnets/results.go#L177-L196
 [subnet update reference]: https://docs.openstack.org/api-ref/network/v2/#update-subnet
 [Neutron filter parser]: https://github.com/openstack/neutron/blob/master/neutron/api/api_common.py#L65-L107
 [Neutron query filters]: https://github.com/openstack/neutron-lib/blob/master/neutron_lib/db/model_query.py#L198-L236

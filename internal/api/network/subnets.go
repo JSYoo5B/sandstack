@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/netip"
+	"net/url"
 
 	"github.com/go-chi/chi/v5"
 
@@ -120,7 +121,12 @@ func (h handler) createSubnet(w http.ResponseWriter, r *http.Request, projectID 
 }
 
 func (h handler) listSubnets(w http.ResponseWriter, r *http.Request, projectID string) {
-	filter, err := parseSubnetListQuery(r.URL.RawQuery)
+	query, err := url.ParseQuery(r.URL.RawQuery)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "BadRequest", "the subnet list query is malformed")
+		return
+	}
+	filter, err := parseSubnetListQuery(query)
 	if err != nil {
 		kind := "BadRequest"
 		if errors.Is(err, errSubnetListCIDR) || errors.Is(err, errSubnetListDHCP) {
@@ -129,11 +135,20 @@ func (h handler) listSubnets(w http.ResponseWriter, r *http.Request, projectID s
 		writeError(w, http.StatusBadRequest, kind, err.Error())
 		return
 	}
-	subnets := h.service.ListSubnets(projectID, filter)
+	options, err := parsePageOptions(query)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "BadRequest", err.Error())
+		return
+	}
+	page := h.service.ListSubnetsPage(projectID, filter, options)
 	response := struct {
 		Subnets []subnetBody `json:"subnets"`
-	}{Subnets: make([]subnetBody, len(subnets))}
-	for i, subnet := range subnets {
+		Links   []pageLink   `json:"subnets_links,omitempty"`
+	}{
+		Subnets: make([]subnetBody, len(page.Items)),
+		Links:   h.pageLinks(r, Path+"/subnets", query, page.NextMarker, page.PreviousMarker),
+	}
+	for i, subnet := range page.Items {
 		response.Subnets[i] = describeSubnet(subnet)
 	}
 	writeJSON(w, http.StatusOK, response)

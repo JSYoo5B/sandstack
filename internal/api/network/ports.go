@@ -123,51 +123,32 @@ func (h handler) listPorts(w http.ResponseWriter, r *http.Request, projectID str
 		return
 	}
 
-	options, err := parsePortPageOptions(query)
+	options, err := parsePageOptions(query)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "BadRequest", err.Error())
 		return
 	}
-	page, err := h.service.ListPortsPage(projectID, filter, options)
+	order, err := parsePortListOrder(query)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "BadRequest", err.Error())
+		return
+	}
+	page, err := h.service.ListPortsPage(projectID, filter, app.PortPageOptions{PageOptions: options, Order: order})
 	if err != nil {
 		writePortError(w, options.Marker, err)
 		return
 	}
 	response := struct {
-		Ports []portBody     `json:"ports"`
-		Links []portListLink `json:"ports_links,omitempty"`
+		Ports []portBody `json:"ports"`
+		Links []pageLink `json:"ports_links,omitempty"`
 	}{
-		Ports: make([]portBody, len(page.Ports)),
-		Links: h.portPageLinks(r, query, page),
+		Ports: make([]portBody, len(page.Items)),
+		Links: h.pageLinks(r, Path+"/ports", query, page.NextMarker, page.PreviousMarker),
 	}
-	for i, port := range page.Ports {
+	for i, port := range page.Items {
 		response.Ports[i] = describePort(port)
 	}
 	writeJSON(w, http.StatusOK, response)
-}
-
-type portListLink struct {
-	Rel  string `json:"rel"`
-	Href string `json:"href"`
-}
-
-func (h handler) portPageLinks(r *http.Request, query url.Values, page app.PortPage) []portListLink {
-	if !page.HasNext && !page.HasPrevious {
-		return nil
-	}
-	var links []portListLink
-	endpoint := h.endpointURL(r, Path+"/ports")
-	if page.HasNext {
-		query.Set("marker", page.Ports[len(page.Ports)-1].ID)
-		query.Del("page_reverse")
-		links = append(links, portListLink{Rel: "next", Href: endpoint + "?" + query.Encode()})
-	}
-	if page.HasPrevious {
-		query.Set("marker", page.Ports[0].ID)
-		query.Set("page_reverse", "True")
-		links = append(links, portListLink{Rel: "previous", Href: endpoint + "?" + query.Encode()})
-	}
-	return links
 }
 
 func (h handler) showPort(w http.ResponseWriter, r *http.Request, projectID string) {

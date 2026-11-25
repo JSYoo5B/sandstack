@@ -129,7 +129,7 @@ func TestSubnetListFiltersWire(t *testing.T) {
 		{"enable_dhcp=false&enable_dhcp=maybe", "InvalidInput"},
 		{"enable_dhcp=", "InvalidInput"},
 		{"ip_version=4", "BadRequest"},
-		{"limit=1", "BadRequest"},
+		{"sort_key=name", "BadRequest"},
 	} {
 		status, headers, body := request(t, instance, http.MethodGet, subnetsPath+"?"+bad.query, "", auth)
 		require.Equal(t, http.StatusBadRequest, status, "%s: %s", bad.query, body)
