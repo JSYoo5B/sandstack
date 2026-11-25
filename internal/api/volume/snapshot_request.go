@@ -1,7 +1,6 @@
 package volume
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"strings"
@@ -14,6 +13,7 @@ type createSnapshotParams struct {
 	volumeID    string
 	name        string
 	description string
+	force       bool
 }
 
 func parseCreateSnapshot(data []byte) (createSnapshotParams, error) {
@@ -40,9 +40,11 @@ func parseCreateSnapshot(data []byte) (createSnapshotParams, error) {
 		case "description":
 			target = &params.description
 		case "force":
-			if !bytes.Equal(value, []byte("false")) {
-				return createSnapshotParams{}, errors.New("snapshot force must be false when present")
+			var force *bool
+			if json.Unmarshal(value, &force) != nil || force == nil {
+				return createSnapshotParams{}, errors.New("snapshot force must be a boolean")
 			}
+			params.force = *force
 			continue
 		default:
 			return createSnapshotParams{}, errInvalidSnapshotObject

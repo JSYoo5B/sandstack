@@ -13,7 +13,16 @@ var (
 	ErrVolumeHasSnapshots    = errors.New("volume has snapshots")
 )
 
-func (s *Service) CreateSnapshot(projectID, volumeID, name, description string) (domain.Snapshot, error) {
+type SnapshotCreateOptions struct {
+	Name        string
+	Description string
+	Force       bool
+}
+
+func (s *Service) CreateSnapshot(
+	projectID, volumeID string,
+	options SnapshotCreateOptions,
+) (domain.Snapshot, error) {
 	if s.seed.ProjectID != projectID {
 		return domain.Snapshot{}, ErrVolumeNotFound
 	}
@@ -24,7 +33,7 @@ func (s *Service) CreateSnapshot(projectID, volumeID, name, description string) 
 	if !ok {
 		return domain.Snapshot{}, ErrVolumeNotFound
 	}
-	if volume.State != domain.StateAvailable {
+	if volume.State != domain.StateAvailable && !(options.Force && volume.State == domain.StateInUse) {
 		return domain.Snapshot{}, ErrVolumeStateConflict
 	}
 	id, err := s.allocateID()
@@ -35,8 +44,8 @@ func (s *Service) CreateSnapshot(projectID, volumeID, name, description string) 
 		ID:          id,
 		ProjectID:   projectID,
 		VolumeID:    volumeID,
-		Name:        domain.NullableText{Value: name, Valid: name != ""},
-		Description: domain.NullableText{Value: description, Valid: description != ""},
+		Name:        domain.NullableText{Value: options.Name, Valid: options.Name != ""},
+		Description: domain.NullableText{Value: options.Description, Valid: options.Description != ""},
 		Size:        volume.Size,
 		CreatedAt:   s.now().UTC(),
 		State:       domain.StateCreating,

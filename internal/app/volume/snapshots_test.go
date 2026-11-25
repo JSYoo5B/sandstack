@@ -18,12 +18,14 @@ func TestSnapshotCreationAndDeletionProtectSourceVolume(t *testing.T) {
 	seed := domain.Volume{ID: fixtureID, ProjectID: "project", Size: 5, State: domain.StateAvailable}
 	service := app.New(seed, func() time.Time { return now }, func() string { return createdID })
 
-	_, err := service.CreateSnapshot("foreign", seed.ID, "", "")
+	_, err := service.CreateSnapshot("foreign", seed.ID, app.SnapshotCreateOptions{})
 	assert.ErrorIs(t, err, app.ErrVolumeNotFound)
-	_, err = service.CreateSnapshot(seed.ProjectID, "unknown", "", "")
+	_, err = service.CreateSnapshot(seed.ProjectID, "unknown", app.SnapshotCreateOptions{})
 	assert.ErrorIs(t, err, app.ErrVolumeNotFound)
 
-	snapshot, err := service.CreateSnapshot(seed.ProjectID, seed.ID, "checkpoint", "initial state")
+	snapshot, err := service.CreateSnapshot(seed.ProjectID, seed.ID, app.SnapshotCreateOptions{
+		Name: "checkpoint", Description: "initial state",
+	})
 	require.NoError(t, err)
 	assert.Equal(t, domain.Snapshot{
 		ID:          createdID,
@@ -59,14 +61,63 @@ func TestSnapshotCreationAndDeletionProtectSourceVolume(t *testing.T) {
 	assert.NoError(t, service.Delete(seed.ProjectID, seed.ID))
 }
 
+func TestForcedSnapshotDoesNotChangeSourceVolume(t *testing.T) {
+	seed := domain.Volume{ID: fixtureID, ProjectID: "project", Size: 5, State: domain.StateAvailable}
+	ids := []string{createdID, "00000003-0000-4000-8000-000000000000", "00000004-0000-4000-8000-000000000000"}
+	service := app.New(seed, func() time.Time { return time.Time{} }, func() string {
+		id := ids[0]
+		ids = ids[1:]
+		return id
+	})
+	forced := app.SnapshotCreateOptions{Force: true}
+	snapshot, err := service.CreateSnapshot(seed.ProjectID, seed.ID, forced)
+	require.NoError(t, err)
+	assert.Equal(t, domain.StateCreating, snapshot.State)
+	volume, err := service.Get(seed.ProjectID, seed.ID)
+	require.NoError(t, err)
+	assert.Equal(t, seed, volume)
+
+	_, err = service.Attach(seed.ProjectID, "server", seed.ID, "")
+	require.NoError(t, err)
+	before, err := service.Get(seed.ProjectID, seed.ID)
+	require.NoError(t, err)
+	_, err = service.CreateSnapshot(seed.ProjectID, seed.ID, app.SnapshotCreateOptions{})
+	assert.ErrorIs(t, err, app.ErrVolumeStateConflict)
+	assert.Equal(t, []domain.Snapshot{snapshot}, service.ListSnapshots(seed.ProjectID))
+
+	attachedSnapshot, err := service.CreateSnapshot(seed.ProjectID, seed.ID, forced)
+	require.NoError(t, err)
+	assert.Equal(t, seed.ID, attachedSnapshot.VolumeID)
+	assert.Equal(t, seed.Size, attachedSnapshot.Size)
+	assert.Equal(t, domain.StateCreating, attachedSnapshot.State)
+	after, err := service.Get(seed.ProjectID, seed.ID)
+	require.NoError(t, err)
+	assert.Equal(t, before, after)
+}
+
+func TestForceRejectsUnsupportedSnapshotSourceStates(t *testing.T) {
+	for _, state := range []domain.State{
+		domain.StateCreating, domain.StateError, domain.StateExtending, domain.StateErrorExtending,
+	} {
+		t.Run(string(state), func(t *testing.T) {
+			seed := domain.Volume{ID: fixtureID, ProjectID: "project", State: state}
+			service := app.New(seed, func() time.Time { return time.Time{} }, nil)
+
+			_, err := service.CreateSnapshot(seed.ProjectID, seed.ID, app.SnapshotCreateOptions{Force: true})
+			assert.ErrorIs(t, err, app.ErrVolumeStateConflict)
+			assert.Empty(t, service.ListSnapshots(seed.ProjectID))
+		})
+	}
+}
+
 func TestFailedSnapshotCanBeDeletedAndResetRestoresEmptyList(t *testing.T) {
 	seed := domain.Volume{ID: fixtureID, ProjectID: "project", Size: 5, State: domain.StateAvailable}
 	service := app.New(seed, time.Now, func() string { return createdID })
 	require.NoError(t, service.SetFailed(seed.ID, true))
-	_, err := service.CreateSnapshot(seed.ProjectID, seed.ID, "", "")
+	_, err := service.CreateSnapshot(seed.ProjectID, seed.ID, app.SnapshotCreateOptions{})
 	assert.ErrorIs(t, err, app.ErrVolumeStateConflict)
 	require.NoError(t, service.SetFailed(seed.ID, false))
-	snapshot, err := service.CreateSnapshot(seed.ProjectID, seed.ID, "", "")
+	snapshot, err := service.CreateSnapshot(seed.ProjectID, seed.ID, app.SnapshotCreateOptions{})
 	require.NoError(t, err)
 
 	require.NoError(t, service.FinishSnapshotCreation(snapshot.ID, true))
@@ -78,7 +129,7 @@ func TestFailedSnapshotCanBeDeletedAndResetRestoresEmptyList(t *testing.T) {
 	assert.Equal(t, []domain.Snapshot{failed}, service.ListSnapshots(seed.ProjectID))
 	assert.ErrorIs(t, service.Delete(seed.ProjectID, seed.ID), app.ErrVolumeHasSnapshots)
 	require.NoError(t, service.DeleteSnapshot(seed.ProjectID, snapshot.ID))
-	_, err = service.CreateSnapshot(seed.ProjectID, seed.ID, "", "")
+	_, err = service.CreateSnapshot(seed.ProjectID, seed.ID, app.SnapshotCreateOptions{})
 	require.NoError(t, err)
 
 	service.Reset()
@@ -94,7 +145,7 @@ func TestConcurrentSnapshotCreateAndSourceDeletePreserveOwnership(t *testing.T) 
 		var createErr, deleteErr error
 		var wait sync.WaitGroup
 		wait.Go(func() {
-			_, createErr = service.CreateSnapshot(seed.ProjectID, seed.ID, "", "")
+			_, createErr = service.CreateSnapshot(seed.ProjectID, seed.ID, app.SnapshotCreateOptions{})
 		})
 		wait.Go(func() { deleteErr = service.Delete(seed.ProjectID, seed.ID) })
 		wait.Wait()

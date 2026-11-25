@@ -71,12 +71,16 @@ func (h handler) createSnapshot(w http.ResponseWriter, r *http.Request, projectI
 		return
 	}
 
-	snapshot, err := h.service.CreateSnapshot(projectID, params.volumeID, params.name, params.description)
+	snapshot, err := h.service.CreateSnapshot(projectID, params.volumeID, app.SnapshotCreateOptions{
+		Name:        params.name,
+		Description: params.description,
+		Force:       params.force,
+	})
 	switch {
 	case errors.Is(err, app.ErrVolumeNotFound):
 		writeFault(w, http.StatusNotFound, "itemNotFound", "The source volume could not be found.")
 	case errors.Is(err, app.ErrVolumeStateConflict):
-		writeFault(w, http.StatusBadRequest, "badRequest", "The source volume must be available.")
+		writeFault(w, http.StatusBadRequest, "badRequest", "The source volume must be available or in use with force enabled.")
 	case err != nil:
 		writeFault(w, http.StatusInternalServerError, "computeFault", "Unable to create the snapshot.")
 	default:

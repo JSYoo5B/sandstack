@@ -34,7 +34,7 @@ func TestSnapshotCreateAndDeleteWire(t *testing.T) {
 	}{
 		{"missing volume reference", `{"snapshot":{"name":"missing"}}`, http.StatusBadRequest},
 		{"unknown volume", `{"snapshot":{"volume_id":"00000000-0000-0000-0000-000000000000"}}`, http.StatusNotFound},
-		{"forced snapshot outside fixture scope", `{"snapshot":{"volume_id":"` + fixtureVolumeID + `","force":true}}`, http.StatusBadRequest},
+		{"force must be a boolean", `{"snapshot":{"volume_id":"` + fixtureVolumeID + `","force":"true"}}`, http.StatusBadRequest},
 	} {
 		t.Run(invalid.name, func(t *testing.T) {
 			status, headers, body := request(t, instance, http.MethodPost, collection, invalid.body, auth)

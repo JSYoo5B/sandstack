@@ -108,9 +108,10 @@ source metadata.
 ## Create and provision a volume snapshot
 
 Use `snapshots.Create` for `POST /snapshots` on the project endpoint. Supply
-the ID of an `available` volume as `volume_id`. The request can also include
-a name and description. Omit `force` or set it to `false`. A `202` response
-contains a snapshot in `creating` status with the source volume ID and size.
+the source volume ID as `volume_id`. The request can also include a name
+and description. For an `available` volume, omit `force` or set it to
+`false`. A `202` response contains a snapshot in `creating` status with
+the source volume ID and size.
 Use `snapshots.Get` for `GET /snapshots/{snapshot_id}` and
 `snapshots.ListDetail` for `GET /snapshots/detail` to observe the outcome.
 Both reads include the owning project ID and build progress. Progress is
@@ -139,6 +140,22 @@ seeded volume.
 
 This scenario models the snapshot lifecycle in metadata. Use an available
 snapshot to [create a new volume](#create-a-volume-from-a-snapshot).
+
+### Snapshot a volume in use
+
+For a volume attached to a Nova server, set `Force: true` in Gophercloud
+v2.15.0 `snapshots.CreateOpts`, or send the JSON boolean `force: true` in
+the raw `snapshot` object. SandStack uses the Cinder v3.0 behavior. An
+`in-use` source with `force` omitted or set to `false` returns `400`.
+Cinder microversion 3.66 allows snapshots of attached volumes without
+the flag. See the [create snapshot reference], [Cinder snapshot force
+handling], and [Cinder snapshot microversion].
+
+The request returns `202` with a new snapshot in `creating`. Use the same
+completion or failure controls as for an available source. These controls
+apply to the snapshot. The source volume remains `in-use` and its Nova
+attachment stays in place throughout the operation. See the [Gophercloud
+snapshot create options].
 
 ## Filter and page through the detailed snapshot list
 
@@ -293,6 +310,9 @@ The [Cinder snapshot lookup], [Cinder size default], and
 [Cinder WSGI fault mapping]: https://github.com/openstack/cinder/blob/master/cinder/api/openstack/wsgi.py#L1203-L1228
 [sandbox reset]: reset.md
 [create snapshot reference]: https://docs.openstack.org/api-ref/block-storage/v3/#create-a-snapshot
+[Cinder snapshot force handling]: https://github.com/openstack/cinder/blob/master/cinder/api/v3/snapshots.py#L174-L211
+[Cinder snapshot microversion]: https://github.com/openstack/cinder/blob/master/cinder/api/microversions.py#L164
+[Gophercloud snapshot create options]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/blockstorage/v3/snapshots/requests.go#L12-L37
 [update snapshot reference]: https://docs.openstack.org/api-ref/block-storage/v3/#update-a-snapshot
 [Cinder snapshot update schema]: https://github.com/openstack/cinder/blob/master/cinder/api/schemas/snapshots.py#L42-L64
 [Cinder snapshot update controller]: https://github.com/openstack/cinder/blob/master/cinder/api/v3/snapshots.py#L213-L236

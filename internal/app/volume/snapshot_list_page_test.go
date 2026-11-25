@@ -25,7 +25,7 @@ func TestSnapshotPagesFilterEmptyNamesAndUseScopedMarkers(t *testing.T) {
 	})
 	create := func() domain.Snapshot {
 		t.Helper()
-		snapshot, err := service.CreateSnapshot(seed.ProjectID, seed.ID, "", "")
+		snapshot, err := service.CreateSnapshot(seed.ProjectID, seed.ID, app.SnapshotCreateOptions{})
 		require.NoError(t, err)
 		return snapshot
 	}

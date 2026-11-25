@@ -23,7 +23,7 @@ func TestCreateFromSnapshotPreservesSizeAndProvenance(t *testing.T) {
 		id++
 		return fmt.Sprintf("%08x-0000-4000-8000-000000000000", id)
 	})
-	snapshot, err := service.CreateSnapshot(seed.ProjectID, seed.ID, "checkpoint", "")
+	snapshot, err := service.CreateSnapshot(seed.ProjectID, seed.ID, app.SnapshotCreateOptions{Name: "checkpoint"})
 	require.NoError(t, err)
 	_, err = service.CreateFromSnapshot(seed.ProjectID, snapshot.ID, "", "", 0)
 	assert.ErrorIs(t, err, app.ErrSnapshotStateConflict)
@@ -96,7 +96,7 @@ func TestCreateFromSnapshotPreservesSizeAndProvenance(t *testing.T) {
 func TestCreateFromSnapshotRejectsFailedSnapshot(t *testing.T) {
 	seed := domain.Volume{ID: fixtureID, ProjectID: "project", Size: 5}
 	service := app.New(seed, time.Now, func() string { return createdID })
-	snapshot, err := service.CreateSnapshot(seed.ProjectID, seed.ID, "", "")
+	snapshot, err := service.CreateSnapshot(seed.ProjectID, seed.ID, app.SnapshotCreateOptions{})
 	require.NoError(t, err)
 	require.NoError(t, service.FinishSnapshotCreation(snapshot.ID, true))
 
