@@ -14,7 +14,6 @@ import (
 
 const (
 	computeRoot   = "/compute"
-	fixtureFlavor = "1"
 	powerRunning  = 1
 	powerShutdown = 4
 	powerCrashed  = 6
@@ -134,9 +133,9 @@ func (h handler) serverCore(r *http.Request, server appcompute.ServerDetail, pat
 			{Rel: "bookmark", Href: h.endpointURL(r, computeRoot+serverPath)},
 		},
 		Flavor: resourceRef{
-			ID: fixtureFlavor,
+			ID: appcompute.FixtureFlavorID,
 			Links: []resourceLink{{
-				Rel: "bookmark", Href: h.endpointURL(r, bookmark+"/flavors/"+fixtureFlavor),
+				Rel: "bookmark", Href: h.endpointURL(r, bookmark+"/flavors/"+appcompute.FixtureFlavorID),
 			}},
 		},
 		Image: resourceRef{

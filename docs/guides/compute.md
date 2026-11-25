@@ -12,7 +12,18 @@ The catalog uses `/compute/v2.1/{project_id}`. The project-qualified and
 projectless URLs accept an `X-Auth-Token` from the fixture project. The
 responses use baseline Nova v2.1 fields for server identity, ownership,
 timestamps, and state. The image ID refers to the [Glance fixture](image.md).
-The flavor reference is a fixture value.
+The flavor ID refers to the [Nova flavor fixture](#read-the-server-flavor).
+
+## Read the server flavor
+
+After `servers.Get`, pass the returned `Flavor["id"]` to `flavors.Get`
+using the same authenticated Compute client. Nova v2.1 answers
+`GET /flavors/{flavor_id}` with `200` and a `flavor` object. Fixture
+flavor `1` is the public, enabled `m1.tiny` with one vCPU, 512 MiB RAM,
+and 1 GiB root disk. It has no ephemeral disk or swap. Nova v2.1 serializes
+zero swap as an empty string, which Gophercloud decodes as zero. Unknown
+flavors return `404`. See the [Nova flavor reference], [Nova flavor
+response], and [Gophercloud flavor lookup].
 
 ## Filter the detailed server list
 
@@ -249,6 +260,8 @@ The name filter test uses Gophercloud to find the renamed fixture and
 checks the intersection with the status filter.
 The metadata tests use the SDK to exercise replacement and clearing.
 Raw HTTP checks cover the metadata envelope, invalid requests, and quota.
+The flavor test follows the SDK server's flavor ID and checks the v2.1
+swap and link fields over HTTP.
 The raw HTTP checks use the [Compute list reference],
 [Compute detail reference], [Compute fault guide], and [Nova fault response]
 for the OpenStack response shapes.
@@ -256,6 +269,9 @@ for the OpenStack response shapes.
 [Compute list reference]: https://docs.openstack.org/api-ref/compute/#list-servers-detailed
 [Gophercloud list options]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/compute/v2/servers/requests.go#L42-L55
 [Compute detail reference]: https://docs.openstack.org/api-ref/compute/#show-server-details
+[Nova flavor reference]: https://docs.openstack.org/api-ref/compute/#show-flavor-details
+[Nova flavor response]: https://github.com/openstack/nova/blob/master/nova/api/openstack/compute/views/flavors.py#L39-L68
+[Gophercloud flavor lookup]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/compute/v2/flavors/requests.go#L191-L197
 [Compute fault guide]: https://docs.openstack.org/api-guide/compute/faults.html
 [Nova fault response]: https://github.com/openstack/nova/blob/master/nova/api/openstack/wsgi.py
 [Nova stop reference]: https://docs.openstack.org/api-ref/compute/#stop-server-os-stop-action
