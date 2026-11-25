@@ -12,8 +12,8 @@ import (
 )
 
 func TestVolumeIsVisibleOnlyToOwner(t *testing.T) {
-	seed := domain.Volume{ID: "volume", ProjectID: "owner"}
-	service := app.New(seed, time.Now)
+	seed := domain.Volume{ID: "volume", ProjectID: "owner", State: domain.StateAvailable}
+	service := app.New(seed, time.Now, nil)
 
 	assert.Empty(t, service.List("other-project"))
 	_, err := service.Get("other-project", seed.ID)
@@ -27,10 +27,11 @@ func TestVolumeFaultTransitionsAndReset(t *testing.T) {
 	created := time.Date(2026, time.November, 25, 0, 0, 0, 0, time.UTC)
 	seed := domain.Volume{
 		ID: "volume", ProjectID: "owner", CreatedAt: created, UpdatedAt: created,
+		State: domain.StateAvailable,
 	}
 	local := time.FixedZone("fixture-zone", 9*60*60)
 	now := created.Add(time.Minute).In(local)
-	service := app.New(seed, func() time.Time { return now })
+	service := app.New(seed, func() time.Time { return now }, nil)
 
 	assert.ErrorIs(t, service.SetFailed("other-volume", true), app.ErrVolumeNotFound)
 	assert.Equal(t, []domain.Volume{seed}, service.List(seed.ProjectID))
@@ -38,7 +39,7 @@ func TestVolumeFaultTransitionsAndReset(t *testing.T) {
 	require.NoError(t, service.SetFailed(seed.ID, true))
 	failed, err := service.Get(seed.ProjectID, seed.ID)
 	require.NoError(t, err)
-	assert.True(t, failed.Failed)
+	assert.Equal(t, domain.StateError, failed.State)
 	assert.Equal(t, created, failed.CreatedAt)
 	assert.Equal(t, now.UTC(), failed.UpdatedAt)
 
@@ -49,7 +50,7 @@ func TestVolumeFaultTransitionsAndReset(t *testing.T) {
 	require.NoError(t, service.SetFailed(seed.ID, false))
 	available, err := service.Get(seed.ProjectID, seed.ID)
 	require.NoError(t, err)
-	assert.False(t, available.Failed)
+	assert.Equal(t, domain.StateAvailable, available.State)
 	assert.Equal(t, now.UTC(), available.UpdatedAt)
 
 	service.Reset()

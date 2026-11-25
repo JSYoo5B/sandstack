@@ -3,6 +3,7 @@ package server
 import (
 	"crypto/sha256"
 	"crypto/subtle"
+	"errors"
 	"net/http"
 	"strings"
 
@@ -70,7 +71,21 @@ func registerImageControls(router chi.Router, service *appimage.Service) {
 }
 
 func registerVolumeControls(router chi.Router, service *appvolume.Service) {
-	registerFixtureControl(router, "/volume/volumes/{resourceID}/fault", "Volume not found", service.SetFailed)
+	const volumePath = "/volume/volumes/{resourceID}"
+	registerFixtureControl(router, volumePath+"/fault", "Volume not found", service.SetFailed)
+	router.Put(volumePath+"/complete-create", func(w http.ResponseWriter, r *http.Request) {
+		err := service.CompleteCreation(chi.URLParam(r, "resourceID"))
+		switch {
+		case errors.Is(err, appvolume.ErrVolumeNotFound):
+			http.Error(w, "Volume not found", http.StatusNotFound)
+		case errors.Is(err, appvolume.ErrVolumeStateConflict):
+			http.Error(w, "Volume creation cannot be completed in its current state", http.StatusConflict)
+		case err != nil:
+			http.Error(w, "Unable to complete volume creation", http.StatusInternalServerError)
+		default:
+			noContent(w, r)
+		}
+	})
 }
 
 func registerFixtureControl(router chi.Router, path, notFound string, set func(string, bool) error) {

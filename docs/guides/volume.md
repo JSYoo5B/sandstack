@@ -7,8 +7,34 @@ in `RegionOne`. The catalog endpoint is `/volume/v3/{project_id}`.
 
 Use `volumes.List` for `GET /volumes/detail` and `volumes.Get` for
 `GET /volumes/{volume_id}` on that endpoint. Use the project's `X-Auth-Token`.
-The fixture has one unattached `fixture-volume` with a reported size of
-1 GiB. The scenario uses baseline Cinder v3 metadata and unfiltered reads.
+The sandbox starts with an unattached `fixture-volume` of 1 GiB. The
+scenario uses baseline Cinder v3 metadata and unfiltered reads.
+
+## Create and provision a blank volume
+
+Use `volumes.Create` for `POST /volumes` on the project endpoint. The
+`volume` object requires a positive size in GiB and accepts a name and
+description. The default type is `standard` and the availability zone is
+`nova`. The request returns `202` with a volume in status `creating`.
+Both reads show that status until the test drives an outcome.
+
+To make the volume available, take the ID from the create response and
+call the SandStack control with the admin token.
+
+```sh
+complete_url="http://127.0.0.1:8080/_sandstack/volume/volumes/${volume_id}/complete-create"
+curl --fail -X PUT -H "X-SandStack-Admin-Token: ${SANDSTACK_ADMIN_TOKEN}" "$complete_url"
+```
+
+The control returns `204` and moves the volume to `available`. Repeating
+it for an available volume keeps its update timestamp. To exercise a
+failed create, inject the volume fault instead to move it to `error`.
+
+Use `volumes.Delete` for `DELETE /volumes/{volume_id}`. A `creating`
+volume models provisioning in progress and receives `400`. Deleting an
+`available` or `error` volume returns `202` with an empty body. The volume
+is absent from subsequent reads. Reset discards created volumes and
+restores the initial fixture.
 
 ## Inject and clear a volume fault
 
@@ -27,8 +53,9 @@ to restore the original values and timestamps.
 
 ## Verification
 
-Run `go test ./...` to exercise discovery, volume reads, fault transitions,
-and reset through Gophercloud. The HTTP tests use the
-[Block Storage v3 API reference].
+Run `go test ./...` to exercise discovery, creation, provisioning, volume
+reads, deletion, faults, and reset through Gophercloud. The HTTP tests use
+the [create volume reference] and [delete volume reference].
 
-[Block Storage v3 API reference]: https://docs.openstack.org/api-ref/block-storage/v3/
+[create volume reference]: https://docs.openstack.org/api-ref/block-storage/v3/#create-a-volume
+[delete volume reference]: https://docs.openstack.org/api-ref/block-storage/v3/#delete-a-volume

@@ -2,10 +2,10 @@
 
 SandStack is a lightweight OpenStack test sandbox with programmable faults.
 It runs as an ephemeral dependency for automated tests of OpenStack clients.
-The current fixture supports Keystone authentication and catalog discovery,
-along with selected Nova, Neutron, Glance, and Cinder reads. Tests can
-create and delete Neutron networks, IPv4 subnets, and ports, alter fixture state,
-observe stale reads, and reset the sandbox between cases.
+The fixture supports Keystone authentication and catalog discovery, selected
+Nova and Glance reads, and lifecycle operations for Neutron networks, IPv4
+subnets, ports, and Cinder volumes. Tests can alter fixture state, observe
+stale reads, and reset the sandbox between cases.
 
 The [emulation decision](docs/decisions/0002-emulate-openstack-apis.md)
 describes what the sandbox is designed to emulate.
@@ -30,7 +30,7 @@ covers token invalidation and reauthentication. The
 reads. The [Networking guide](docs/guides/network.md) covers Neutron network
 reads and operational downtime. The [Image guide](docs/guides/image.md)
 covers Glance metadata and image deactivation. The
-[Block Storage guide](docs/guides/volume.md) covers Cinder volume errors.
+[Block Storage guide](docs/guides/volume.md) covers volume provisioning and errors.
 [Inspect recent requests](docs/guides/requests.md) to verify what a client
 attempted. [Reset the sandbox](docs/guides/reset.md) between test cases to
 restore fixtures and invalidate issued tokens.

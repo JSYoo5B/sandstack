@@ -84,7 +84,7 @@ func New(config Config) (http.Handler, error) {
 		Size:      1,
 		CreatedAt: created,
 		UpdatedAt: created,
-	}, now)
+	}, now, randomUUID)
 	journal := sandbox.NewRequestJournal(128)
 	state := sandbox.NewState(
 		identityService.InvalidateTokens,

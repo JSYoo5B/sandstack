@@ -29,8 +29,11 @@ func Register(
 	endpointURL func(*http.Request, string) string,
 ) {
 	h := handler{service: service, projectForToken: projectForToken, endpointURL: endpointURL}
-	router.Get(Path+"/{projectID}/volumes/detail", h.withProject(h.listVolumes))
-	router.Get(Path+"/{projectID}/volumes/{volumeID}", h.withProject(h.showVolume))
+	collection := Path + "/{projectID}/volumes"
+	router.Get(collection+"/detail", h.withProject(h.listVolumes))
+	router.Post(collection, h.withProject(h.createVolume))
+	router.Get(collection+"/{volumeID}", h.withProject(h.showVolume))
+	router.Delete(collection+"/{volumeID}", h.withProject(h.deleteVolume))
 }
 
 func (h handler) withProject(next func(http.ResponseWriter, *http.Request, string)) http.HandlerFunc {
@@ -53,7 +56,7 @@ func (h handler) withProject(next func(http.ResponseWriter, *http.Request, strin
 			return
 		}
 		if r.URL.RawQuery != "" {
-			writeFault(w, http.StatusBadRequest, "badRequest", "Volume reads require an empty query string.")
+			writeFault(w, http.StatusBadRequest, "badRequest", "Volume operations require an empty query string.")
 			return
 		}
 		next(w, r, projectID)
