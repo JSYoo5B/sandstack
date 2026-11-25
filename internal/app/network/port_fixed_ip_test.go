@@ -27,7 +27,8 @@ func TestExplicitPortAddressInfersSubnetAndSharesAllocationWithAutomaticPorts(t 
 		},
 	)
 	require.NoError(t, err)
-	address := second.AllocationStart
+	require.Len(t, second.AllocationPools, 1)
+	address := second.AllocationPools[0].Start
 
 	fixed, err := service.CreatePortWithFixedIP(seed.ProjectID, seed.ID, "fixed", false, nil, address)
 	require.NoError(t, err)
@@ -96,7 +97,8 @@ func TestExplicitGatewayReservationIntegratesWithRouterInterfacesAndRoutes(t *te
 	require.NoError(t, err)
 	automatic, err := service.CreatePort(seed.ProjectID, seed.ID, "automatic", false, nil)
 	require.NoError(t, err)
-	assert.Equal(t, subnet.AllocationStart, automatic.FixedIP)
+	require.Len(t, subnet.AllocationPools, 1)
+	assert.Equal(t, subnet.AllocationPools[0].Start, automatic.FixedIP)
 	managed, err := service.AddRouterInterface(seed.ProjectID, router.ID, subnet.ID)
 	require.NoError(t, err)
 	assert.Equal(t, subnet.Gateway, managed.FixedIP)
@@ -113,14 +115,16 @@ func TestConcurrentExplicitPortAllocationsCannotShareAnAddress(t *testing.T) {
 	require.NoError(t, err)
 	var firstErr, secondErr error
 	var wait sync.WaitGroup
+	require.Len(t, subnet.AllocationPools, 1)
+	address := subnet.AllocationPools[0].Start
 	release := make(chan struct{})
 	wait.Go(func() {
 		<-release
-		_, firstErr = service.CreatePortWithFixedIP(seed.ProjectID, seed.ID, "", false, nil, subnet.AllocationStart)
+		_, firstErr = service.CreatePortWithFixedIP(seed.ProjectID, seed.ID, "", false, nil, address)
 	})
 	wait.Go(func() {
 		<-release
-		_, secondErr = service.CreatePortWithFixedIP(seed.ProjectID, seed.ID, "", false, nil, subnet.AllocationStart)
+		_, secondErr = service.CreatePortWithFixedIP(seed.ProjectID, seed.ID, "", false, nil, address)
 	})
 	close(release)
 	wait.Wait()
@@ -133,5 +137,5 @@ func TestConcurrentExplicitPortAllocationsCannotShareAnAddress(t *testing.T) {
 	}
 	ports := service.ListPorts(seed.ProjectID, app.PortListFilter{})
 	require.Len(t, ports, 1)
-	assert.Equal(t, subnet.AllocationStart, ports[0].FixedIP)
+	assert.Equal(t, address, ports[0].FixedIP)
 }

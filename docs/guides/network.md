@@ -88,27 +88,28 @@ Network reads include the IDs of their subnets. Deleting a subnet removes
 its ID from the network. Deleting a network with no ports also deletes its subnets.
 A sandbox reset clears created subnets.
 
-### Set an IPv4 allocation pool
+### Set IPv4 allocation pools
 
-At subnet creation, send `allocation_pools` with one `start` and `end`
-pair. For example, `[{"start":"192.0.2.10","end":"192.0.2.12"}]` makes
-those three addresses available for automatic allocation. Set the range
-with `subnets.CreateOpts.AllocationPools` in Gophercloud v2.15.0. Leave
-the field out or send `[]` or `null` to derive the default pool. For
-`192.0.2.0/24` with the default gateway `192.0.2.1`, the default pool is
+At subnet creation, send `allocation_pools` with one or more `start`
+and `end` pairs. Set the ranges with `subnets.CreateOpts.AllocationPools`
+in Gophercloud v2.15.0. Omit the field or send `[]` or `null` to derive
+the default pool. For `192.0.2.0/24` with gateway `192.0.2.1`, it spans
 `192.0.2.2` through `192.0.2.254`. See the [subnet create reference],
 [Gophercloud subnet options], and [Neutron allocation pool defaults].
 
 Both endpoints are inclusive. A malformed, reversed, or out-of-bounds
-range returns `400`, including any range that includes the network or
-broadcast address. A range that includes the gateway returns `409`.
-The fixture supports a single range at creation and derives the gateway
-from the CIDR. See the [Neutron allocation pool bounds] and [Neutron
-allocation pool gateway check].
+range returns `400`, including any range that contains the network or
+broadcast address. A range that contains the gateway returns `409`.
+Ranges that share any address, including an endpoint, return `409`
+with `OverlappingAllocationPools`. Adjacent ranges are valid and stay
+separate. See the [Neutron allocation pool bounds] and [Neutron allocation
+pool gateway check].
 
-Automatic allocation uses only the pool. An explicit `fixed_ips` request
-can still select a valid, free IPv4 address in the subnet outside the
-pool. See the [Neutron IP allocation validation].
+The fixture returns pools in ascending order by start address. Automatic
+allocation chooses the lowest free address across all pools and skips
+gaps. An explicit `fixed_ips` request can select a valid, free IPv4
+address in a gap. See the [Neutron IP allocation validation] and
+[Neutron automatic allocation].
 
 ### Filter the subnet list
 
@@ -146,7 +147,7 @@ unchanged. The limit matches the [Neutron DNS nameserver default].
 
 SandStack records the DHCP flag and DNS nameservers as metadata. The
 subnet's existing IPv4 allocations and router attachment remain in place.
-The CIDR, gateway, and allocation pool are set when the subnet is created.
+The CIDR, gateway, and allocation pools are set when the subnet is created.
 
 ### Configure IPv4 host routes
 
@@ -469,8 +470,9 @@ blocked deletions using the [add interface reference] and
 [Gophercloud network options]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/networking/v2/networks/requests.go#L119-L143
 [subnet create reference]: https://docs.openstack.org/api-ref/network/v2/#create-subnet
 [Neutron allocation pool defaults]: https://github.com/openstack/neutron/blob/master/neutron/ipam/drivers/neutrondb_ipam/driver.py#L56-L77
-[Neutron allocation pool bounds]: https://github.com/openstack/neutron/blob/master/neutron/db/ipam_backend_mixin.py#L270-L310
+[Neutron allocation pool bounds]: https://github.com/openstack/neutron/blob/master/neutron/db/ipam_backend_mixin.py#L270-L329
 [Neutron allocation pool gateway check]: https://github.com/openstack/neutron/blob/master/neutron/db/ipam_backend_mixin.py#L415-L430
+[Neutron automatic allocation]: https://github.com/openstack/neutron/blob/master/neutron/ipam/drivers/neutrondb_ipam/driver.py#L143-L187
 [subnet list reference]: https://docs.openstack.org/api-ref/network/v2/#list-subnets
 [subnet update reference]: https://docs.openstack.org/api-ref/network/v2/#update-subnet
 [Neutron filter parser]: https://github.com/openstack/neutron/blob/master/neutron/api/api_common.py#L65-L107

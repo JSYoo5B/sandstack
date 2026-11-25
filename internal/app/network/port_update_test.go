@@ -119,8 +119,10 @@ func TestConcurrentPortUpdatesCannotClaimSameAddress(t *testing.T) {
 	second, err := service.CreatePort(seed.ProjectID, seed.ID, "second", false, nil)
 	require.NoError(t, err)
 	name := "changed"
+	require.Len(t, subnet.AllocationPools, 1)
+	address := subnet.AllocationPools[0].End
 	change := app.PortUpdate{
-		Name: &name, FixedIPs: &app.PortFixedIPUpdate{Address: subnet.AllocationEnd},
+		Name: &name, FixedIPs: &app.PortFixedIPUpdate{Address: address},
 	}
 	var firstErr, secondErr error
 	var wait sync.WaitGroup
@@ -146,7 +148,7 @@ func TestConcurrentPortUpdatesCannotClaimSameAddress(t *testing.T) {
 		winner, loser = second, first
 	}
 	winner.Name = name
-	winner.FixedIP = subnet.AllocationEnd
+	winner.FixedIP = address
 	loaded, err := service.GetPort(seed.ProjectID, winner.ID)
 	require.NoError(t, err)
 	assert.Equal(t, winner, loaded)

@@ -18,12 +18,12 @@ var (
 )
 
 type SubnetCreate struct {
-	Name           string
-	CIDR           netip.Prefix
-	EnableDHCP     bool
-	DNSNameservers []netip.Addr
-	HostRoutes     []domain.SubnetHostRoute
-	AllocationPool *SubnetAllocationPool
+	Name            string
+	CIDR            netip.Prefix
+	EnableDHCP      bool
+	DNSNameservers  []netip.Addr
+	HostRoutes      []domain.SubnetHostRoute
+	AllocationPools []domain.AllocationPool
 }
 
 func (s *Service) CreateSubnet(projectID, networkID string, options SubnetCreate) (domain.Subnet, error) {
@@ -46,7 +46,7 @@ func (s *Service) CreateSubnet(projectID, networkID string, options SubnetCreate
 	}
 
 	gateway := prefix.Addr().Next()
-	pool, err := subnetAllocationPool(prefix, gateway, options.AllocationPool)
+	pools, err := subnetAllocationPools(prefix, gateway, options.AllocationPools)
 	if err != nil {
 		return domain.Subnet{}, err
 	}
@@ -64,8 +64,7 @@ func (s *Service) CreateSubnet(projectID, networkID string, options SubnetCreate
 		DNSNameservers:  slices.Clone(options.DNSNameservers),
 		HostRoutes:      slices.Clone(options.HostRoutes),
 		Gateway:         gateway,
-		AllocationStart: pool.Start,
-		AllocationEnd:   pool.End,
+		AllocationPools: pools,
 	}
 	s.subnets[id] = subnet
 	network.SubnetIDs = append(network.SubnetIDs, id)
@@ -156,6 +155,7 @@ func (s *Service) ListSubnets(projectID string, filter SubnetListFilter) []domai
 func copySubnet(subnet domain.Subnet) domain.Subnet {
 	subnet.DNSNameservers = slices.Clone(subnet.DNSNameservers)
 	subnet.HostRoutes = slices.Clone(subnet.HostRoutes)
+	subnet.AllocationPools = slices.Clone(subnet.AllocationPools)
 	return subnet
 }
 

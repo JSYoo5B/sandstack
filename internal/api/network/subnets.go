@@ -50,22 +50,23 @@ func describeSubnet(subnet domain.Subnet) subnetBody {
 	for i, route := range subnet.HostRoutes {
 		hostRoutes[i] = hostRouteBody{Destination: route.Destination.String(), NextHop: route.NextHop.String()}
 	}
+	pools := make([]allocationPool, len(subnet.AllocationPools))
+	for i, pool := range subnet.AllocationPools {
+		pools[i] = allocationPool{Start: pool.Start.String(), End: pool.End.String()}
+	}
 	return subnetBody{
-		ID:         subnet.ID,
-		Name:       subnet.Name,
-		NetworkID:  subnet.NetworkID,
-		ProjectID:  subnet.ProjectID,
-		TenantID:   subnet.ProjectID,
-		CIDR:       subnet.CIDR.String(),
-		GatewayIP:  subnet.Gateway.String(),
-		IPVersion:  4,
-		EnableDHCP: subnet.EnableDHCP,
-		AllocationPools: []allocationPool{{
-			Start: subnet.AllocationStart.String(),
-			End:   subnet.AllocationEnd.String(),
-		}},
-		DNSNameservers: nameservers,
-		HostRoutes:     hostRoutes,
+		ID:              subnet.ID,
+		Name:            subnet.Name,
+		NetworkID:       subnet.NetworkID,
+		ProjectID:       subnet.ProjectID,
+		TenantID:        subnet.ProjectID,
+		CIDR:            subnet.CIDR.String(),
+		GatewayIP:       subnet.Gateway.String(),
+		IPVersion:       4,
+		EnableDHCP:      subnet.EnableDHCP,
+		AllocationPools: pools,
+		DNSNameservers:  nameservers,
+		HostRoutes:      hostRoutes,
 	}
 }
 
@@ -94,12 +95,12 @@ func (h handler) createSubnet(w http.ResponseWriter, r *http.Request, projectID 
 	}
 
 	subnet, err := h.service.CreateSubnet(projectID, params.networkID, app.SubnetCreate{
-		Name:           params.name,
-		CIDR:           prefix,
-		EnableDHCP:     params.enableDHCP,
-		DNSNameservers: params.dnsNameservers,
-		HostRoutes:     params.hostRoutes,
-		AllocationPool: params.allocationPool,
+		Name:            params.name,
+		CIDR:            prefix,
+		EnableDHCP:      params.enableDHCP,
+		DNSNameservers:  params.dnsNameservers,
+		HostRoutes:      params.hostRoutes,
+		AllocationPools: params.allocationPools,
 	})
 	switch {
 	case errors.Is(err, app.ErrNetworkNotFound):
@@ -110,6 +111,8 @@ func (h handler) createSubnet(w http.ResponseWriter, r *http.Request, projectID 
 		writeError(w, http.StatusBadRequest, "InvalidAllocationPool", err.Error())
 	case errors.Is(err, app.ErrSubnetAllocationPoolBounds):
 		writeError(w, http.StatusBadRequest, "OutOfBoundsAllocationPool", err.Error())
+	case errors.Is(err, app.ErrSubnetAllocationPoolOverlap):
+		writeError(w, http.StatusConflict, "OverlappingAllocationPools", err.Error())
 	case errors.Is(err, app.ErrSubnetAllocationPoolGateway):
 		writeError(w, http.StatusConflict, "GatewayConflictWithAllocationPools", err.Error())
 	case err != nil:

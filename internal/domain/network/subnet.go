@@ -12,8 +12,12 @@ type Subnet struct {
 	DNSNameservers  []netip.Addr
 	HostRoutes      []SubnetHostRoute
 	Gateway         netip.Addr
-	AllocationStart netip.Addr
-	AllocationEnd   netip.Addr
+	AllocationPools []AllocationPool
+}
+
+type AllocationPool struct {
+	Start netip.Addr
+	End   netip.Addr
 }
 
 type SubnetHostRoute struct {

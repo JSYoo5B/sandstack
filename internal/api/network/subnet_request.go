@@ -17,14 +17,14 @@ var errNameserverIPVersion = errors.New("DNS nameservers on an IPv4 subnet must 
 var errNameserverLimit = errors.New("the number of DNS nameservers exceeds the limit 5")
 
 type createSubnetParams struct {
-	networkID      string
-	name           string
-	cidr           string
-	ipVersion      int
-	enableDHCP     bool
-	dnsNameservers []netip.Addr
-	hostRoutes     []domain.SubnetHostRoute
-	allocationPool *app.SubnetAllocationPool
+	networkID       string
+	name            string
+	cidr            string
+	ipVersion       int
+	enableDHCP      bool
+	dnsNameservers  []netip.Addr
+	hostRoutes      []domain.SubnetHostRoute
+	allocationPools []domain.AllocationPool
 	requestOwnership
 }
 
@@ -60,7 +60,7 @@ func parseCreateSubnet(data []byte) (createSubnetParams, error) {
 			}
 			continue
 		case "allocation_pools":
-			params.allocationPool, err = parseSubnetAllocationPool(value)
+			params.allocationPools, err = parseSubnetAllocationPools(value)
 			if err != nil {
 				return createSubnetParams{}, err
 			}

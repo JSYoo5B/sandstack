@@ -40,7 +40,8 @@ func TestRouterInterfaceOwnsOnlyItsManagedGatewayPort(t *testing.T) {
 	}, managed)
 	assert.NotEmpty(t, managed.MACAddress)
 	assert.NotEqual(t, ordinary.MACAddress, managed.MACAddress)
-	assert.Equal(t, subnet.AllocationStart, ordinary.FixedIP)
+	require.Len(t, subnet.AllocationPools, 1)
+	assert.Equal(t, subnet.AllocationPools[0].Start, ordinary.FixedIP)
 	networkFilter := app.PortListFilter{NetworkIDs: []string{seed.ID}}
 	assert.Equal(t, []domain.Port{ordinary, managed}, service.ListPorts(seed.ProjectID, networkFilter))
 	routerFilter := app.PortListFilter{DeviceIDs: []string{router.ID}}

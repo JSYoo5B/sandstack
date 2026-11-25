@@ -83,7 +83,8 @@ func TestPortSubnetSelectionAndProjectScope(t *testing.T) {
 	withIP, err := service.CreatePort(seed.ProjectID, seed.ID, "selected", false, &first.ID)
 	require.NoError(t, err)
 	assert.Equal(t, first.ID, withIP.SubnetID)
-	assert.Equal(t, first.AllocationStart, withIP.FixedIP)
+	require.Len(t, first.AllocationPools, 1)
+	assert.Equal(t, first.AllocationPools[0].Start, withIP.FixedIP)
 
 	other, err := service.Create("other-project", "private", false)
 	require.NoError(t, err)

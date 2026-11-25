@@ -28,15 +28,17 @@ func TestSubnetAddressDefaultsAndDetachedNetworkProjection(t *testing.T) {
 	)
 	require.NoError(t, err)
 	assert.Equal(t, domain.Subnet{
-		ID:              fixtureID(3),
-		NetworkID:       seed.ID,
-		ProjectID:       seed.ProjectID,
-		Name:            "first",
-		CIDR:            netip.MustParsePrefix("192.168.0.64/26"),
-		EnableDHCP:      true,
-		Gateway:         netip.MustParseAddr("192.168.0.65"),
-		AllocationStart: netip.MustParseAddr("192.168.0.66"),
-		AllocationEnd:   netip.MustParseAddr("192.168.0.126"),
+		ID:         fixtureID(3),
+		NetworkID:  seed.ID,
+		ProjectID:  seed.ProjectID,
+		Name:       "first",
+		CIDR:       netip.MustParsePrefix("192.168.0.64/26"),
+		EnableDHCP: true,
+		Gateway:    netip.MustParseAddr("192.168.0.65"),
+		AllocationPools: []domain.AllocationPool{{
+			Start: netip.MustParseAddr("192.168.0.66"),
+			End:   netip.MustParseAddr("192.168.0.126"),
+		}},
 	}, first)
 	second, err := service.CreateSubnet(
 		seed.ProjectID, seed.ID, app.SubnetCreate{
@@ -47,8 +49,9 @@ func TestSubnetAddressDefaultsAndDetachedNetworkProjection(t *testing.T) {
 	)
 	require.NoError(t, err)
 	assert.Equal(t, netip.MustParseAddr("192.168.1.253"), second.Gateway)
-	assert.Equal(t, netip.MustParseAddr("192.168.1.254"), second.AllocationStart)
-	assert.Equal(t, second.AllocationStart, second.AllocationEnd)
+	require.Len(t, second.AllocationPools, 1)
+	assert.Equal(t, netip.MustParseAddr("192.168.1.254"), second.AllocationPools[0].Start)
+	assert.Equal(t, second.AllocationPools[0].Start, second.AllocationPools[0].End)
 	assert.False(t, second.EnableDHCP)
 	assert.Equal(t, []domain.Subnet{second, first}, service.ListSubnets(seed.ProjectID, app.SubnetListFilter{}))
 

@@ -73,6 +73,63 @@ func TestGophercloudAllocatesPortsFromCustomSubnetPool(t *testing.T) {
 	assert.Equal(t, first.FixedIPs, reused.FixedIPs)
 }
 
+func TestGophercloudAllocatesAcrossDisjointSubnetPools(t *testing.T) {
+	instance := startServer(t, "")
+	provider := authenticate(t, instance)
+	client, err := openstack.NewNetworkV2(provider, gophercloud.EndpointOpts{
+		Region: "RegionOne", Availability: gophercloud.AvailabilityPublic,
+	})
+	require.NoError(t, err)
+	ctx := t.Context()
+	low := subnets.AllocationPool{Start: "10.81.0.10", End: "10.81.0.11"}
+	high := subnets.AllocationPool{Start: "10.81.0.20", End: "10.81.0.21"}
+	disabled := false
+	subnet, err := subnets.Create(ctx, client, subnets.CreateOpts{
+		Name: "disjoint-pools", NetworkID: fixtureNetworkID, CIDR: "10.81.0.0/24",
+		IPVersion: gophercloud.IPv4, EnableDHCP: &disabled, AllocationPools: []subnets.AllocationPool{high, low},
+	}).Extract()
+	require.NoError(t, err)
+	require.NotEmpty(t, subnet.ID)
+	assert.Equal(t, []subnets.AllocationPool{low, high}, subnet.AllocationPools)
+	detail, err := subnets.Get(ctx, client, subnet.ID).Extract()
+	require.NoError(t, err)
+	assert.Equal(t, subnet, detail)
+	pages, err := subnets.List(client, subnets.ListOpts{NetworkID: fixtureNetworkID}).AllPages(ctx)
+	require.NoError(t, err)
+	listed, err := subnets.ExtractSubnets(pages)
+	require.NoError(t, err)
+	assert.Equal(t, []subnets.Subnet{*subnet}, listed)
+
+	address := func(ip string) []ports.IP {
+		return []ports.IP{{SubnetID: subnet.ID, IPAddress: ip}}
+	}
+	auto := ports.CreateOpts{NetworkID: fixtureNetworkID}
+	portIDs := make([]string, 0, 4)
+	for _, ip := range []string{low.Start, low.End, high.Start, high.End} {
+		port, err := ports.Create(ctx, client, auto).Extract()
+		require.NoError(t, err)
+		require.NotEmpty(t, port.ID)
+		assert.Equal(t, address(ip), port.FixedIPs)
+		portIDs = append(portIDs, port.ID)
+	}
+	_, err = ports.Create(ctx, client, auto).Extract()
+	assert.True(t, gophercloud.ResponseCodeIs(err, http.StatusConflict), "both pools exhausted: %v", err)
+	gap := address("10.81.0.15")
+	explicit, err := ports.Create(ctx, client, ports.CreateOpts{
+		NetworkID: fixtureNetworkID, FixedIPs: gap,
+	}).Extract()
+	require.NoError(t, err)
+	assert.Equal(t, gap, explicit.FixedIPs)
+	_, err = ports.Create(ctx, client, auto).Extract()
+	assert.True(t, gophercloud.ResponseCodeIs(err, http.StatusConflict), "gap not available automatically: %v", err)
+
+	require.NoError(t, ports.Delete(ctx, client, portIDs[1]).ExtractErr())
+	reused, err := ports.Create(ctx, client, auto).Extract()
+	require.NoError(t, err)
+	assert.NotEqual(t, portIDs[1], reused.ID)
+	assert.Equal(t, address(low.End), reused.FixedIPs)
+}
+
 func TestSubnetAllocationPoolWire(t *testing.T) {
 	instance := startServer(t, "")
 	provider := authenticate(t, instance)
@@ -90,8 +147,10 @@ func TestSubnetAllocationPoolWire(t *testing.T) {
 		status int
 		kind   string
 	}{
-		{"multiple pools", `[{"start":"10.81.0.10","end":"10.81.0.11"},{"start":"10.81.0.20","end":"10.81.0.21"}]`,
-			http.StatusBadRequest, "HTTPBadRequest"},
+		{"duplicate pools", `[{"start":"10.81.0.10","end":"10.81.0.11"},{"start":"10.81.0.10","end":"10.81.0.11"}]`,
+			http.StatusConflict, "OverlappingAllocationPools"},
+		{"shared endpoint", `[{"start":"10.81.0.11","end":"10.81.0.12"},{"start":"10.81.0.10","end":"10.81.0.11"}]`,
+			http.StatusConflict, "OverlappingAllocationPools"},
 		{"missing end", `[{"start":"10.81.0.10"}]`, http.StatusBadRequest, "HTTPBadRequest"},
 		{"malformed address", `[{"start":"10.81.0.999","end":"10.81.0.11"}]`,
 			http.StatusBadRequest, "HTTPBadRequest"},
@@ -149,4 +208,16 @@ func TestSubnetAllocationPoolWire(t *testing.T) {
 	requireJSON(t, headers)
 	subnet := readCreated(body)
 	assert.Equal(t, []wireAllocationPool{{Start: "10.81.0.10", End: "10.81.0.10"}}, subnet.AllocationPools)
+	status, _, body = request(t, instance, http.MethodDelete, subnetsPath+"/"+subnet.ID, "", auth)
+	require.Equal(t, http.StatusNoContent, status, "%s", body)
+
+	const adjacent = `[{"start":"10.81.0.12","end":"10.81.0.13"},{"start":"10.81.0.10","end":"10.81.0.11"}]`
+	status, headers, body = request(t, instance, http.MethodPost, subnetsPath, create(adjacent), auth)
+	require.Equal(t, http.StatusCreated, status, "%s", body)
+	requireJSON(t, headers)
+	subnet = readCreated(body)
+	assert.Equal(t, []wireAllocationPool{
+		{Start: "10.81.0.10", End: "10.81.0.11"},
+		{Start: "10.81.0.12", End: "10.81.0.13"},
+	}, subnet.AllocationPools)
 }

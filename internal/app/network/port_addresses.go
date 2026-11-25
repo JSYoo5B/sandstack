@@ -75,13 +75,13 @@ func selectPortAddress(subnet domain.Subnet, requested *netip.Addr, used map[net
 	if subnet.ID == "" {
 		return netip.Addr{}, nil
 	}
-	// Each iteration skips an allocated address, so sparse pools avoid a full scan.
-	address := subnet.AllocationStart
-	for address.Compare(subnet.AllocationEnd) <= 0 {
-		if !used[address] {
-			return address, nil
+	// Each unsuccessful iteration visits an already allocated address.
+	for _, pool := range subnet.AllocationPools {
+		for address := pool.Start; address.Compare(pool.End) <= 0; address = address.Next() {
+			if !used[address] {
+				return address, nil
+			}
 		}
-		address = address.Next()
 	}
 	return netip.Addr{}, ErrPortIPExhausted
 }

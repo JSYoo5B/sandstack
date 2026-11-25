@@ -5,29 +5,30 @@ import (
 	"errors"
 	"net/netip"
 
-	app "github.com/JSYoo5B/sandstack/internal/app/network"
+	domain "github.com/JSYoo5B/sandstack/internal/domain/network"
 )
 
-var errInvalidSubnetPoolRequest = errors.New("expected at most one allocation pool with start and end IP addresses")
+var errInvalidSubnetPoolRequest = errors.New("expected an array of allocation pools with start and end IP addresses")
 
-func parseSubnetAllocationPool(value json.RawMessage) (*app.SubnetAllocationPool, error) {
-	var pools []json.RawMessage
-	if json.Unmarshal(value, &pools) != nil || len(pools) > 1 {
+func parseSubnetAllocationPools(value json.RawMessage) ([]domain.AllocationPool, error) {
+	var entries []json.RawMessage
+	if json.Unmarshal(value, &entries) != nil {
 		return nil, errInvalidSubnetPoolRequest
 	}
-	if len(pools) == 0 {
-		return nil, nil
+	pools := make([]domain.AllocationPool, 0, len(entries))
+	for _, entry := range entries {
+		fields, err := readUniqueObject(entry)
+		var start, end string
+		if err != nil || len(fields) != 2 || !decodeCreateField(fields["start"], &start) ||
+			!decodeCreateField(fields["end"], &end) {
+			return nil, errInvalidSubnetPoolRequest
+		}
+		first, firstErr := netip.ParseAddr(start)
+		last, lastErr := netip.ParseAddr(end)
+		if firstErr != nil || lastErr != nil || first.Zone() != "" || last.Zone() != "" {
+			return nil, errInvalidSubnetPoolRequest
+		}
+		pools = append(pools, domain.AllocationPool{Start: first, End: last})
 	}
-	fields, err := readUniqueObject(pools[0])
-	var start, end string
-	if err != nil || len(fields) != 2 || !decodeCreateField(fields["start"], &start) ||
-		!decodeCreateField(fields["end"], &end) {
-		return nil, errInvalidSubnetPoolRequest
-	}
-	first, firstErr := netip.ParseAddr(start)
-	last, lastErr := netip.ParseAddr(end)
-	if firstErr != nil || lastErr != nil || first.Zone() != "" || last.Zone() != "" {
-		return nil, errInvalidSubnetPoolRequest
-	}
-	return &app.SubnetAllocationPool{Start: first, End: last}, nil
+	return pools, nil
 }
