@@ -19,7 +19,7 @@ const maxImagePatchBody = 64 * 1024
 const maxImageTextLength = 255
 const maxImageTags = 128
 
-var errImagePatch = errors.New("expected one replace operation for /name or /tags")
+var errImagePatch = errors.New("expected one replace operation for /name, /tags, or /protected")
 var errImageName = errors.New("the image name must be a string of up to 255 characters")
 var errImageTags = errors.New("image tags must be an array of strings of up to 255 characters each")
 var errImageTagLimit = errors.New("the image tag count exceeds the limit of 128")
@@ -86,9 +86,20 @@ func parseImagePatch(data []byte) (app.ImageUpdate, error) {
 	case "/tags":
 		tags, err := parseImageTags(fields["value"])
 		return app.ImageUpdate{Tags: tags}, err
+	case "/protected":
+		protected, err := parseImageProtected(fields["value"])
+		return app.ImageUpdate{Protected: protected}, err
 	default:
 		return app.ImageUpdate{}, errImagePatch
 	}
+}
+
+func parseImageProtected(raw json.RawMessage) (*bool, error) {
+	var protected *bool
+	if json.Unmarshal(raw, &protected) != nil || protected == nil {
+		return nil, errors.New("the protected value must be a boolean")
+	}
+	return protected, nil
 }
 
 func readPatchOperation(data json.RawMessage) (map[string]json.RawMessage, error) {

@@ -18,6 +18,7 @@ type Image struct {
 	UpdatedAt       time.Time
 	Deactivated     bool
 	Queued          bool
+	Protected       bool
 	ContainerFormat string
 	DiskFormat      string
 }

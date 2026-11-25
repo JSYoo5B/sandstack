@@ -18,6 +18,7 @@ type CreateOptions struct {
 	Name            string
 	ContainerFormat string
 	DiskFormat      string
+	Protected       bool
 }
 
 // Create stores a queued image record before image bytes are available.
@@ -42,6 +43,7 @@ func (s *Service) Create(projectID string, options CreateOptions) (domain.Image,
 		CreatedAt:       now,
 		UpdatedAt:       now,
 		Queued:          true,
+		Protected:       options.Protected,
 	}
 	s.images[id] = image
 	return image, nil

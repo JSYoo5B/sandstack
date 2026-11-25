@@ -14,6 +14,8 @@ func (h handler) deleteImage(w http.ResponseWriter, r *http.Request, projectID s
 	switch {
 	case errors.Is(err, app.ErrImageNotFound):
 		http.Error(w, "Image not found.", http.StatusNotFound)
+	case errors.Is(err, app.ErrImageProtected):
+		http.Error(w, "The image is protected and cannot be deleted.", http.StatusForbidden)
 	case err != nil:
 		http.Error(w, "Unable to delete the image.", http.StatusInternalServerError)
 	default:

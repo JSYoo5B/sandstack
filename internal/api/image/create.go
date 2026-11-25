@@ -67,6 +67,14 @@ func parseImageCreate(data []byte) (app.CreateOptions, error) {
 	var options app.CreateOptions
 	var public bool
 	for field, raw := range fields {
+		if field == "protected" {
+			protected, err := parseImageProtected(raw)
+			if err != nil {
+				return app.CreateOptions{}, err
+			}
+			options.Protected = *protected
+			continue
+		}
 		var value *string
 		if err := json.Unmarshal(raw, &value); err != nil {
 			return app.CreateOptions{}, errImageCreate

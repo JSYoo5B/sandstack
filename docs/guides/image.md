@@ -26,9 +26,9 @@ Read the new image through `images.Get` and find it in `images.List`.
 A file request for a queued image returns `204` with an empty body.
 Creating an image leaves the startup fixture and its download controls
 intact. A [sandbox reset](reset.md) removes queued images.
-The fixture's create operation accepts the name, private visibility, and
-the optional formats. A public request returns `403`; unsupported
-fields and invalid values return `400`.
+The fixture's create operation accepts the name, private visibility, the
+optional formats, and the protection flag. A public request returns
+`403`. Unsupported fields and invalid values return `400`.
 
 ### Upload a queued image file
 
@@ -47,6 +47,20 @@ Deleting the startup image also removes its stored bytes from the
 download path and clears its pending download failure. The Nova server
 keeps the same image ID. A [sandbox reset](reset.md) restores the startup
 image and its file and removes all client-created images.
+
+### Protect an image from deletion
+
+Set `images.CreateOpts.Protected` to a pointer to `true` when creating an
+image, or use `images.ReplaceImageProtected{NewProtected: true}` in
+`images.Update`. The update sends one JSON Patch `replace` for
+`/protected` and returns `200` with the updated image. Detail and list
+responses expose the same flag. The default is `false`. An explicit
+protection value must be a JSON boolean. See the [Glance protection tests]
+and [Gophercloud image protection].
+
+A protected image returns `403` on deletion and remains readable with
+its existing metadata and bytes. Set `NewProtected: false` to allow
+deletion again. See the [Glance protected image error].
 
 ## List and filter images
 
@@ -187,9 +201,12 @@ and preservation of the filter across SDK pages.
 [Glance image reference]: https://docs.openstack.org/api-ref/image/v2/#show-image
 [Glance create reference]: https://docs.openstack.org/api-ref/image/v2/#create-image
 [Glance delete reference]: https://docs.openstack.org/api-ref/image/v2/#delete-image
+[Glance protection tests]: https://github.com/openstack/glance/blob/12.0.0/glance/tests/functional/v2/test_images.py#L553-L575
+[Glance protected image error]: https://github.com/openstack/glance/blob/12.0.0/glance/common/exception.py#L123-L125
 [Glance v2.0 image defaults]: https://github.com/openstack/glance/blob/12.0.0/glance/domain/__init__.py#L71-L93
 [Gophercloud image create options]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/image/v2/images/requests.go#L145-L218
 [Gophercloud image delete]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/image/v2/images/requests.go#L221-L226
+[Gophercloud image protection]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/image/v2/images/requests.go#L377-L390
 [Glance image schema reference]: https://docs.openstack.org/api-ref/image/v2/#show-image-schema
 [Glance collection schema reference]: https://docs.openstack.org/api-ref/image/v2/#show-images-schema
 [Glance schema builders]: https://github.com/openstack/glance/blob/master/glance/api/v2/images.py#L1963-L2008

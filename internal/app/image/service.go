@@ -12,6 +12,7 @@ import (
 var (
 	ErrImageNotFound        = errors.New("image not found")
 	ErrImageDeactivated     = errors.New("image is deactivated")
+	ErrImageProtected       = errors.New("image is protected")
 	ErrDownloadUnavailable  = errors.New("image download temporarily unavailable")
 	ErrImageMarkerForbidden = errors.New("image list marker is not accessible")
 )
@@ -54,8 +55,9 @@ func (s *Service) Get(projectID, imageID string) (domain.Image, error) {
 }
 
 type ImageUpdate struct {
-	Name *string
-	Tags []string
+	Name      *string
+	Tags      []string
+	Protected *bool
 }
 
 func (s *Service) Update(projectID, imageID string, changes ImageUpdate) (domain.Image, error) {
@@ -73,7 +75,10 @@ func (s *Service) Update(projectID, imageID string, changes ImageUpdate) (domain
 	if changes.Tags != nil {
 		image.Tags = normalizeTags(changes.Tags)
 	}
-	if image.Name != current.Name || !slices.Equal(image.Tags, current.Tags) {
+	if changes.Protected != nil {
+		image.Protected = *changes.Protected
+	}
+	if image.Name != current.Name || !slices.Equal(image.Tags, current.Tags) || image.Protected != current.Protected {
 		image.UpdatedAt = s.now().UTC()
 		s.images[imageID] = image
 		return snapshot(image), nil
@@ -89,6 +94,9 @@ func (s *Service) Delete(projectID, imageID string) error {
 	image, ok := s.images[imageID]
 	if !ok || projectID != image.ProjectID {
 		return ErrImageNotFound
+	}
+	if image.Protected {
+		return ErrImageProtected
 	}
 	delete(s.images, imageID)
 	delete(s.payloads, imageID)
