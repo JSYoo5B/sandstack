@@ -21,8 +21,29 @@ func (s *Service) SetPower(projectID, serverID string, powered bool) error {
 	if !canStart && !canStop {
 		return ErrServerPowerState
 	}
+	s.applyPowerState(powered)
+	return nil
+}
+
+func (s *Service) Reboot(projectID, serverID string, hard bool) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.server.ProjectID != projectID || s.server.ID != serverID {
+		return ErrServerNotFound
+	}
+	status := s.server.Status()
+	canReboot := status == domain.StatusActive || (hard && (status == domain.StatusShutoff || status == domain.StatusError))
+	if !canReboot {
+		return ErrServerPowerState
+	}
+	s.applyPowerState(true)
+	return nil
+}
+
+// applyPowerState records the completed transition with the write lock held.
+func (s *Service) applyPowerState(powered bool) {
 	s.server.Stopped = !powered
 	s.server.Fault = nil
 	s.server.UpdatedAt = s.now().UTC()
-	return nil
 }

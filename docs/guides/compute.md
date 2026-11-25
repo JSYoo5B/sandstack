@@ -40,6 +40,25 @@ list. Both actions preserve existing Cinder volume attachments. The stale
 detail snapshot and the next-detail-read outage controls still apply to
 subsequent detail reads.
 
+## Reboot a server
+
+Use `servers.Reboot` with `servers.SoftReboot` or `servers.HardReboot`
+in Gophercloud v2.15.0. It sends `POST /servers/{server_id}/action` with
+`{"reboot":{"type":"HARD"}}` or its soft equivalent. Nova v2.1 accepts
+uppercase, title case, and lowercase spellings. Unknown types and extra
+fields return `400`. An accepted action returns `202` with an empty body.
+See the [Nova reboot reference], [Nova reboot schema], and [Gophercloud
+reboot options].
+
+Soft reboot requires `ACTIVE`. Hard reboot accepts `ACTIVE`, `SHUTOFF`,
+or `ERROR`. A soft reboot in either of the latter states returns `409`
+and preserves the state. A successful hard reboot can recover the
+injected instance fault. SandStack completes the reboot before
+responding, so live detail and detailed list show `ACTIVE` immediately.
+Nova runs reboots asynchronously. Existing attachments, stale detail
+snapshots, and scheduled detail failures remain in place. See the
+[Nova reboot state checks].
+
 ## Attach and detach a Cinder volume
 
 Use Gophercloud's `volumeattach.Create` with the fixture server ID and an
@@ -149,6 +168,8 @@ The power cycle tests exercise stop and start through Gophercloud and
 check the stopped server state, unchanged attachments, and wrong-state
 conflicts. The [Nova stop reference] and [Nova start reference] describe
 the request bodies and response status codes.
+The reboot tests use the SDK to check state conflicts and hard reboot
+recovery and HTTP to check accepted requests and empty responses.
 The raw HTTP checks use the [Compute list reference],
 [Compute detail reference], [Compute fault guide], and [Nova fault response]
 for the OpenStack response shapes.
@@ -159,6 +180,10 @@ for the OpenStack response shapes.
 [Nova fault response]: https://github.com/openstack/nova/blob/master/nova/api/openstack/wsgi.py
 [Nova stop reference]: https://docs.openstack.org/api-ref/compute/#stop-server-os-stop-action
 [Nova start reference]: https://docs.openstack.org/api-ref/compute/#start-server-os-start-action
+[Nova reboot reference]: https://docs.openstack.org/api-ref/compute/#reboot-server-reboot-action
+[Nova reboot schema]: https://github.com/openstack/nova/blob/master/nova/api/openstack/compute/schemas/servers.py#L495-L512
+[Nova reboot state checks]: https://github.com/openstack/nova/blob/master/nova/compute/vm_states.py#L62-L67
+[Gophercloud reboot options]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/compute/v2/servers/requests.go#L699-L750
 [Gophercloud server actions]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/compute/v2/servers/requests.go#L1379-L1391
 [Nova volume attachment reference]: https://docs.openstack.org/api-ref/compute/#attach-a-volume-to-an-instance
 [Nova attachment state checks]: https://github.com/openstack/nova/blob/master/nova/compute/api.py#L4786-L4796

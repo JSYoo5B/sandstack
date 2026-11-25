@@ -1,6 +1,7 @@
 package compute
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 	"unicode/utf8"
@@ -16,14 +17,28 @@ func (h handler) changeServerPower(w http.ResponseWriter, r *http.Request, scope
 		return
 	}
 	actions, err := readUniqueObject(data)
-	_, start := actions["os-start"]
-	_, stop := actions["os-stop"]
-	if err != nil || !utf8.Valid(data) || len(actions) != 1 || (!start && !stop) {
-		writeFault(w, http.StatusBadRequest, "badRequest", "Expected a single os-start or os-stop action.")
+	if err != nil || !utf8.Valid(data) || len(actions) != 1 {
+		writeFault(w, http.StatusBadRequest, "badRequest", "Expected a single os-start, os-stop, or reboot action.")
 		return
 	}
 
-	err = h.service.SetPower(scope.projectID, chi.URLParam(r, "serverID"), start)
+	serverID := chi.URLParam(r, "serverID")
+	switch {
+	case actions["os-start"] != nil:
+		err = h.service.SetPower(scope.projectID, serverID, true)
+	case actions["os-stop"] != nil:
+		err = h.service.SetPower(scope.projectID, serverID, false)
+	case actions["reboot"] != nil:
+		hard, valid := parseRebootType(actions["reboot"])
+		if !valid {
+			writeFault(w, http.StatusBadRequest, "badRequest", "Expected a reboot with type HARD or SOFT.")
+			return
+		}
+		err = h.service.Reboot(scope.projectID, serverID, hard)
+	default:
+		writeFault(w, http.StatusBadRequest, "badRequest", "Expected a single os-start, os-stop, or reboot action.")
+		return
+	}
 	switch {
 	case errors.Is(err, appcompute.ErrServerNotFound):
 		writeFault(w, http.StatusNotFound, "itemNotFound", "The server could not be found.")
@@ -34,5 +49,24 @@ func (h handler) changeServerPower(w http.ResponseWriter, r *http.Request, scope
 	default:
 		w.Header().Set("Cache-Control", "no-store")
 		w.WriteHeader(http.StatusAccepted)
+	}
+}
+
+func parseRebootType(data json.RawMessage) (hard, valid bool) {
+	fields, err := readUniqueObject(data)
+	if err != nil || len(fields) != 1 {
+		return false, false
+	}
+	var rebootType string
+	if err := json.Unmarshal(fields["type"], &rebootType); err != nil {
+		return false, false
+	}
+	switch rebootType {
+	case "HARD", "Hard", "hard":
+		return true, true
+	case "SOFT", "Soft", "soft":
+		return false, true
+	default:
+		return false, false
 	}
 }
