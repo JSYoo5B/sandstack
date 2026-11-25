@@ -37,6 +37,10 @@ type subnetResponse struct {
 }
 
 func describeSubnet(subnet domain.Subnet) subnetBody {
+	nameservers := make([]string, len(subnet.DNSNameservers))
+	for i, address := range subnet.DNSNameservers {
+		nameservers[i] = address.String()
+	}
 	return subnetBody{
 		ID:         subnet.ID,
 		Name:       subnet.Name,
@@ -51,7 +55,7 @@ func describeSubnet(subnet domain.Subnet) subnetBody {
 			Start: subnet.AllocationStart.String(),
 			End:   subnet.AllocationEnd.String(),
 		}},
-		DNSNameservers: []string{},
+		DNSNameservers: nameservers,
 		HostRoutes:     []struct{}{},
 	}
 }
@@ -63,7 +67,7 @@ func (h handler) createSubnet(w http.ResponseWriter, r *http.Request, projectID 
 	}
 	params, err := parseCreateSubnet(data)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "BadRequest", err.Error())
+		writeSubnetRequestError(w, err)
 		return
 	}
 	if !params.matches(projectID) {
@@ -80,7 +84,9 @@ func (h handler) createSubnet(w http.ResponseWriter, r *http.Request, projectID 
 		return
 	}
 
-	subnet, err := h.service.CreateSubnet(projectID, params.networkID, params.name, prefix, params.enableDHCP)
+	subnet, err := h.service.CreateSubnet(
+		projectID, params.networkID, params.name, prefix, params.enableDHCP, params.dnsNameservers...,
+	)
 	switch {
 	case errors.Is(err, app.ErrNetworkNotFound):
 		writeNetworkNotFound(w, params.networkID)
@@ -121,7 +127,7 @@ func (h handler) updateSubnet(w http.ResponseWriter, r *http.Request, projectID 
 	}
 	changes, err := parseUpdateSubnet(data)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "BadRequest", err.Error())
+		writeSubnetRequestError(w, err)
 		return
 	}
 	subnetID := chi.URLParam(r, "subnetID")
@@ -131,6 +137,19 @@ func (h handler) updateSubnet(w http.ResponseWriter, r *http.Request, projectID 
 		return
 	}
 	writeJSON(w, http.StatusOK, subnetResponse{Subnet: describeSubnet(subnet)})
+}
+
+func writeSubnetRequestError(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, errInvalidNameservers):
+		writeError(w, http.StatusBadRequest, "HTTPBadRequest", err.Error())
+	case errors.Is(err, errNameserverIPVersion):
+		writeError(w, http.StatusBadRequest, "InvalidInput", err.Error())
+	case errors.Is(err, errNameserverLimit):
+		writeError(w, http.StatusBadRequest, "DNSNameServersExhausted", err.Error())
+	default:
+		writeError(w, http.StatusBadRequest, "BadRequest", err.Error())
+	}
 }
 
 func (h handler) deleteSubnet(w http.ResponseWriter, r *http.Request, projectID string) {

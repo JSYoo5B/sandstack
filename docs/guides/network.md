@@ -57,6 +57,12 @@ addresses. For `192.0.2.0/24`, the gateway is `192.0.2.1` and the pool is
 `192.0.2.2` through `192.0.2.254`. Custom gateways and pools are outside
 this scenario. Overlapping subnets on one network receive `400`.
 
+Set `dns_nameservers` to an ordered array of up to five distinct IPv4
+addresses when creating a subnet. The default is an empty array. With
+Gophercloud v2.15.0, set `subnets.CreateOpts.DNSNameservers` and read the
+field on each `Subnet` returned by `subnets.Get` or `subnets.List`. See
+the [subnet create reference] and [Gophercloud subnet options].
+
 Network reads include the IDs of their subnets. Deleting a subnet removes
 its ID from the network. Deleting a network with no ports also deletes its subnets.
 The subnet list is unfiltered. A sandbox reset clears created subnets.
@@ -64,17 +70,24 @@ The subnet list is unfiltered. A sandbox reset clears created subnets.
 ### Update subnet metadata
 
 Send `PUT /network/v2.0/subnets/{subnet_id}` with a `subnet` object to
-update `name` or `enable_dhcp` for a subnet in the token's project. A
+update `name`, `enable_dhcp`, or `dns_nameservers` in the token's project. A
 successful request returns `200` with the updated subnet. Omitted fields
 keep their values. Use an explicit empty string to clear the name or
 `false` to disable the DHCP flag. In Gophercloud, pass `Name` and
 `EnableDHCP` pointers in `subnets.UpdateOpts` to `subnets.Update`.
 See the [subnet update reference].
 
-SandStack records `enable_dhcp` as metadata. The subnet's existing IPv4
-allocations and router attachment remain in place. This update accepts
-only `name` and `enable_dhcp`. The CIDR, gateway, and allocation pool are
-set when the subnet is created.
+To replace the DNS nameservers, pass a pointer to the new slice in
+`subnets.UpdateOpts.DNSNameservers`. Pass a pointer to an empty slice to
+send `dns_nameservers: []` and clear the list. A nil pointer omits the
+field and preserves the list. See the [Gophercloud subnet options].
+A raw HTTP request can also send `null` to clear the list.
+Invalid, duplicate, or excess entries return `400` and leave the subnet
+unchanged. The limit matches the [Neutron DNS nameserver default].
+
+SandStack records the DHCP flag and DNS nameservers as metadata. The
+subnet's existing IPv4 allocations and router attachment remain in place.
+The CIDR, gateway, and allocation pool are set when the subnet is created.
 
 ## Allocate and release a port address
 
@@ -335,6 +348,9 @@ The raw HTTP tests use the [Neutron filtering reference], [Neutron list referenc
 [Neutron detail reference], [Neutron create reference], [Neutron delete reference],
 [subnet create reference], and [port create reference]. The [Neutron database
 implementation] and [exception types] explain deletion and exhaustion conflicts.
+Subnet tests verify DNS nameserver order, replacement, clearing, omission,
+and validation against the [subnet update reference], [Neutron subnet schema],
+and [Neutron nameserver validation].
 The router tests use the [router create reference], [router list reference],
 [router details reference], [router update reference], and
 [router delete reference]. Route tests check replacement, atomic addition
@@ -350,6 +366,10 @@ blocked deletions using the [add interface reference] and
 [Neutron delete reference]: https://docs.openstack.org/api-ref/network/v2/#delete-network
 [subnet create reference]: https://docs.openstack.org/api-ref/network/v2/#create-subnet
 [subnet update reference]: https://docs.openstack.org/api-ref/network/v2/#update-subnet
+[Neutron subnet schema]: https://github.com/openstack/neutron-lib/blob/master/neutron_lib/api/definitions/subnet.py
+[Neutron nameserver validation]: https://github.com/openstack/neutron-lib/blob/master/neutron_lib/api/validators/__init__.py#L716-L745
+[Neutron DNS nameserver default]: https://docs.openstack.org/neutron/2026.1/configuration/neutron.html#DEFAULT.max_dns_nameservers
+[Gophercloud subnet options]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/networking/v2/subnets/requests.go
 [port create reference]: https://docs.openstack.org/api-ref/network/v2/#create-port
 [port list reference]: https://docs.openstack.org/api-ref/network/v2/#list-ports
 [port update reference]: https://docs.openstack.org/api-ref/network/v2/#update-port

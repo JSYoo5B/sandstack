@@ -21,6 +21,7 @@ func (s *Service) CreateSubnet(
 	projectID, networkID, name string,
 	prefix netip.Prefix,
 	enableDHCP bool,
+	dnsNameservers ...netip.Addr,
 ) (domain.Subnet, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -51,6 +52,7 @@ func (s *Service) CreateSubnet(
 		Name:            name,
 		CIDR:            prefix,
 		EnableDHCP:      enableDHCP,
+		DNSNameservers:  slices.Clone(dnsNameservers),
 		Gateway:         gateway,
 		AllocationStart: gateway.Next(),
 		AllocationEnd:   lastUsableAddress(prefix),
@@ -59,7 +61,7 @@ func (s *Service) CreateSubnet(
 	network.SubnetIDs = append(network.SubnetIDs, id)
 	slices.Sort(network.SubnetIDs)
 	s.networks[networkID] = network
-	return subnet, nil
+	return copySubnet(subnet), nil
 }
 
 func lastUsableAddress(prefix netip.Prefix) netip.Addr {
@@ -78,12 +80,13 @@ func (s *Service) GetSubnet(projectID, subnetID string) (domain.Subnet, error) {
 	if !ok || subnet.ProjectID != projectID {
 		return domain.Subnet{}, ErrSubnetNotFound
 	}
-	return subnet, nil
+	return copySubnet(subnet), nil
 }
 
 type SubnetUpdate struct {
-	Name       *string
-	EnableDHCP *bool
+	Name           *string
+	EnableDHCP     *bool
+	DNSNameservers []netip.Addr
 }
 
 func (s *Service) UpdateSubnet(projectID, subnetID string, changes SubnetUpdate) (domain.Subnet, error) {
@@ -100,8 +103,11 @@ func (s *Service) UpdateSubnet(projectID, subnetID string, changes SubnetUpdate)
 	if changes.EnableDHCP != nil {
 		subnet.EnableDHCP = *changes.EnableDHCP
 	}
+	if changes.DNSNameservers != nil {
+		subnet.DNSNameservers = slices.Clone(changes.DNSNameservers)
+	}
 	s.subnets[subnetID] = subnet
-	return subnet, nil
+	return copySubnet(subnet), nil
 }
 
 // ListSubnets returns the project's subnets ordered by ID.
@@ -110,13 +116,18 @@ func (s *Service) ListSubnets(projectID string) []domain.Subnet {
 	s.mu.RLock()
 	for _, subnet := range s.subnets {
 		if subnet.ProjectID == projectID {
-			subnets = append(subnets, subnet)
+			subnets = append(subnets, copySubnet(subnet))
 		}
 	}
 	s.mu.RUnlock()
 
 	slices.SortFunc(subnets, func(a, b domain.Subnet) int { return strings.Compare(a.ID, b.ID) })
 	return subnets
+}
+
+func copySubnet(subnet domain.Subnet) domain.Subnet {
+	subnet.DNSNameservers = slices.Clone(subnet.DNSNameservers)
+	return subnet
 }
 
 func (s *Service) DeleteSubnet(projectID, subnetID string) error {
