@@ -1,9 +1,11 @@
 package volume
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 
+	app "github.com/JSYoo5B/sandstack/internal/app/volume"
 	domain "github.com/JSYoo5B/sandstack/internal/domain/volume"
 )
 
@@ -17,6 +19,10 @@ func (h handler) describeDetailedVolume(r *http.Request, volume domain.Volume) v
 
 func (h handler) showVolumeImageMetadata(w http.ResponseWriter, projectID, volumeID string) {
 	source, err := h.service.GetPublishedImageSource(projectID, volumeID)
+	if errors.Is(err, app.ErrVolumeImageMetadataNotFound) {
+		writeFault(w, http.StatusNotFound, "itemNotFound", err.Error())
+		return
+	}
 	writeVolumeMetadata(w, describeVolumeImageMetadata(source), err)
 }
 

@@ -34,11 +34,13 @@ image](image-data.md#upload-a-queued-image-file).
 
 Send `POST /volumes/{volume_id}/action` with
 `{"os-show_image_metadata":{}}`. This Cinder v3.0 action returns `200`
-with a `metadata` object. A blank volume or pending image-backed volume
-returns an empty object. A provisioned image-backed volume returns the same
-image metadata as its detail response, even if its bootable flag was later
-cleared. The action leaves scheduled detail failures pending and returns
-`404` for a missing volume. See the [Cinder show image metadata action].
+with a `metadata` object when image metadata is present. A provisioned
+image-backed volume returns the same image metadata as its detail
+response, even if its bootable flag was later cleared. An unknown volume
+or a volume without published image metadata returns `404`. This
+includes blank volumes and pending image-backed volumes. The action
+leaves scheduled detail failures pending. See the [Cinder show image
+metadata action] and [Cinder image metadata lookup].
 
 Use Gophercloud v2.15.0's `ServiceClient.Post` with the action URL and
 `200` as the accepted response code.
@@ -99,6 +101,7 @@ source and size validation.
 [Cinder image metadata capture]: https://github.com/openstack/cinder/blob/10.0.0/cinder/volume/flows/manager/create_volume.py#L561-L595
 [Cinder volume image metadata projection]: https://github.com/openstack/cinder/blob/master/cinder/api/contrib/volume_image_metadata.py#L43-L79
 [Cinder show image metadata action]: https://github.com/openstack/cinder/blob/master/cinder/api/contrib/volume_image_metadata.py#L103-L117
+[Cinder image metadata lookup]: https://github.com/openstack/cinder/blob/10.0.0/cinder/db/sqlalchemy/api.py#L4341-L4355
 [Gophercloud volume create options]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/blockstorage/v3/volumes/requests.go#L105-L164
 [Cinder snapshot lookup]: https://github.com/openstack/cinder/blob/master/cinder/api/v3/volumes.py#L369-L375
 [Cinder size default]: https://github.com/openstack/cinder/blob/master/cinder/api/v3/volumes.py#L408-L414
