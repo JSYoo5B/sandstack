@@ -50,13 +50,7 @@ func (s *Service) createRequestedPort(
 	if !ok || network.ProjectID != projectID {
 		return domain.Port{}, ErrNetworkNotFound
 	}
-	var subnet domain.Subnet
-	var err error
-	if address == nil {
-		subnet, err = s.portSubnet(network, subnetID)
-	} else {
-		subnet, err = s.portFixedIPSubnet(network, subnetID, *address)
-	}
+	subnet, err := s.selectPortSubnet(network, subnetID, address)
 	if err != nil {
 		return domain.Port{}, err
 	}
@@ -71,17 +65,9 @@ func (s *Service) createRequestedPort(
 			usedIPs[port.FixedIP] = true
 		}
 	}
-	var fixedIP netip.Addr
-	if address == nil {
-		fixedIP, err = firstFreeAddress(subnet, usedIPs)
-		if err != nil {
-			return domain.Port{}, err
-		}
-	} else {
-		fixedIP = *address
-		if usedIPs[fixedIP] {
-			return domain.Port{}, ErrPortIPAlreadyAllocated
-		}
+	fixedIP, err := selectPortAddress(subnet, address, usedIPs)
+	if err != nil {
+		return domain.Port{}, err
 	}
 	return s.createPort(domain.Port{
 		NetworkID: networkID,

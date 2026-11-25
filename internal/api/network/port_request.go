@@ -5,6 +5,8 @@ import (
 	"errors"
 	"net/netip"
 	"strings"
+
+	app "github.com/JSYoo5B/sandstack/internal/app/network"
 )
 
 var errInvalidPortRequest = errors.New("expected one port object with valid fields")
@@ -59,6 +61,42 @@ func parseCreatePort(data []byte) (createPortParams, error) {
 		return createPortParams{}, err
 	}
 	return params, nil
+}
+
+func parseUpdatePort(data []byte) (app.PortUpdate, error) {
+	fields, err := readCreateFields(data, "port")
+	if err != nil {
+		return app.PortUpdate{}, errInvalidPortRequest
+	}
+	var changes app.PortUpdate
+	for field, value := range fields {
+		var target any
+		switch field {
+		case "name":
+			target = &changes.Name
+		case "admin_state_up":
+			target = &changes.AdminStateUp
+		case "fixed_ips":
+			subnetID, address, err := parsePortFixedIP(value)
+			if err != nil {
+				return app.PortUpdate{}, err
+			}
+			if subnetID != nil && *subnetID == "" {
+				subnetID = nil
+			}
+			changes.FixedIPs = &app.PortFixedIPUpdate{SubnetID: subnetID, Address: address}
+			continue
+		default:
+			return app.PortUpdate{}, errInvalidPortRequest
+		}
+		if !decodeCreateField(value, target) {
+			return app.PortUpdate{}, errInvalidPortRequest
+		}
+	}
+	if changes.Name != nil && !validResourceName(*changes.Name) {
+		return app.PortUpdate{}, errors.New("port name must be printable and contain at most 255 characters")
+	}
+	return changes, nil
 }
 
 func parsePortFixedIP(value json.RawMessage) (*string, netip.Addr, error) {

@@ -8,6 +8,15 @@ import (
 	domain "github.com/JSYoo5B/sandstack/internal/domain/network"
 )
 
+func (s *Service) selectPortSubnet(
+	network domain.Network, requested *string, address *netip.Addr,
+) (domain.Subnet, error) {
+	if address == nil {
+		return s.portSubnet(network, requested)
+	}
+	return s.portFixedIPSubnet(network, requested, *address)
+}
+
 func (s *Service) portSubnet(network domain.Network, requested *string) (domain.Subnet, error) {
 	if requested == nil {
 		switch len(network.SubnetIDs) {
@@ -56,7 +65,13 @@ func isUsableIPv4(subnet domain.Subnet, address netip.Addr) bool {
 		address.Compare(lastUsableAddress(subnet.CIDR)) <= 0
 }
 
-func firstFreeAddress(subnet domain.Subnet, used map[netip.Addr]bool) (netip.Addr, error) {
+func selectPortAddress(subnet domain.Subnet, requested *netip.Addr, used map[netip.Addr]bool) (netip.Addr, error) {
+	if requested != nil {
+		if used[*requested] {
+			return netip.Addr{}, ErrPortIPAlreadyAllocated
+		}
+		return *requested, nil
+	}
 	if subnet.ID == "" {
 		return netip.Addr{}, nil
 	}

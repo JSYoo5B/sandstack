@@ -117,6 +117,35 @@ allocation skips the gateway. A router interface and a port requesting the
 same gateway conflict with `409`. Deleting an unbound port releases its
 address so it can be requested again.
 
+### Update a port
+
+Use `PUT /network/v2.0/ports/{port_id}` with a `port` object containing
+`name`, `admin_state_up`, or `fixed_ips`. The response is `200` with the
+updated port. Omitted fields retain their values. To clear a name or set
+the administrative state down, send an empty string or `false` explicitly.
+See the [port update reference].
+
+Omit `fixed_ips` to keep the current allocation or send `[]` to release
+it. Send one entry to select an IPv4 address or subnet on the port's
+current network. If the entry specifies only the subnet that already
+holds the port's address, the existing address stays allocated. An
+allocation conflict returns `409` and preserves both the previous address
+and the port metadata. SandStack protects managed router interface
+reservations from direct port address updates. See the [Neutron IP
+allocation update].
+
+In Gophercloud, use `ports.Update`. Pass a non-nil empty slice to send
+`fixed_ips: []`.
+
+```go
+name, adminUp := "unaddressed-port", false
+port, err := ports.Update(ctx, client, portID, ports.UpdateOpts{
+    Name:         &name,
+    AdminStateUp: &adminUp,
+    FixedIPs:     []ports.IP{},
+}).Extract()
+```
+
 ## Manage a router
 
 Use the project's `X-Auth-Token` on the v2.0 network endpoint. SandStack
@@ -289,7 +318,9 @@ blocked deletions using the [add interface reference] and
 [subnet create reference]: https://docs.openstack.org/api-ref/network/v2/#create-subnet
 [port create reference]: https://docs.openstack.org/api-ref/network/v2/#create-port
 [port list reference]: https://docs.openstack.org/api-ref/network/v2/#list-ports
+[port update reference]: https://docs.openstack.org/api-ref/network/v2/#update-port
 [Neutron IP allocation validation]: https://github.com/openstack/neutron/blob/master/neutron/ipam/drivers/neutrondb_ipam/driver.py#L125-L141
+[Neutron IP allocation update]: https://github.com/openstack/neutron/blob/master/neutron/db/ipam_pluggable_backend.py#L439-L506
 [router create reference]: https://docs.openstack.org/api-ref/network/v2/#create-router
 [router list reference]: https://docs.openstack.org/api-ref/network/v2/#list-routers
 [router details reference]: https://docs.openstack.org/api-ref/network/v2/#show-router-details

@@ -80,6 +80,17 @@ func (h handler) createPort(w http.ResponseWriter, r *http.Request, projectID st
 	switch {
 	case errors.Is(err, app.ErrNetworkNotFound):
 		writeNetworkNotFound(w, params.networkID)
+	case err != nil:
+		if !writePortAddressError(w, err) {
+			writeError(w, http.StatusInternalServerError, "HTTPInternalServerError", "Unable to create the port.")
+		}
+	default:
+		writeJSON(w, http.StatusCreated, portResponse{Port: describePort(port)})
+	}
+}
+
+func writePortAddressError(w http.ResponseWriter, err error) bool {
+	switch {
 	case errors.Is(err, app.ErrPortSubnetRequired), errors.Is(err, app.ErrPortInvalidSubnet):
 		writeError(w, http.StatusBadRequest, "InvalidInput", err.Error())
 	case errors.Is(err, app.ErrPortIPExhausted):
@@ -90,11 +101,10 @@ func (h handler) createPort(w http.ResponseWriter, r *http.Request, projectID st
 		writeError(w, http.StatusBadRequest, "InvalidIpForSubnet", err.Error())
 	case errors.Is(err, app.ErrPortIPAlreadyAllocated):
 		writeError(w, http.StatusConflict, "IpAddressAlreadyAllocated", err.Error())
-	case err != nil:
-		writeError(w, http.StatusInternalServerError, "HTTPInternalServerError", "Unable to create the port.")
 	default:
-		writeJSON(w, http.StatusCreated, portResponse{Port: describePort(port)})
+		return false
 	}
+	return true
 }
 
 func (h handler) listPorts(w http.ResponseWriter, r *http.Request, projectID string) {
@@ -137,6 +147,27 @@ func (h handler) showPort(w http.ResponseWriter, r *http.Request, projectID stri
 	writeJSON(w, http.StatusOK, portResponse{Port: describePort(port)})
 }
 
+func (h handler) updatePort(w http.ResponseWriter, r *http.Request, projectID string) {
+	data, ok := readCreateBody(w, r, "port")
+	if !ok {
+		return
+	}
+	changes, err := parseUpdatePort(data)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "BadRequest", err.Error())
+		return
+	}
+	portID := chi.URLParam(r, "portID")
+	port, err := h.service.UpdatePort(projectID, portID, changes)
+	if err != nil {
+		if !writePortAddressError(w, err) {
+			writePortError(w, portID, err)
+		}
+		return
+	}
+	writeJSON(w, http.StatusOK, portResponse{Port: describePort(port)})
+}
+
 func (h handler) deletePort(w http.ResponseWriter, r *http.Request, projectID string) {
 	if !requireEmptyDeleteBody(w, r) {
 		return
@@ -155,7 +186,7 @@ func writePortError(w http.ResponseWriter, portID string, err error) {
 		return
 	}
 	if errors.Is(err, app.ErrServicePortInUse) {
-		writeError(w, http.StatusConflict, "ServicePortInUse", "Remove the router interface before deleting its port.")
+		writeError(w, http.StatusConflict, "ServicePortInUse", "The port is managed by a router interface.")
 		return
 	}
 	writeError(w, http.StatusInternalServerError, "HTTPInternalServerError", "Unable to process the port request.")
