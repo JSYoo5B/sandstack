@@ -17,7 +17,10 @@ import (
 func TestPortAllocationExhaustionReuseAndDeletionConstraints(t *testing.T) {
 	seed, service := newPortFixture()
 	subnet, err := service.CreateSubnet(
-		seed.ProjectID, seed.ID, "", netip.MustParsePrefix("10.0.0.0/30"), true,
+		seed.ProjectID, seed.ID, app.SubnetCreate{
+			CIDR:       netip.MustParsePrefix("10.0.0.0/30"),
+			EnableDHCP: true,
+		},
 	)
 	require.NoError(t, err)
 	first, err := service.CreatePort(seed.ProjectID, seed.ID, "worker", false, nil)
@@ -61,11 +64,17 @@ func TestPortSubnetSelectionAndProjectScope(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, withoutIP.FixedIP.IsValid())
 	first, err := service.CreateSubnet(
-		seed.ProjectID, seed.ID, "", netip.MustParsePrefix("10.0.0.0/24"), true,
+		seed.ProjectID, seed.ID, app.SubnetCreate{
+			CIDR:       netip.MustParsePrefix("10.0.0.0/24"),
+			EnableDHCP: true,
+		},
 	)
 	require.NoError(t, err)
 	_, err = service.CreateSubnet(
-		seed.ProjectID, seed.ID, "", netip.MustParsePrefix("10.0.1.0/24"), true,
+		seed.ProjectID, seed.ID, app.SubnetCreate{
+			CIDR:       netip.MustParsePrefix("10.0.1.0/24"),
+			EnableDHCP: true,
+		},
 	)
 	require.NoError(t, err)
 
@@ -79,7 +88,10 @@ func TestPortSubnetSelectionAndProjectScope(t *testing.T) {
 	other, err := service.Create("other-project", "private", false)
 	require.NoError(t, err)
 	foreignSubnet, err := service.CreateSubnet(
-		other.ProjectID, other.ID, "", netip.MustParsePrefix("10.0.0.0/24"), true,
+		other.ProjectID, other.ID, app.SubnetCreate{
+			CIDR:       netip.MustParsePrefix("10.0.0.0/24"),
+			EnableDHCP: true,
+		},
 	)
 	require.NoError(t, err)
 	foreignPort, err := service.CreatePort(other.ProjectID, other.ID, "", false, nil)
@@ -109,7 +121,10 @@ func TestPortSubnetSelectionAndProjectScope(t *testing.T) {
 func TestConcurrentPortAllocationsNeverDuplicateFixedIPs(t *testing.T) {
 	seed, service := newPortFixture()
 	_, err := service.CreateSubnet(
-		seed.ProjectID, seed.ID, "", netip.MustParsePrefix("10.0.0.0/29"), true,
+		seed.ProjectID, seed.ID, app.SubnetCreate{
+			CIDR:       netip.MustParsePrefix("10.0.0.0/29"),
+			EnableDHCP: true,
+		},
 	)
 	require.NoError(t, err)
 

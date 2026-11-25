@@ -20,7 +20,11 @@ func TestSubnetAddressDefaultsAndDetachedNetworkProjection(t *testing.T) {
 	})
 
 	first, err := service.CreateSubnet(
-		seed.ProjectID, seed.ID, "first", netip.MustParsePrefix("192.168.0.66/26"), true,
+		seed.ProjectID, seed.ID, app.SubnetCreate{
+			Name:       "first",
+			CIDR:       netip.MustParsePrefix("192.168.0.66/26"),
+			EnableDHCP: true,
+		},
 	)
 	require.NoError(t, err)
 	assert.Equal(t, domain.Subnet{
@@ -35,7 +39,11 @@ func TestSubnetAddressDefaultsAndDetachedNetworkProjection(t *testing.T) {
 		AllocationEnd:   netip.MustParseAddr("192.168.0.126"),
 	}, first)
 	second, err := service.CreateSubnet(
-		seed.ProjectID, seed.ID, "second", netip.MustParsePrefix("192.168.1.253/30"), false,
+		seed.ProjectID, seed.ID, app.SubnetCreate{
+			Name:       "second",
+			CIDR:       netip.MustParsePrefix("192.168.1.253/30"),
+			EnableDHCP: false,
+		},
 	)
 	require.NoError(t, err)
 	assert.Equal(t, netip.MustParseAddr("192.168.1.253"), second.Gateway)
@@ -75,12 +83,24 @@ func TestSubnetOwnershipAndNetworkScopedOverlap(t *testing.T) {
 		return fixtureID(id)
 	})
 	prefix := netip.MustParsePrefix("10.2.0.0/24")
-	_, err := service.CreateSubnet("other-project", seed.ID, "foreign", prefix, true)
+	_, err := service.CreateSubnet("other-project", seed.ID, app.SubnetCreate{
+		Name:       "foreign",
+		CIDR:       prefix,
+		EnableDHCP: true,
+	})
 	assert.ErrorIs(t, err, app.ErrNetworkNotFound)
-	_, err = service.CreateSubnet(seed.ProjectID, "missing", "missing", prefix, true)
+	_, err = service.CreateSubnet(seed.ProjectID, "missing", app.SubnetCreate{
+		Name:       "missing",
+		CIDR:       prefix,
+		EnableDHCP: true,
+	})
 	assert.ErrorIs(t, err, app.ErrNetworkNotFound)
 
-	subnet, err := service.CreateSubnet(seed.ProjectID, seed.ID, "owned", prefix, true)
+	subnet, err := service.CreateSubnet(seed.ProjectID, seed.ID, app.SubnetCreate{
+		Name:       "owned",
+		CIDR:       prefix,
+		EnableDHCP: true,
+	})
 	require.NoError(t, err)
 	_, err = service.GetSubnet("other-project", subnet.ID)
 	assert.ErrorIs(t, err, app.ErrSubnetNotFound)
@@ -88,18 +108,30 @@ func TestSubnetOwnershipAndNetworkScopedOverlap(t *testing.T) {
 	assert.Empty(t, service.ListSubnets("other-project"))
 
 	for _, overlap := range []string{"10.2.0.4/24", "10.2.0.128/25", "10.2.0.0/23"} {
-		_, err = service.CreateSubnet(seed.ProjectID, seed.ID, "overlap", netip.MustParsePrefix(overlap), true)
+		_, err = service.CreateSubnet(seed.ProjectID, seed.ID, app.SubnetCreate{
+			Name:       "overlap",
+			CIDR:       netip.MustParsePrefix(overlap),
+			EnableDHCP: true,
+		})
 		assert.ErrorIs(t, err, app.ErrSubnetOverlap)
 	}
 	for _, invalid := range []string{"0.0.0.0/0", "10.0.0.0/31", "10.0.0.1/32", "2001:db8::/24"} {
-		_, err = service.CreateSubnet(seed.ProjectID, seed.ID, "invalid", netip.MustParsePrefix(invalid), true)
+		_, err = service.CreateSubnet(seed.ProjectID, seed.ID, app.SubnetCreate{
+			Name:       "invalid",
+			CIDR:       netip.MustParsePrefix(invalid),
+			EnableDHCP: true,
+		})
 		assert.ErrorIs(t, err, app.ErrSubnetCIDR)
 	}
 	assert.Equal(t, []domain.Subnet{subnet}, service.ListSubnets(seed.ProjectID))
 
 	other, err := service.Create(seed.ProjectID, "another network", false)
 	require.NoError(t, err)
-	_, err = service.CreateSubnet(seed.ProjectID, other.ID, "overlap on another network", prefix, true)
+	_, err = service.CreateSubnet(seed.ProjectID, other.ID, app.SubnetCreate{
+		Name:       "overlap on another network",
+		CIDR:       prefix,
+		EnableDHCP: true,
+	})
 	assert.NoError(t, err)
 }
 
@@ -112,13 +144,21 @@ func TestNetworkDeletionAndResetRemoveChildSubnets(t *testing.T) {
 		return id
 	})
 	prefix := netip.MustParsePrefix("10.2.0.0/24")
-	seedSubnet, err := service.CreateSubnet(seed.ProjectID, seed.ID, "seed subnet", prefix, true)
+	seedSubnet, err := service.CreateSubnet(seed.ProjectID, seed.ID, app.SubnetCreate{
+		Name:       "seed subnet",
+		CIDR:       prefix,
+		EnableDHCP: true,
+	})
 	require.NoError(t, err)
 	assert.Equal(t, fixtureID(2), seedSubnet.ID)
 	other, err := service.Create(seed.ProjectID, "another network", false)
 	require.NoError(t, err)
 	assert.Equal(t, fixtureID(3), other.ID)
-	otherSubnet, err := service.CreateSubnet(seed.ProjectID, other.ID, "other subnet", prefix, true)
+	otherSubnet, err := service.CreateSubnet(seed.ProjectID, other.ID, app.SubnetCreate{
+		Name:       "other subnet",
+		CIDR:       prefix,
+		EnableDHCP: true,
+	})
 	require.NoError(t, err)
 
 	require.NoError(t, service.Delete(seed.ProjectID, seed.ID))

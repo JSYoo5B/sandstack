@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	app "github.com/JSYoo5B/sandstack/internal/app/network"
+	domain "github.com/JSYoo5B/sandstack/internal/domain/network"
 )
 
 var errInvalidSubnetRequest = errors.New("expected one subnet object with valid fields")
@@ -22,6 +23,7 @@ type createSubnetParams struct {
 	ipVersion      int
 	enableDHCP     bool
 	dnsNameservers []netip.Addr
+	hostRoutes     []domain.SubnetHostRoute
 	requestOwnership
 }
 
@@ -46,6 +48,12 @@ func parseCreateSubnet(data []byte) (createSubnetParams, error) {
 			target = &params.enableDHCP
 		case "dns_nameservers":
 			params.dnsNameservers, err = parseDNSNameservers(value)
+			if err != nil {
+				return createSubnetParams{}, err
+			}
+			continue
+		case "host_routes":
+			params.hostRoutes, err = parseSubnetHostRoutes(value)
 			if err != nil {
 				return createSubnetParams{}, err
 			}
@@ -86,6 +94,12 @@ func parseUpdateSubnet(data []byte) (app.SubnetUpdate, error) {
 			target = &changes.EnableDHCP
 		case "dns_nameservers":
 			changes.DNSNameservers, err = parseDNSNameservers(value)
+			if err != nil {
+				return app.SubnetUpdate{}, err
+			}
+			continue
+		case "host_routes":
+			changes.HostRoutes, err = parseSubnetHostRoutes(value)
 			if err != nil {
 				return app.SubnetUpdate{}, err
 			}

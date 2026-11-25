@@ -15,11 +15,17 @@ import (
 func TestPortUpdatePreservesAndReplacesFixedAddressAtomically(t *testing.T) {
 	seed, service := newPortFixture()
 	first, err := service.CreateSubnet(
-		seed.ProjectID, seed.ID, "", netip.MustParsePrefix("10.0.2.0/29"), true,
+		seed.ProjectID, seed.ID, app.SubnetCreate{
+			CIDR:       netip.MustParsePrefix("10.0.2.0/29"),
+			EnableDHCP: true,
+		},
 	)
 	require.NoError(t, err)
 	second, err := service.CreateSubnet(
-		seed.ProjectID, seed.ID, "", netip.MustParsePrefix("10.0.3.0/29"), true,
+		seed.ProjectID, seed.ID, app.SubnetCreate{
+			CIDR:       netip.MustParsePrefix("10.0.3.0/29"),
+			EnableDHCP: true,
+		},
 	)
 	require.NoError(t, err)
 	port, err := service.CreatePortWithFixedIP(seed.ProjectID, seed.ID, "port", false, &first.ID, first.Gateway)
@@ -102,7 +108,10 @@ func TestManagedPortMetadataCanChangeWithoutChangingItsAddress(t *testing.T) {
 func TestConcurrentPortUpdatesCannotClaimSameAddress(t *testing.T) {
 	seed, service := newPortFixture()
 	subnet, err := service.CreateSubnet(
-		seed.ProjectID, seed.ID, "", netip.MustParsePrefix("10.0.0.0/29"), true,
+		seed.ProjectID, seed.ID, app.SubnetCreate{
+			CIDR:       netip.MustParsePrefix("10.0.0.0/29"),
+			EnableDHCP: true,
+		},
 	)
 	require.NoError(t, err)
 	first, err := service.CreatePort(seed.ProjectID, seed.ID, "first", false, nil)

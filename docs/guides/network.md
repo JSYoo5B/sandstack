@@ -70,10 +70,10 @@ The subnet list is unfiltered. A sandbox reset clears created subnets.
 ### Update subnet metadata
 
 Send `PUT /network/v2.0/subnets/{subnet_id}` with a `subnet` object to
-update `name`, `enable_dhcp`, or `dns_nameservers` in the token's project. A
-successful request returns `200` with the updated subnet. Omitted fields
-keep their values. Use an explicit empty string to clear the name or
-`false` to disable the DHCP flag. In Gophercloud, pass `Name` and
+update `name`, `enable_dhcp`, `dns_nameservers`, or `host_routes` in the
+token's project. A successful request returns `200` with the updated
+subnet. Omitted fields keep their values. Use an empty string to clear
+the name or `false` to disable the DHCP flag. In Gophercloud, pass `Name` and
 `EnableDHCP` pointers in `subnets.UpdateOpts` to `subnets.Update`.
 See the [subnet update reference].
 
@@ -88,6 +88,27 @@ unchanged. The limit matches the [Neutron DNS nameserver default].
 SandStack records the DHCP flag and DNS nameservers as metadata. The
 subnet's existing IPv4 allocations and router attachment remain in place.
 The CIDR, gateway, and allocation pool are set when the subnet is created.
+
+### Configure IPv4 host routes
+
+Set `host_routes` when creating a subnet or replace all host routes in a
+subnet update. Omit the field during an update to preserve the list, or
+pass `[]` or `null` to clear it. Subnet detail and list responses include
+`host_routes`, which is empty by default. In Gophercloud v2.15.0, use
+`subnets.CreateOpts.HostRoutes` on create and `subnets.UpdateOpts.HostRoutes`
+on update. Pass a pointer to an empty slice to clear the list. Read the
+routes from `Subnet.HostRoutes`. See the [Neutron host route schema] and
+[Gophercloud subnet options].
+
+Each entry has exactly two fields, `destination` and `nexthop`. Use a
+canonical IPv4 destination prefix with host bits set to zero and an IPv4
+next-hop address. Loopback destinations are invalid. A next hop may be
+outside the subnet. A destination may appear more than once with different
+next hops. SandStack accepts up to 20 distinct destination and next-hop
+pairs. Invalid entries, duplicate pairs, and excess routes return `400`.
+Compare routes as a set because response order is unspecified. SandStack
+stores these routes as subnet metadata. See the [Neutron host route
+validation], [Neutron host route limit], and [Neutron subnet IP validation].
 
 ## Allocate and release a port address
 
@@ -351,6 +372,9 @@ implementation] and [exception types] explain deletion and exhaustion conflicts.
 Subnet tests verify DNS nameserver order, replacement, clearing, omission,
 and validation against the [subnet update reference], [Neutron subnet schema],
 and [Neutron nameserver validation].
+The subnet host route scenario checks creation and reads, replacement,
+omission, clearing, and invalid updates against the [Neutron host route
+schema] and [Neutron host route validation].
 The router tests use the [router create reference], [router list reference],
 [router details reference], [router update reference], and
 [router delete reference]. Route tests check replacement, atomic addition
@@ -367,6 +391,10 @@ blocked deletions using the [add interface reference] and
 [subnet create reference]: https://docs.openstack.org/api-ref/network/v2/#create-subnet
 [subnet update reference]: https://docs.openstack.org/api-ref/network/v2/#update-subnet
 [Neutron subnet schema]: https://github.com/openstack/neutron-lib/blob/master/neutron_lib/api/definitions/subnet.py
+[Neutron host route schema]: https://github.com/openstack/neutron-lib/blob/master/neutron_lib/api/definitions/subnet.py#L103-L108
+[Neutron host route validation]: https://github.com/openstack/neutron-lib/blob/master/neutron_lib/api/validators/__init__.py#L747-L777
+[Neutron subnet IP validation]: https://github.com/openstack/neutron/blob/master/neutron/db/db_base_plugin_v2.py#L731-L739
+[Neutron host route limit]: https://github.com/openstack/neutron/blob/master/neutron/conf/common.py#L63-L66
 [Neutron nameserver validation]: https://github.com/openstack/neutron-lib/blob/master/neutron_lib/api/validators/__init__.py#L716-L745
 [Neutron DNS nameserver default]: https://docs.openstack.org/neutron/2026.1/configuration/neutron.html#DEFAULT.max_dns_nameservers
 [Gophercloud subnet options]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/networking/v2/subnets/requests.go

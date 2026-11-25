@@ -15,7 +15,10 @@ import (
 func TestRouterInterfaceOwnsOnlyItsManagedGatewayPort(t *testing.T) {
 	seed, service := newPortFixture()
 	subnet, err := service.CreateSubnet(
-		seed.ProjectID, seed.ID, "", netip.MustParsePrefix("10.0.0.0/30"), true,
+		seed.ProjectID, seed.ID, app.SubnetCreate{
+			CIDR:       netip.MustParsePrefix("10.0.0.0/30"),
+			EnableDHCP: true,
+		},
 	)
 	require.NoError(t, err)
 	router, err := service.CreateRouter(seed.ProjectID, "", "", false)
@@ -71,7 +74,10 @@ func TestRouterInterfaceOwnsOnlyItsManagedGatewayPort(t *testing.T) {
 func TestRouterInterfaceRejectsWrongScopeAndConflictingSubnets(t *testing.T) {
 	seed, service := newPortFixture()
 	prefix := netip.MustParsePrefix("10.0.0.0/24")
-	subnet, err := service.CreateSubnet(seed.ProjectID, seed.ID, "", prefix, true)
+	subnet, err := service.CreateSubnet(seed.ProjectID, seed.ID, app.SubnetCreate{
+		CIDR:       prefix,
+		EnableDHCP: true,
+	})
 	require.NoError(t, err)
 	router, err := service.CreateRouter(seed.ProjectID, "", "", true)
 	require.NoError(t, err)
@@ -80,12 +86,18 @@ func TestRouterInterfaceRejectsWrongScopeAndConflictingSubnets(t *testing.T) {
 	otherNetwork, err := service.Create(seed.ProjectID, "", false)
 	require.NoError(t, err)
 	overlap, err := service.CreateSubnet(
-		seed.ProjectID, otherNetwork.ID, "", netip.MustParsePrefix("10.0.0.128/25"), true,
+		seed.ProjectID, otherNetwork.ID, app.SubnetCreate{
+			CIDR:       netip.MustParsePrefix("10.0.0.128/25"),
+			EnableDHCP: true,
+		},
 	)
 	require.NoError(t, err)
 	foreignNetwork, err := service.Create("foreign", "", false)
 	require.NoError(t, err)
-	foreignSubnet, err := service.CreateSubnet(foreignNetwork.ProjectID, foreignNetwork.ID, "", prefix, true)
+	foreignSubnet, err := service.CreateSubnet(foreignNetwork.ProjectID, foreignNetwork.ID, app.SubnetCreate{
+		CIDR:       prefix,
+		EnableDHCP: true,
+	})
 	require.NoError(t, err)
 
 	_, err = service.AddRouterInterface(foreignNetwork.ProjectID, router.ID, subnet.ID)
@@ -116,7 +128,10 @@ func TestRouterInterfaceRejectsWrongScopeAndConflictingSubnets(t *testing.T) {
 func TestConcurrentRouterInterfacesAllocateGatewayOnlyOnce(t *testing.T) {
 	seed, service := newPortFixture()
 	subnet, err := service.CreateSubnet(
-		seed.ProjectID, seed.ID, "", netip.MustParsePrefix("10.0.0.0/24"), true,
+		seed.ProjectID, seed.ID, app.SubnetCreate{
+			CIDR:       netip.MustParsePrefix("10.0.0.0/24"),
+			EnableDHCP: true,
+		},
 	)
 	require.NoError(t, err)
 	first, err := service.CreateRouter(seed.ProjectID, "", "", true)

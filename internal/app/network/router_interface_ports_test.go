@@ -14,7 +14,10 @@ import (
 func TestExistingRouterInterfaceRetainsPortAndReleasesIPOnRemoval(t *testing.T) {
 	seed, service := newPortFixture()
 	subnet, err := service.CreateSubnet(
-		seed.ProjectID, seed.ID, "", netip.MustParsePrefix("10.0.0.0/30"), true,
+		seed.ProjectID, seed.ID, app.SubnetCreate{
+			CIDR:       netip.MustParsePrefix("10.0.0.0/30"),
+			EnableDHCP: true,
+		},
 	)
 	require.NoError(t, err)
 	router, err := service.CreateRouter(seed.ProjectID, "", "", true)
@@ -68,7 +71,10 @@ func TestExistingRouterInterfaceRetainsPortAndReleasesIPOnRemoval(t *testing.T) 
 func TestExistingRouterInterfacePreservesUnboundPortsOnRejection(t *testing.T) {
 	seed, service := newPortFixture()
 	subnet, err := service.CreateSubnet(
-		seed.ProjectID, seed.ID, "", netip.MustParsePrefix("10.0.0.0/24"), true,
+		seed.ProjectID, seed.ID, app.SubnetCreate{
+			CIDR:       netip.MustParsePrefix("10.0.0.0/24"),
+			EnableDHCP: true,
+		},
 	)
 	require.NoError(t, err)
 	router, err := service.CreateRouter(seed.ProjectID, "", "", true)
@@ -83,7 +89,10 @@ func TestExistingRouterInterfacePreservesUnboundPortsOnRejection(t *testing.T) {
 	otherNetwork, err := service.Create(seed.ProjectID, "", false)
 	require.NoError(t, err)
 	_, err = service.CreateSubnet(
-		seed.ProjectID, otherNetwork.ID, "", netip.MustParsePrefix("10.0.0.128/25"), true,
+		seed.ProjectID, otherNetwork.ID, app.SubnetCreate{
+			CIDR:       netip.MustParsePrefix("10.0.0.128/25"),
+			EnableDHCP: true,
+		},
 	)
 	require.NoError(t, err)
 	overlap, err := service.CreatePort(seed.ProjectID, otherNetwork.ID, "overlap", false, nil)

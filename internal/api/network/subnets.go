@@ -24,7 +24,12 @@ type subnetBody struct {
 	EnableDHCP      bool             `json:"enable_dhcp"`
 	AllocationPools []allocationPool `json:"allocation_pools"`
 	DNSNameservers  []string         `json:"dns_nameservers"`
-	HostRoutes      []struct{}       `json:"host_routes"`
+	HostRoutes      []hostRouteBody  `json:"host_routes"`
+}
+
+type hostRouteBody struct {
+	Destination string `json:"destination"`
+	NextHop     string `json:"nexthop"`
 }
 
 type allocationPool struct {
@@ -41,6 +46,10 @@ func describeSubnet(subnet domain.Subnet) subnetBody {
 	for i, address := range subnet.DNSNameservers {
 		nameservers[i] = address.String()
 	}
+	hostRoutes := make([]hostRouteBody, len(subnet.HostRoutes))
+	for i, route := range subnet.HostRoutes {
+		hostRoutes[i] = hostRouteBody{Destination: route.Destination.String(), NextHop: route.NextHop.String()}
+	}
 	return subnetBody{
 		ID:         subnet.ID,
 		Name:       subnet.Name,
@@ -56,7 +65,7 @@ func describeSubnet(subnet domain.Subnet) subnetBody {
 			End:   subnet.AllocationEnd.String(),
 		}},
 		DNSNameservers: nameservers,
-		HostRoutes:     []struct{}{},
+		HostRoutes:     hostRoutes,
 	}
 }
 
@@ -84,9 +93,13 @@ func (h handler) createSubnet(w http.ResponseWriter, r *http.Request, projectID 
 		return
 	}
 
-	subnet, err := h.service.CreateSubnet(
-		projectID, params.networkID, params.name, prefix, params.enableDHCP, params.dnsNameservers...,
-	)
+	subnet, err := h.service.CreateSubnet(projectID, params.networkID, app.SubnetCreate{
+		Name:           params.name,
+		CIDR:           prefix,
+		EnableDHCP:     params.enableDHCP,
+		DNSNameservers: params.dnsNameservers,
+		HostRoutes:     params.hostRoutes,
+	})
 	switch {
 	case errors.Is(err, app.ErrNetworkNotFound):
 		writeNetworkNotFound(w, params.networkID)
@@ -141,12 +154,14 @@ func (h handler) updateSubnet(w http.ResponseWriter, r *http.Request, projectID 
 
 func writeSubnetRequestError(w http.ResponseWriter, err error) {
 	switch {
-	case errors.Is(err, errInvalidNameservers):
+	case errors.Is(err, errInvalidNameservers), errors.Is(err, errInvalidHostRoutes):
 		writeError(w, http.StatusBadRequest, "HTTPBadRequest", err.Error())
-	case errors.Is(err, errNameserverIPVersion):
+	case errors.Is(err, errNameserverIPVersion), errors.Is(err, errHostRouteIPVersion):
 		writeError(w, http.StatusBadRequest, "InvalidInput", err.Error())
 	case errors.Is(err, errNameserverLimit):
 		writeError(w, http.StatusBadRequest, "DNSNameServersExhausted", err.Error())
+	case errors.Is(err, errHostRouteLimit):
+		writeError(w, http.StatusBadRequest, "HostRoutesExhausted", err.Error())
 	default:
 		writeError(w, http.StatusBadRequest, "BadRequest", err.Error())
 	}

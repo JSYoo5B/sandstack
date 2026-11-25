@@ -14,7 +14,10 @@ import (
 func TestRouterRouteReplacementValidatesAndKeepsDetachedSnapshots(t *testing.T) {
 	service, router, port := routerWithInterface(t)
 	otherSubnet, err := service.CreateSubnet(
-		router.ProjectID, port.NetworkID, "", netip.MustParsePrefix("10.0.1.0/24"), true,
+		router.ProjectID, port.NetworkID, app.SubnetCreate{
+			CIDR:       netip.MustParsePrefix("10.0.1.0/24"),
+			EnableDHCP: true,
+		},
 	)
 	require.NoError(t, err)
 	otherPort, err := service.AddRouterInterface(router.ProjectID, router.ID, otherSubnet.ID)
@@ -132,7 +135,10 @@ func routerWithInterface(t *testing.T) (*app.Service, domain.Router, domain.Port
 	t.Helper()
 	seed, service := newPortFixture()
 	subnet, err := service.CreateSubnet(
-		seed.ProjectID, seed.ID, "", netip.MustParsePrefix("10.0.0.0/24"), true,
+		seed.ProjectID, seed.ID, app.SubnetCreate{
+			CIDR:       netip.MustParsePrefix("10.0.0.0/24"),
+			EnableDHCP: true,
+		},
 	)
 	require.NoError(t, err)
 	router, err := service.CreateRouter(seed.ProjectID, "existing router", "", true)

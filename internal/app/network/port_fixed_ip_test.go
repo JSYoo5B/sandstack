@@ -14,11 +14,17 @@ import (
 func TestExplicitPortAddressInfersSubnetAndSharesAllocationWithAutomaticPorts(t *testing.T) {
 	seed, service := newPortFixture()
 	first, err := service.CreateSubnet(
-		seed.ProjectID, seed.ID, "", netip.MustParsePrefix("10.0.2.0/29"), true,
+		seed.ProjectID, seed.ID, app.SubnetCreate{
+			CIDR:       netip.MustParsePrefix("10.0.2.0/29"),
+			EnableDHCP: true,
+		},
 	)
 	require.NoError(t, err)
 	second, err := service.CreateSubnet(
-		seed.ProjectID, seed.ID, "", netip.MustParsePrefix("10.0.3.0/29"), true,
+		seed.ProjectID, seed.ID, app.SubnetCreate{
+			CIDR:       netip.MustParsePrefix("10.0.3.0/29"),
+			EnableDHCP: true,
+		},
 	)
 	require.NoError(t, err)
 	address := second.AllocationStart
@@ -51,7 +57,10 @@ func TestExplicitPortAddressInfersSubnetAndSharesAllocationWithAutomaticPorts(t 
 
 	other, err := service.Create(seed.ProjectID, "other network", false)
 	require.NoError(t, err)
-	otherSubnet, err := service.CreateSubnet(seed.ProjectID, other.ID, "", second.CIDR, true)
+	otherSubnet, err := service.CreateSubnet(seed.ProjectID, other.ID, app.SubnetCreate{
+		CIDR:       second.CIDR,
+		EnableDHCP: true,
+	})
 	require.NoError(t, err)
 	_, err = service.CreatePortWithFixedIP(seed.ProjectID, seed.ID, "", false, &otherSubnet.ID, address)
 	assert.ErrorIs(t, err, app.ErrPortInvalidSubnet)
@@ -64,7 +73,10 @@ func TestExplicitPortAddressInfersSubnetAndSharesAllocationWithAutomaticPorts(t 
 func TestExplicitGatewayReservationIntegratesWithRouterInterfacesAndRoutes(t *testing.T) {
 	seed, service := newPortFixture()
 	subnet, err := service.CreateSubnet(
-		seed.ProjectID, seed.ID, "", netip.MustParsePrefix("10.0.0.0/30"), true,
+		seed.ProjectID, seed.ID, app.SubnetCreate{
+			CIDR:       netip.MustParsePrefix("10.0.0.0/30"),
+			EnableDHCP: true,
+		},
 	)
 	require.NoError(t, err)
 	router, err := service.CreateRouter(seed.ProjectID, "", "", true)
@@ -93,7 +105,10 @@ func TestExplicitGatewayReservationIntegratesWithRouterInterfacesAndRoutes(t *te
 func TestConcurrentExplicitPortAllocationsCannotShareAnAddress(t *testing.T) {
 	seed, service := newPortFixture()
 	subnet, err := service.CreateSubnet(
-		seed.ProjectID, seed.ID, "", netip.MustParsePrefix("10.0.0.0/30"), true,
+		seed.ProjectID, seed.ID, app.SubnetCreate{
+			CIDR:       netip.MustParsePrefix("10.0.0.0/30"),
+			EnableDHCP: true,
+		},
 	)
 	require.NoError(t, err)
 	var firstErr, secondErr error
