@@ -103,6 +103,9 @@ func (s *Service) GetPort(projectID, portID string) (domain.Port, error) {
 }
 
 type PortListFilter struct {
+	IDs            []string
+	Names          []string
+	AdminStates    []bool
 	NetworkIDs     []string
 	DeviceIDs      []string
 	DeviceOwners   []string
@@ -110,19 +113,25 @@ type PortListFilter struct {
 	FixedSubnetIDs []string
 }
 
+func (f PortListFilter) matches(port domain.Port) bool {
+	return (len(f.IDs) == 0 || slices.Contains(f.IDs, port.ID)) &&
+		(len(f.Names) == 0 || slices.Contains(f.Names, port.Name)) &&
+		(len(f.AdminStates) == 0 || slices.Contains(f.AdminStates, !port.AdminDown)) &&
+		(len(f.NetworkIDs) == 0 || slices.Contains(f.NetworkIDs, port.NetworkID)) &&
+		(len(f.DeviceIDs) == 0 || slices.Contains(f.DeviceIDs, port.DeviceID)) &&
+		(len(f.DeviceOwners) == 0 || slices.Contains(f.DeviceOwners, port.DeviceOwner)) &&
+		(len(f.FixedAddresses) == 0 ||
+			(port.FixedIP.IsValid() && slices.Contains(f.FixedAddresses, port.FixedIP.String()))) &&
+		(len(f.FixedSubnetIDs) == 0 ||
+			(port.SubnetID != "" && slices.Contains(f.FixedSubnetIDs, port.SubnetID)))
+}
+
 // ListPorts returns the project's matching ports ordered by ID.
 func (s *Service) ListPorts(projectID string, filter PortListFilter) []domain.Port {
 	ports := []domain.Port{}
 	s.mu.RLock()
 	for _, port := range s.ports {
-		if port.ProjectID == projectID &&
-			(len(filter.NetworkIDs) == 0 || slices.Contains(filter.NetworkIDs, port.NetworkID)) &&
-			(len(filter.DeviceIDs) == 0 || slices.Contains(filter.DeviceIDs, port.DeviceID)) &&
-			(len(filter.DeviceOwners) == 0 || slices.Contains(filter.DeviceOwners, port.DeviceOwner)) &&
-			(len(filter.FixedAddresses) == 0 ||
-				(port.FixedIP.IsValid() && slices.Contains(filter.FixedAddresses, port.FixedIP.String()))) &&
-			(len(filter.FixedSubnetIDs) == 0 ||
-				(port.SubnetID != "" && slices.Contains(filter.FixedSubnetIDs, port.SubnetID))) {
+		if port.ProjectID == projectID && filter.matches(port) {
 			ports = append(ports, port)
 		}
 	}

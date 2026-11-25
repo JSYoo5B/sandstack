@@ -21,18 +21,24 @@ network has several subnets, pass one entry such as
 `"fixed_ips":[]` to create a port without an address. An exhausted pool
 returns `409`. The fixture supports one IPv4 allocation per port.
 
-Use `GET /network/v2.0/ports` for the project's port list. The `network_id`,
-`device_id`, and `device_owner` filters match exact values. Repeating a key
-matches any of its values. Combining different keys requires a match for
-each key. Omit a key to leave it unrestricted. In a raw query, `device_id=`
-or `device_owner=` matches ports with the corresponding empty field.
-Unsupported query keys return `400`. See the [port list reference] and
-[Neutron filtering reference].
+Use `GET /network/v2.0/ports` for the project's port list, which includes
+router-managed ports. Filter by `id`, `name`, `admin_state_up`,
+`network_id`, `device_id`, or `device_owner` for exact matches. Repeating
+a key matches any of its values. Combining keys requires a match for
+each key. Omit a key to leave it unrestricted. In a raw query, `name=`,
+`device_id=`, or `device_owner=` matches ports with the corresponding
+empty field. A malformed ID that decodes successfully matches no ports.
+An invalid `admin_state_up` value returns `400` with `InvalidInput`.
+Unsupported query keys return `400`. See the [port list reference],
+[Neutron port filter schema], and [Neutron filtering reference].
 
 Use `GET` or `DELETE` on the path followed by the port ID to read or remove
 the port. The corresponding Gophercloud operations are `ports.Create`,
-`ports.List`, `ports.Get`, and `ports.Delete`. Use `NetworkID`, `DeviceID`,
-and `DeviceOwner` in `ports.ListOpts`.
+`ports.List`, `ports.Get`, and `ports.Delete`. In Gophercloud v2.15.0,
+use `ID`, `Name`, `AdminStateUp`, `NetworkID`, `DeviceID`, or `DeviceOwner`
+in `ports.ListOpts`. Set `AdminStateUp` to a pointer to `false` to select
+administratively disabled ports. A nil pointer omits the filter. See the
+[Gophercloud port list options].
 
 Deleting an unbound port releases its IP. Network deletion returns
 `409` while ports remain on it. Subnet deletion returns `409` while a port
@@ -45,8 +51,8 @@ Use `ports.ListOpts.FixedIPs` with `ports.FixedIPOpts.IPAddress` or
 sends each condition as a separate `fixed_ips` query value. For example,
 `fixed_ips=ip_address%3D192.0.2.10&fixed_ips=subnet_id%3DSUBNET_ID` matches
 ports that satisfy both conditions. Repeating an inner key matches any of
-its values. These conditions combine with any `network_id`, `device_id`,
-and `device_owner` filters in the same request. See the [port list
+its values. These conditions combine with any other port filters in the
+same request. See the [port list
 reference], [Neutron fixed IP filter parser], and [Neutron fixed IP filter
 query].
 
@@ -123,6 +129,8 @@ exhaustion and resource-in-use errors.
 [Neutron filtering reference]: https://docs.openstack.org/api-ref/network/v2/#filtering-and-column-selection
 [port create reference]: https://docs.openstack.org/api-ref/network/v2/#create-port
 [port list reference]: https://docs.openstack.org/api-ref/network/v2/#list-ports
+[Neutron port filter schema]: https://github.com/openstack/neutron-lib/blob/master/neutron_lib/api/definitions/port.py#L37-L60
+[Gophercloud port list options]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/networking/v2/ports/requests.go#L24-L47
 [port update reference]: https://docs.openstack.org/api-ref/network/v2/#update-port
 [Neutron fixed IP filter parser]: https://github.com/openstack/neutron-lib/blob/master/neutron_lib/api/converters.py#L110-L137
 [Neutron fixed IP filter query]: https://github.com/openstack/neutron/blob/master/neutron/db/db_base_plugin_v2.py#L1552-L1583
