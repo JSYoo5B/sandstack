@@ -16,7 +16,7 @@ func parsePortListQuery(query url.Values) (app.PortListFilter, error) {
 	for key := range query {
 		switch key {
 		case "id", "name", "admin_state_up", "network_id", "device_id", "device_owner", "fixed_ips",
-			"limit", "marker", "sort_key", "sort_dir":
+			"limit", "marker", "page_reverse", "sort_key", "sort_dir":
 		default:
 			return app.PortListFilter{}, errors.New("The port list query contains an unsupported parameter.")
 		}
@@ -50,19 +50,29 @@ func parsePortListQuery(query url.Values) (app.PortListFilter, error) {
 	return filter, nil
 }
 
-func parsePortPageLimit(query url.Values) (int, error) {
-	if len(query["limit"]) > 1 || len(query["marker"]) > 1 {
-		return 0, errors.New("Port pagination parameters cannot be repeated.")
+func parsePortPageOptions(query url.Values) (app.PortPageOptions, error) {
+	if len(query["limit"]) > 1 || len(query["marker"]) > 1 || len(query["page_reverse"]) > 1 {
+		return app.PortPageOptions{}, errors.New("Port pagination parameters cannot be repeated.")
 	}
 	values := query["limit"]
-	if len(values) == 0 {
-		return 0, nil
+	var limit int
+	if len(values) != 0 {
+		var err error
+		limit, err = strconv.Atoi(strings.TrimSpace(values[0]))
+		if err != nil || limit < 0 {
+			return app.PortPageOptions{}, errors.New("The port list limit must be an integer of zero or more.")
+		}
 	}
-	limit, err := strconv.Atoi(strings.TrimSpace(values[0]))
-	if err != nil || limit < 0 {
-		return 0, errors.New("The port list limit must be an integer of zero or more.")
+	order, err := parsePortListOrder(query)
+	if err != nil {
+		return app.PortPageOptions{}, err
 	}
-	return limit, nil
+	return app.PortPageOptions{
+		Marker:  query.Get("marker"),
+		Limit:   limit,
+		Order:   order,
+		Reverse: strings.EqualFold(query.Get("page_reverse"), "true"),
+	}, nil
 }
 
 func parsePortListOrder(query url.Values) (app.PortListOrder, error) {

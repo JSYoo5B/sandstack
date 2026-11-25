@@ -123,37 +123,25 @@ func (h handler) listPorts(w http.ResponseWriter, r *http.Request, projectID str
 		return
 	}
 
-	limit, err := parsePortPageLimit(query)
+	options, err := parsePortPageOptions(query)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "BadRequest", err.Error())
 		return
 	}
-	order, err := parsePortListOrder(query)
+	page, err := h.service.ListPortsPage(projectID, filter, options)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "BadRequest", err.Error())
-		return
-	}
-	marker := query.Get("marker")
-	ports, hasMore, err := h.service.ListPortsPage(projectID, filter, app.PortPageOptions{
-		Marker: marker, Limit: limit, Order: order,
-	})
-	if err != nil {
-		writePortError(w, marker, err)
+		writePortError(w, options.Marker, err)
 		return
 	}
 	response := struct {
 		Ports []portBody     `json:"ports"`
 		Links []portListLink `json:"ports_links,omitempty"`
-	}{Ports: make([]portBody, len(ports))}
-	for i, port := range ports {
-		response.Ports[i] = describePort(port)
+	}{
+		Ports: make([]portBody, len(page.Ports)),
+		Links: h.portPageLinks(r, query, page),
 	}
-	if hasMore {
-		query.Set("marker", ports[len(ports)-1].ID)
-		response.Links = []portListLink{{
-			Rel:  "next",
-			Href: h.endpointURL(r, Path+"/ports") + "?" + query.Encode(),
-		}}
+	for i, port := range page.Ports {
+		response.Ports[i] = describePort(port)
 	}
 	writeJSON(w, http.StatusOK, response)
 }
@@ -161,6 +149,25 @@ func (h handler) listPorts(w http.ResponseWriter, r *http.Request, projectID str
 type portListLink struct {
 	Rel  string `json:"rel"`
 	Href string `json:"href"`
+}
+
+func (h handler) portPageLinks(r *http.Request, query url.Values, page app.PortPage) []portListLink {
+	if !page.HasNext && !page.HasPrevious {
+		return nil
+	}
+	var links []portListLink
+	endpoint := h.endpointURL(r, Path+"/ports")
+	if page.HasNext {
+		query.Set("marker", page.Ports[len(page.Ports)-1].ID)
+		query.Del("page_reverse")
+		links = append(links, portListLink{Rel: "next", Href: endpoint + "?" + query.Encode()})
+	}
+	if page.HasPrevious {
+		query.Set("marker", page.Ports[0].ID)
+		query.Set("page_reverse", "True")
+		links = append(links, portListLink{Rel: "previous", Href: endpoint + "?" + query.Encode()})
+	}
+	return links
 }
 
 func (h handler) showPort(w http.ResponseWriter, r *http.Request, projectID string) {

@@ -73,17 +73,25 @@ func TestPortForwardPaginationWire(t *testing.T) {
 		}
 		return page.Links
 	}
-	checkNext := func(links []portPageLink, marker string) *url.URL {
+	checkLink := func(links []portPageLink, rel, marker string) *url.URL {
 		t.Helper()
-		require.Len(t, links, 1)
-		assert.Equal(t, "next", links[0].Rel)
-		next, err := url.Parse(links[0].Href)
+		var hrefs []string
+		for _, link := range links {
+			if link.Rel == rel {
+				hrefs = append(hrefs, link.Href)
+			}
+		}
+		require.Len(t, hrefs, 1)
+		next, err := url.Parse(hrefs[0])
 		require.NoError(t, err)
 		assert.True(t, next.IsAbs())
 		assert.Equal(t, instance.URL+portsPath, next.Scheme+"://"+next.Host+next.Path)
 		expected, err := url.ParseQuery(query.Encode())
 		require.NoError(t, err)
 		expected.Set("marker", marker)
+		if rel == "previous" {
+			expected.Set("page_reverse", "True")
+		}
 		assert.Equal(t, expected, next.Query())
 		return next
 	}
@@ -91,16 +99,24 @@ func TestPortForwardPaginationWire(t *testing.T) {
 	// https://docs.openstack.org/api-ref/network/v2/#pagination
 	// https://github.com/openstack/neutron/blob/master/neutron/api/api_common.py
 	links := read(query.Encode(), fixture[2].ID, fixture[3].ID)
-	next := checkNext(links, fixture[3].ID)
-	assert.Empty(t, read(next.RawQuery, fixture[4].ID))
+	require.Len(t, links, 2)
+	checkLink(links, "previous", fixture[2].ID)
+	next := checkLink(links, "next", fixture[3].ID)
+	links = read(next.RawQuery, fixture[4].ID)
+	require.Len(t, links, 1)
+	checkLink(links, "previous", fixture[4].ID)
 
 	query.Del("marker")
 	links = read(query.Encode(), fixture[0].ID, fixture[2].ID)
-	next = checkNext(links, fixture[2].ID)
-	assert.Empty(t, read(next.RawQuery, fixture[3].ID, fixture[4].ID), "a full terminal page has no link")
+	require.Len(t, links, 1)
+	next = checkLink(links, "next", fixture[2].ID)
+	links = read(next.RawQuery, fixture[3].ID, fixture[4].ID)
+	require.Len(t, links, 1, "a full terminal page has a previous link only")
+	checkLink(links, "previous", fixture[3].ID)
 	query.Set("marker", "")
 	links = read(query.Encode(), fixture[0].ID, fixture[2].ID)
-	checkNext(links, fixture[2].ID)
+	require.Len(t, links, 1)
+	checkLink(links, "next", fixture[2].ID)
 	query.Set("marker", fixture[4].ID)
 	assert.Empty(t, read(query.Encode()), "a marker at the end produces an empty page")
 
@@ -121,7 +137,7 @@ func TestPortForwardPaginationWire(t *testing.T) {
 	for _, bad := range []string{
 		"limit=-1", "limit=noninteger", "limit=1&limit=2", "limit=2&marker=%zz",
 		"limit=2&marker=" + fixture[0].ID + "&marker=" + fixture[2].ID,
-		"limit=2&page_reverse=true",
+		"limit=2&page_reverse=true&page_reverse=false",
 	} {
 		status, headers, body := request(t, instance, http.MethodGet, portsPath+"?"+bad, "", auth)
 		require.Equal(t, http.StatusBadRequest, status, "%s: %s", bad, body)

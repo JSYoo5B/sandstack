@@ -78,23 +78,35 @@ See the [Neutron sort parser].
 
 ### Page through the port list
 
-Use a positive `limit` for forward pagination in the current sort order.
-An optional `marker` starts the page after the identified port. The marker
+Use a positive `limit` to page in the current sort order. By default, an
+optional `marker` starts the page after the identified port. The marker
 must identify an existing port in the token's project, even if the port
 falls outside the current filters. With name sorting, SandStack uses the
 marker port's current name and ID to find its position. An unknown marker
 returns `404`. Omit `limit` or set it to `0` for an unpaged list, which
-ignores the marker. Repeated pagination keys and invalid values return
-`400`. See the [Neutron pagination reference], [Neutron marker query],
+ignores the marker and direction. Repeated pagination keys and invalid
+limits return `400`. See the [Neutron pagination reference], [Neutron marker query],
 and [port list reference].
 
-When more matches remain, `ports_links` contains an absolute `next` link
-with the last returned port ID as its marker. The link preserves the
-page size, sort settings, and filters, including repeated values. The
-final page has no `next` link. With Gophercloud v2.15.0, set `Limit` and
-optionally `Marker`
-in `ports.ListOpts`. The pager from `ports.List` follows these links when
-you call `AllPages`. See the [Gophercloud port list options] and
+Set `page_reverse=true` to read the page immediately before the marker,
+or omit the marker to read the last page. Both directions return ports
+in the same sort order. SandStack accepts `true` in any letter case and
+treats other values as false. Repeating `page_reverse` returns `400`.
+
+For a nonempty paged result, `ports_links` contains a `next` link if later
+matches exist and a `previous` link if earlier matches exist. Both links
+are absolute and preserve page size, sort settings, and filters,
+including repeated values. The `next` link uses the last returned port
+ID as its marker and omits `page_reverse`. The `previous` link uses the
+first returned port ID as its marker and sets `page_reverse=True`.
+Empty and unpaged results omit navigation links. See the [Neutron page
+links].
+
+With Gophercloud v2.15.0, set `Limit` and optionally `Marker` in
+`ports.ListOpts` for forward pagination. The pager from `ports.List`
+follows `next` links when you call `AllPages`. To navigate backward,
+read `ports_links` from the raw response and pass the `previous` URL to
+`ServiceClient.Get`. See the [Gophercloud port list options] and
 [Gophercloud port page links].
 
 ### Request a specific IPv4 address
@@ -163,6 +175,7 @@ exhaustion and resource-in-use errors.
 
 [Neutron filtering reference]: https://docs.openstack.org/api-ref/network/v2/#filtering-and-column-selection
 [Neutron pagination reference]: https://docs.openstack.org/api-ref/network/v2/#pagination
+[Neutron page links]: https://github.com/openstack/neutron/blob/master/neutron/api/api_common.py#L117-L135
 [Neutron sorting reference]: https://docs.openstack.org/api-ref/network/v2/#sorting
 [Neutron sort parser]: https://github.com/openstack/neutron/blob/master/neutron/api/api_common.py#L205-L236
 [Neutron marker query]: https://github.com/openstack/neutron-lib/blob/master/neutron_lib/db/model_query.py#L300-L316

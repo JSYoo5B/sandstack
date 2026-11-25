@@ -87,7 +87,8 @@ func TestPortNameOrderWire(t *testing.T) {
 	query.Set("marker", fixture[0].ID)
 	assert.Equal(t, query, next.Query())
 	links = read(next.RawQuery, fixture[3].ID)
-	require.Len(t, links, 1)
+	require.Len(t, links, 2)
+	assert.ElementsMatch(t, []string{"previous", "next"}, []string{links[0].Rel, links[1].Rel})
 
 	for _, invalid := range []string{
 		"sort_key=name", "sort_dir=asc", "sort_key=name&sort_dir=",
