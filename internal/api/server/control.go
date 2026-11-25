@@ -72,6 +72,7 @@ func registerImageControls(router chi.Router, service *appimage.Service) {
 
 func registerVolumeControls(router chi.Router, service *appvolume.Service) {
 	const volumePath = "/volume/volumes/{resourceID}"
+	registerFixtureControl(router, volumePath+"/unavailable-detail", "Volume not found", service.SetUnavailableDetail)
 	setFault := func(w http.ResponseWriter, r *http.Request) {
 		err := service.SetFailed(chi.URLParam(r, "resourceID"), r.Method == http.MethodPut)
 		switch {

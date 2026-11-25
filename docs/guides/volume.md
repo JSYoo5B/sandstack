@@ -173,6 +173,21 @@ During a pending extension, `PUT` on the fault control returns `409`. Use
 `fail-extend` to make the extension fail.
 [Reset the sandbox](reset.md) to restore the original values and timestamps.
 
+## Fail the next volume detail read
+
+Send `PUT` to `/_sandstack/volume/volumes/{volume_id}/unavailable-detail`
+with `X-SandStack-Admin-Token` to schedule one failure for that volume.
+The control returns `204`. The next authorized `GET /volumes/{volume_id}`
+for the selected volume returns `503` with a `serviceUnavailable` error.
+Retry `volumes.Get` with the same project token to read the volume's
+current state. See the [Cinder WSGI fault mapping].
+
+Detailed lists, detail reads of other volumes, and rejected requests
+leave the failure pending. Repeating `PUT` before a failure is consumed
+keeps one failure scheduled. Send `DELETE` to the same control with the
+admin token for a `204` and cancel the pending failure. A [sandbox reset]
+also clears pending failures.
+
 ## Verification
 
 Run `go test ./...` to exercise discovery, creation, provisioning, volume
@@ -190,6 +205,8 @@ The volume update tests check field omission, explicit clearing, validation,
 and preservation of an existing attachment.
 Detailed list tests exercise Gophercloud filters after volume updates and
 check empty results and invalid queries over HTTP.
+The transient detail outage test checks the Cinder `503` response and
+reads the live volume on retry through Gophercloud.
 The [Cinder snapshot lookup], [Cinder size default], and
 [Cinder volume creation flow] describe source and size validation.
 
@@ -202,6 +219,8 @@ The [Cinder snapshot lookup], [Cinder size default], and
 [Gophercloud volume update options]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/blockstorage/v3/volumes/requests.go#L285-L307
 [delete volume reference]: https://docs.openstack.org/api-ref/block-storage/v3/#delete-a-volume
 [volume details reference]: https://docs.openstack.org/api-ref/block-storage/v3/#show-a-volume-s-details
+[Cinder WSGI fault mapping]: https://github.com/openstack/cinder/blob/master/cinder/api/openstack/wsgi.py#L1203-L1228
+[sandbox reset]: reset.md
 [create snapshot reference]: https://docs.openstack.org/api-ref/block-storage/v3/#create-a-snapshot
 [snapshot details reference]: https://docs.openstack.org/api-ref/block-storage/v3/#show-a-snapshot-s-details
 [snapshot list reference]: https://docs.openstack.org/api-ref/block-storage/v3/#list-snapshots-and-details

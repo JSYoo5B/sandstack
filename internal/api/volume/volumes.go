@@ -137,6 +137,10 @@ func (h handler) listVolumes(w http.ResponseWriter, r *http.Request, projectID s
 
 func (h handler) showVolume(w http.ResponseWriter, r *http.Request, projectID string) {
 	volume, err := h.service.Get(projectID, chi.URLParam(r, "volumeID"))
+	if errors.Is(err, app.ErrDetailUnavailable) {
+		writeFault(w, http.StatusServiceUnavailable, "serviceUnavailable", "Volume details are temporarily unavailable.")
+		return
+	}
 	if errors.Is(err, app.ErrVolumeNotFound) {
 		writeFault(w, http.StatusNotFound, "itemNotFound", "The volume could not be found.")
 		return

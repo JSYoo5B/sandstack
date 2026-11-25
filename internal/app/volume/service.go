@@ -16,6 +16,7 @@ var (
 	ErrVolumeStateConflict = errors.New("volume state does not permit the operation")
 	ErrInvalidVolumeSize   = errors.New("volume size must be positive")
 	ErrVolumeIDGeneration  = errors.New("volume ID generation failed")
+	ErrDetailUnavailable   = errors.New("volume detail temporarily unavailable")
 )
 
 const volumeIDAttempts = 8
@@ -23,14 +24,15 @@ const volumeIDAttempts = 8
 var volumeIDPattern = regexp.MustCompile(`^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$`)
 
 type Service struct {
-	mu                sync.RWMutex
-	seed              domain.Volume
-	now               func() time.Time
-	newID             func() string
-	volumes           map[string]domain.Volume
-	snapshots         map[string]domain.Snapshot
-	attachmentVolumes map[string]string
-	extensions        map[string]int
+	mu                 sync.RWMutex
+	seed               domain.Volume
+	now                func() time.Time
+	newID              func() string
+	volumes            map[string]domain.Volume
+	snapshots          map[string]domain.Snapshot
+	attachmentVolumes  map[string]string
+	extensions         map[string]int
+	unavailableDetails sync.Map
 }
 
 // New takes a seeded volume and a non-nil clock. The generator supplies
@@ -53,6 +55,10 @@ func (s *Service) Get(projectID, volumeID string) (domain.Volume, error) {
 	volume, ok := s.volumes[volumeID]
 	if !ok {
 		return domain.Volume{}, ErrVolumeNotFound
+	}
+	// Consume one failure while the read lock keeps the volume identity stable.
+	if _, unavailable := s.unavailableDetails.LoadAndDelete(volumeID); unavailable {
+		return domain.Volume{}, ErrDetailUnavailable
 	}
 	return volume, nil
 }
@@ -130,6 +136,7 @@ func (s *Service) Delete(projectID, volumeID string) error {
 		return ErrVolumeStateConflict
 	}
 	delete(s.volumes, volumeID)
+	s.unavailableDetails.Delete(volumeID)
 	return nil
 }
 
@@ -184,6 +191,7 @@ func (s *Service) Reset() {
 	s.snapshots = make(map[string]domain.Snapshot)
 	s.attachmentVolumes = make(map[string]string)
 	s.extensions = make(map[string]int)
+	s.unavailableDetails.Clear()
 	if s.seed.Attachment.ID != "" {
 		s.attachmentVolumes[s.seed.Attachment.ID] = s.seed.ID
 	}
