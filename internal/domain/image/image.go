@@ -21,6 +21,8 @@ type Image struct {
 	Protected       bool
 	ContainerFormat string
 	DiskFormat      string
+	MinDiskGiB      int
+	MinRAMMiB       int
 }
 
 func (i Image) Status() string {

@@ -27,8 +27,13 @@ A file request for a queued image returns `204` with an empty body.
 Creating an image leaves the startup fixture and its download controls
 intact. A [sandbox reset](reset.md) removes queued images.
 The fixture's create operation accepts the name, private visibility, the
-optional formats, and the protection flag. A public request returns
-`403`. Unsupported fields and invalid values return `400`.
+optional formats, capacity minimums, and the protection flag. A public
+request returns `403`. Unsupported fields and invalid values return `400`.
+
+Set `images.CreateOpts.MinDisk` in GiB and `MinRAM` in MiB to record the
+image's minimum capacity requirements. Both default to zero and are
+returned by create, detail, and list. A negative, null, or non-integer
+value returns `400`. See the [Glance capacity requirements].
 
 ### Upload a queued image file
 
@@ -204,6 +209,7 @@ and preservation of the filter across SDK pages.
 [Glance protection tests]: https://github.com/openstack/glance/blob/12.0.0/glance/tests/functional/v2/test_images.py#L553-L575
 [Glance protected image error]: https://github.com/openstack/glance/blob/12.0.0/glance/common/exception.py#L123-L125
 [Glance v2.0 image defaults]: https://github.com/openstack/glance/blob/12.0.0/glance/domain/__init__.py#L71-L93
+[Glance capacity requirements]: https://github.com/openstack/glance/blob/12.0.0/glance/domain/__init__.py#L212-L237
 [Gophercloud image create options]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/image/v2/images/requests.go#L145-L218
 [Gophercloud image delete]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/image/v2/images/requests.go#L221-L226
 [Gophercloud image protection]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/image/v2/images/requests.go#L377-L390

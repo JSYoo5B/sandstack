@@ -14,8 +14,9 @@ import (
 const maxImageCreateBody = 64 * 1024
 
 var (
-	errImageCreate = errors.New("expected a named private image with optional bare container and qcow2 disk formats")
-	errImagePublic = errors.New("the project member cannot create a public image")
+	errImageCreate  = errors.New("expected a named private image with optional bare container and qcow2 disk formats")
+	errImagePublic  = errors.New("the project member cannot create a public image")
+	errImageMinimum = errors.New("image capacity minimums must be nonnegative integers")
 )
 
 func (h handler) createImage(w http.ResponseWriter, r *http.Request, projectID string) {
@@ -67,12 +68,24 @@ func parseImageCreate(data []byte) (app.CreateOptions, error) {
 	var options app.CreateOptions
 	var public bool
 	for field, raw := range fields {
-		if field == "protected" {
+		switch field {
+		case "protected":
 			protected, err := parseImageProtected(raw)
 			if err != nil {
 				return app.CreateOptions{}, err
 			}
 			options.Protected = *protected
+			continue
+		case "min_disk", "min_ram":
+			var minimum *int
+			if json.Unmarshal(raw, &minimum) != nil || minimum == nil || *minimum < 0 {
+				return app.CreateOptions{}, errImageMinimum
+			}
+			if field == "min_disk" {
+				options.MinDiskGiB = *minimum
+			} else {
+				options.MinRAMMiB = *minimum
+			}
 			continue
 		}
 		var value *string

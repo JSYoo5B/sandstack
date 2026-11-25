@@ -18,6 +18,8 @@ type CreateOptions struct {
 	Name            string
 	ContainerFormat string
 	DiskFormat      string
+	MinDiskGiB      int
+	MinRAMMiB       int
 	Protected       bool
 }
 
@@ -40,6 +42,8 @@ func (s *Service) Create(projectID string, options CreateOptions) (domain.Image,
 		Name:            options.Name,
 		ContainerFormat: options.ContainerFormat,
 		DiskFormat:      options.DiskFormat,
+		MinDiskGiB:      options.MinDiskGiB,
+		MinRAMMiB:       options.MinRAMMiB,
 		CreatedAt:       now,
 		UpdatedAt:       now,
 		Queued:          true,

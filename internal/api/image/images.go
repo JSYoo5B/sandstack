@@ -52,6 +52,8 @@ func describeImage(image domain.Image) imageBody {
 		UpdatedAt:       image.UpdatedAt,
 		ContainerFormat: optionalImageFormat(image.ContainerFormat),
 		DiskFormat:      optionalImageFormat(image.DiskFormat),
+		MinDisk:         image.MinDiskGiB,
+		MinRAM:          image.MinRAMMiB,
 		Protected:       image.Protected,
 		Tags:            append([]string{}, image.Tags...),
 		Self:            self,
