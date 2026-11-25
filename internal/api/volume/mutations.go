@@ -48,9 +48,13 @@ func (h handler) createVolume(w http.ResponseWriter, r *http.Request, projectID 
 
 	var volume domain.Volume
 	if params.snapshotID == "" {
-		volume, err = h.service.Create(projectID, params.name, params.description, params.size)
+		volume, err = h.service.CreateWithMetadata(
+			projectID, params.name, params.description, params.size, params.metadata,
+		)
 	} else {
-		volume, err = h.service.CreateFromSnapshot(projectID, params.snapshotID, params.name, params.description, params.size)
+		volume, err = h.service.CreateFromSnapshotWithMetadata(
+			projectID, params.snapshotID, params.name, params.description, params.size, params.metadata,
+		)
 	}
 	switch {
 	case errors.Is(err, app.ErrVolumeNotFound):

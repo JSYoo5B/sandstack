@@ -22,6 +22,7 @@ type createVolumeParams struct {
 	description string
 	snapshotID  string
 	size        int
+	metadata    map[string]string
 }
 
 func parseCreateVolume(data []byte) (createVolumeParams, error) {
@@ -43,7 +44,7 @@ func parseCreateVolume(data []byte) (createVolumeParams, error) {
 	for field, value := range fields {
 		var target any
 		if bytes.Equal(value, []byte("null")) {
-			if field == "name" || field == "description" || field == "size" {
+			if field == "name" || field == "description" || field == "size" || field == "metadata" {
 				continue
 			}
 			return createVolumeParams{}, errInvalidVolumeObject
@@ -61,6 +62,12 @@ func parseCreateVolume(data []byte) (createVolumeParams, error) {
 			target = &requestedType
 		case "availability_zone":
 			target = &requestedZone
+		case "metadata":
+			params.metadata, err = parseMetadataValues(value, cinderMetadataKey)
+			if err != nil {
+				return createVolumeParams{}, err
+			}
+			continue
 		default:
 			return createVolumeParams{}, errInvalidVolumeObject
 		}

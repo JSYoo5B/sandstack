@@ -50,7 +50,12 @@ Use `volumes.Create` for `POST /volumes` on the project endpoint. The
 a positive integer size in GiB. The default type is `standard` and the
 availability zone is `nova`. The request returns `202` with a volume in
 status `creating`. Both reads show that status until the test drives an
-outcome.
+outcome. Set `volumes.CreateOpts.Metadata` to include user metadata in
+the create response, volume detail, and detailed list. A raw request may
+omit `metadata` or set it to `null` for an empty map. The same field is
+available when creating from a snapshot. It follows the
+[volume metadata key and value rules](#read-and-replace-volume-metadata).
+See the [Cinder volume create schema] and [Gophercloud volume create options].
 
 To make the volume available, take the ID from the create response and
 call the SandStack control with the admin token.
@@ -236,6 +241,8 @@ The [Cinder snapshot lookup], [Cinder size default], and
 [Cinder volume creation flow] describe source and size validation.
 
 [create volume reference]: https://docs.openstack.org/api-ref/block-storage/v3/#create-a-volume
+[Cinder volume create schema]: https://github.com/openstack/cinder/blob/master/cinder/api/schemas/volumes.py#L23-L69
+[Gophercloud volume create options]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/blockstorage/v3/volumes/requests.go#L105-L164
 [detailed volume list reference]: https://docs.openstack.org/api-ref/block-storage/v3/#list-accessible-volumes-with-details
 [Cinder volume list controller]: https://github.com/openstack/cinder/blob/master/cinder/api/v3/volumes.py#L142-L180
 [Cinder pagination parameters]: https://github.com/openstack/cinder/blob/master/cinder/api/common.py#L35-L103

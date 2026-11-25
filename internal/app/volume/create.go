@@ -2,6 +2,7 @@ package volume
 
 import (
 	"errors"
+	"maps"
 
 	domain "github.com/JSYoo5B/sandstack/internal/domain/volume"
 )
@@ -9,6 +10,14 @@ import (
 var ErrVolumeSmallerThanSnapshot = errors.New("volume size must be at least the snapshot size")
 
 func (s *Service) Create(projectID, name, description string, size int) (domain.Volume, error) {
+	return s.CreateWithMetadata(projectID, name, description, size, nil)
+}
+
+func (s *Service) CreateWithMetadata(
+	projectID, name, description string,
+	size int,
+	metadata map[string]string,
+) (domain.Volume, error) {
 	if s.seed.ProjectID != projectID {
 		return domain.Volume{}, ErrVolumeNotFound
 	}
@@ -17,13 +26,22 @@ func (s *Service) Create(projectID, name, description string, size int) (domain.
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.createVolume(name, description, size, "")
+	return s.createVolume(name, description, size, "", metadata)
 }
 
 // CreateFromSnapshot uses the snapshot's size when size is omitted (zero).
 func (s *Service) CreateFromSnapshot(
 	projectID, snapshotID, name, description string,
 	size int,
+) (domain.Volume, error) {
+	return s.CreateFromSnapshotWithMetadata(projectID, snapshotID, name, description, size, nil)
+}
+
+// CreateFromSnapshotWithMetadata assigns the requested metadata to the new volume.
+func (s *Service) CreateFromSnapshotWithMetadata(
+	projectID, snapshotID, name, description string,
+	size int,
+	metadata map[string]string,
 ) (domain.Volume, error) {
 	if s.seed.ProjectID != projectID {
 		return domain.Volume{}, ErrSnapshotNotFound
@@ -47,11 +65,16 @@ func (s *Service) CreateFromSnapshot(
 	if size < snapshot.Size {
 		return domain.Volume{}, ErrVolumeSmallerThanSnapshot
 	}
-	return s.createVolume(name, description, size, snapshotID)
+	return s.createVolume(name, description, size, snapshotID, metadata)
 }
 
 // createVolume runs with the service's write lock held.
-func (s *Service) createVolume(name, description string, size int, snapshotID string) (domain.Volume, error) {
+func (s *Service) createVolume(
+	name, description string,
+	size int,
+	snapshotID string,
+	metadata map[string]string,
+) (domain.Volume, error) {
 	id, err := s.allocateID()
 	if err != nil {
 		return domain.Volume{}, err
@@ -66,6 +89,7 @@ func (s *Service) createVolume(name, description string, size int, snapshotID st
 		Size:        size,
 		CreatedAt:   s.now().UTC(),
 		State:       domain.StateCreating,
+		Metadata:    maps.Clone(metadata),
 	}
 	s.volumes[id] = volume
 	return cloneVolume(volume), nil
