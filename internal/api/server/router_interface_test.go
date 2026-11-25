@@ -109,7 +109,7 @@ func TestRouterInterfaceWire(t *testing.T) {
 	}{
 		{"missing selector", add, `{}`, http.StatusBadRequest, "BadRequest"},
 		{"invalid subnet ID", add, `{"subnet_id":"invalid"}`, http.StatusBadRequest, "BadRequest"},
-		{"port selector", add, fmt.Sprintf(`{"port_id":%q}`, missing), http.StatusBadRequest, "BadRequest"},
+		{"missing port", add, fmt.Sprintf(`{"port_id":%q}`, missing), http.StatusNotFound, "PortNotFound"},
 		{"missing subnet", add, fmt.Sprintf(`{"subnet_id":%q}`, missing), http.StatusNotFound, "SubnetNotFound"},
 		{"missing router", routersPath + "/" + missing + "/add_router_interface", payload, http.StatusNotFound,
 			"RouterNotFound"},

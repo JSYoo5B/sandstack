@@ -30,14 +30,8 @@ func (s *Service) AddRouterInterface(projectID, routerID, subnetID string) (doma
 		if port.SubnetID == subnetID && port.FixedIP == subnet.Gateway {
 			gatewayInUse = true
 		}
-		if port.DeviceOwner != domain.DeviceOwnerRouterInterface || port.DeviceID != routerID {
-			continue
-		}
-		if port.SubnetID == subnetID {
-			return domain.Port{}, ErrRouterSubnetAttached
-		}
-		if subnet.CIDR.Overlaps(s.subnets[port.SubnetID].CIDR) {
-			return domain.Port{}, ErrRouterSubnetOverlap
+		if err := s.checkRouterSubnetConflict(routerID, subnet, port); err != nil {
+			return domain.Port{}, err
 		}
 	}
 	if gatewayInUse {
@@ -70,10 +64,22 @@ func (s *Service) RemoveRouterInterface(projectID, routerID, subnetID string) (d
 	return domain.Port{}, ErrRouterInterfaceNotFound
 }
 
+func (s *Service) checkRouterSubnetConflict(routerID string, subnet domain.Subnet, port domain.Port) error {
+	if port.DeviceOwner != domain.DeviceOwnerRouterInterface || port.DeviceID != routerID {
+		return nil
+	}
+	if port.SubnetID == subnet.ID {
+		return ErrRouterSubnetAttached
+	}
+	if subnet.CIDR.Overlaps(s.subnets[port.SubnetID].CIDR) {
+		return ErrRouterSubnetOverlap
+	}
+	return nil
+}
+
 // routerSubnet checks ownership of both resources while the write lock is held.
 func (s *Service) routerSubnet(projectID, routerID, subnetID string) (domain.Subnet, error) {
-	router, ok := s.routers[routerID]
-	if !ok || router.ProjectID != projectID {
+	if !s.ownsRouter(projectID, routerID) {
 		return domain.Subnet{}, ErrRouterNotFound
 	}
 	subnet, ok := s.subnets[subnetID]
@@ -81,4 +87,9 @@ func (s *Service) routerSubnet(projectID, routerID, subnetID string) (domain.Sub
 		return domain.Subnet{}, ErrSubnetNotFound
 	}
 	return subnet, nil
+}
+
+func (s *Service) ownsRouter(projectID, routerID string) bool {
+	router, ok := s.routers[routerID]
+	return ok && router.ProjectID == projectID
 }

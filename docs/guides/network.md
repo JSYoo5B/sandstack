@@ -105,40 +105,63 @@ router starts with `status: ACTIVE` even if you create it with
 List query parameters return `400`. Router responses show
 `external_gateway_info: null`, `gw_port_id: null`, and `routes: []`.
 
-## Attach an IPv4 subnet to a router
+## Attach and remove an IPv4 router interface
 
-Use the project token and an IPv4 subnet owned by the same project as the
-router. Send a top-level `subnet_id` with both interface actions on the
-router URL.
+Use the project token for both interface actions. The router and its subnet
+or port must belong to that project. The request fields are top-level
+`subnet_id` and `port_id`.
 
 - `PUT /network/v2.0/routers/{router_id}/add_router_interface` uses
-  Gophercloud's `routers.AddInterface` with `AddInterfaceOpts.SubnetID`.
+  Gophercloud's `routers.AddInterface` with exactly one of `SubnetID` and
+  `PortID` in `AddInterfaceOpts`. An HTTP request with both or neither
+  returns `400`.
 - `PUT /network/v2.0/routers/{router_id}/remove_router_interface` uses
-  `routers.RemoveInterface` with `RemoveInterfaceOpts.SubnetID`.
+  `routers.RemoveInterface` with one or both fields in
+  `RemoveInterfaceOpts`. If you send both, they must identify the same
+  interface. A mismatch returns `400` with `NeutronError.type` set to
+  `SubnetMismatchForPort`.
+
+The [remove interface reference] describes `409` for mismatched selectors.
+SandStack follows Neutron's implementation. `SubnetMismatchForPort`
+inherits from `BadRequest`, which maps to HTTP `400`. See the
+[Neutron subnet mismatch exception] and [Neutron HTTP fault mapping].
 
 Both actions return `200` with an unwrapped interface object. Its `id`
-is the router's ID, `port_id` identifies the generated port, and
-`subnet_ids` contains the attached subnet's ID.
+is the router's ID, `port_id` identifies the interface port, and
+`subnet_ids` contains the affected subnet's ID.
+
+### Attach by subnet ID
+
+SandStack creates a port with the subnet's gateway address as its fixed
+IP. A subnet gateway already in use by another router returns `409`. See
+[Neutron interface creation].
+
+### Attach by port ID
+
+Pass an existing unbound port with one IPv4 fixed IP. The port keeps its
+original ID, fixed IP, and MAC address. A port that is already attached
+returns `409`. A port with no fixed IP returns `400`. See
+[Neutron port validation] and [Neutron attachment by port].
+
+### Inspect and remove the interface
 
 Use `ports.Get` on the returned `port_id` or `ports.List` on the subnet's
-network to inspect the interface. Its fixed IP is the subnet's gateway
-address, `device_id` is the router ID, and `device_owner` is
-`network:router_interface`. An attempt to add the same subnet to the same
-router again, or to add a subnet that overlaps one already attached to
-that router, returns `400`. A subnet gateway already in use by another
-router returns `409`. See [Neutron interface creation] and
-[Neutron router subnet checks].
+network. The interface port shows the router ID in `device_id` and
+`network:router_interface` in `device_owner`. Adding a new interface on a
+subnet already present on the router, or on a subnet that overlaps one
+already present, returns `400`. See [Neutron router subnet checks].
 
 While the interface exists, deleting its port, router, subnet, or network
 directly returns `409`. Remove the interface first. Removing it deletes
-the generated port and releases its gateway address. The remaining
-resources can then be deleted if their other dependencies are clear. See
-[Neutron interface removal].
+the interface port and releases its fixed IP, including when you supplied
+an existing port. The remaining resources can then be deleted if their
+other dependencies are clear. See [Neutron interface removal] and
+[Neutron removal by port].
 
-The fixture supports attachment by `subnet_id`. Existing-port attachment,
-static routes, external gateways, router updates, and packet forwarding are
-outside this scope. [Reset the sandbox](reset.md) to clear the created
-routers, interfaces, and generated ports.
+Each interface has one IPv4 fixed IP. Static routes, external gateways,
+router updates, and packet forwarding are outside this scope.
+[Reset the sandbox](reset.md) to clear the created routers, interfaces, and
+ports.
 
 ## Inject and clear a network outage
 
@@ -164,8 +187,9 @@ The raw HTTP tests use the [Neutron filtering reference], [Neutron list referenc
 implementation] and [exception types] explain deletion and exhaustion conflicts.
 The router tests use the [router create reference], [router list reference],
 [router details reference], and [router delete reference]. The interface
-tests check the generated port and blocked deletions using the
-[add interface reference] and [remove interface reference].
+tests cover both attachment selectors, port identity, allocation reuse, and
+blocked deletions using the [add interface reference] and
+[remove interface reference].
 
 [Neutron filtering reference]: https://docs.openstack.org/api-ref/network/v2/#filtering-and-column-selection
 [Neutron list reference]: https://docs.openstack.org/api-ref/network/v2/#list-networks
@@ -182,7 +206,12 @@ tests check the generated port and blocked deletions using the
 [remove interface reference]: https://docs.openstack.org/api-ref/network/v2/#remove-interface-from-router
 [Neutron router initialization]: https://github.com/openstack/neutron/blob/master/neutron/db/l3_db.py#L218-L256
 [Neutron interface creation]: https://github.com/openstack/neutron/blob/master/neutron/db/l3_db.py#L838-L898
+[Neutron port validation]: https://github.com/openstack/neutron/blob/master/neutron/db/l3_db.py#L700-L769
+[Neutron attachment by port]: https://github.com/openstack/neutron/blob/master/neutron/db/l3_db.py#L797-L804
 [Neutron router subnet checks]: https://github.com/openstack/neutron/blob/master/neutron/db/l3_db.py#L650-L678
 [Neutron interface removal]: https://github.com/openstack/neutron/blob/master/neutron/db/l3_db.py#L1099-L1122
+[Neutron removal by port]: https://github.com/openstack/neutron/blob/master/neutron/db/l3_db.py#L1061-L1080
+[Neutron subnet mismatch exception]: https://github.com/openstack/neutron-lib/blob/master/neutron_lib/exceptions/__init__.py#L349-L357
+[Neutron HTTP fault mapping]: https://github.com/openstack/neutron-lib/blob/master/neutron_lib/api/faults.py#L16-L20
 [Neutron database implementation]: https://github.com/openstack/neutron/blob/master/neutron/db/db_base_plugin_v2.py
 [exception types]: https://github.com/openstack/neutron-lib/blob/master/neutron_lib/exceptions/__init__.py
