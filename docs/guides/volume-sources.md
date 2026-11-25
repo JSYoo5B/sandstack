@@ -30,6 +30,19 @@ source metadata. See the [Cinder image metadata capture] and
 To prepare a source with your own bytes, [upload a Glance
 image](image-data.md#upload-a-queued-image-file).
 
+### Read published volume image metadata directly
+
+Send `POST /volumes/{volume_id}/action` with
+`{"os-show_image_metadata":{}}`. This Cinder v3.0 action returns `200`
+with a `metadata` object. A blank volume or pending image-backed volume
+returns an empty object. A provisioned image-backed volume returns the same
+image metadata as its detail response, even if its bootable flag was later
+cleared. The action leaves scheduled detail failures pending and returns
+`404` for a missing volume. See the [Cinder show image metadata action].
+
+Use Gophercloud v2.15.0's `ServiceClient.Post` with the action URL and
+`200` as the accepted response code.
+
 ## Create a volume from a snapshot
 
 Use the [snapshot guide](volume-snapshots.md) to create an available snapshot.
@@ -85,6 +98,7 @@ source and size validation.
 [Cinder image source validation]: https://github.com/openstack/cinder/blob/10.0.0/cinder/volume/flows/api/create_volume.py#L194-L233
 [Cinder image metadata capture]: https://github.com/openstack/cinder/blob/10.0.0/cinder/volume/flows/manager/create_volume.py#L561-L595
 [Cinder volume image metadata projection]: https://github.com/openstack/cinder/blob/master/cinder/api/contrib/volume_image_metadata.py#L43-L79
+[Cinder show image metadata action]: https://github.com/openstack/cinder/blob/master/cinder/api/contrib/volume_image_metadata.py#L103-L117
 [Gophercloud volume create options]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/blockstorage/v3/volumes/requests.go#L105-L164
 [Cinder snapshot lookup]: https://github.com/openstack/cinder/blob/master/cinder/api/v3/volumes.py#L369-L375
 [Cinder size default]: https://github.com/openstack/cinder/blob/master/cinder/api/v3/volumes.py#L408-L414

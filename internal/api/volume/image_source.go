@@ -9,11 +9,22 @@ import (
 
 func (h handler) describeDetailedVolume(r *http.Request, volume domain.Volume) volumeBody {
 	body := h.describeVolume(r, volume)
-	source := volume.ImageSource
-	if !volume.ImageMetadataReady || source.ID == "" {
-		return body
+	if volume.ImageMetadataReady {
+		body.ImageMetadata = describeVolumeImageMetadata(volume.ImageSource)
 	}
-	body.ImageMetadata = map[string]string{
+	return body
+}
+
+func (h handler) showVolumeImageMetadata(w http.ResponseWriter, projectID, volumeID string) {
+	source, err := h.service.GetPublishedImageSource(projectID, volumeID)
+	writeVolumeMetadata(w, describeVolumeImageMetadata(source), err)
+}
+
+func describeVolumeImageMetadata(source domain.ImageSource) map[string]string {
+	if source.ID == "" {
+		return map[string]string{}
+	}
+	metadata := map[string]string{
 		"image_id": source.ID,
 		"size":     strconv.FormatInt(source.Size, 10),
 		"min_disk": strconv.Itoa(source.MinDiskGiB),
@@ -26,8 +37,8 @@ func (h handler) describeDetailedVolume(r *http.Request, volume domain.Volume) v
 		"checksum":         source.Checksum,
 	} {
 		if value != "" {
-			body.ImageMetadata[key] = value
+			metadata[key] = value
 		}
 	}
-	return body
+	return metadata
 }
