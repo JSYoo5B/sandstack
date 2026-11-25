@@ -120,6 +120,27 @@ seeded volume.
 This scenario models the snapshot lifecycle in metadata. Use an available
 snapshot to [create a new volume](#create-a-volume-from-a-snapshot).
 
+## Update a snapshot name or description
+
+Send `PUT /snapshots/{snapshot_id}` on the project endpoint with a
+`snapshot` object containing `name`, `description`, or both. Omitting a
+field preserves its value. An empty object returns `400`. Each string
+must be at most 255 characters before SandStack trims surrounding
+whitespace. An explicit empty string writes `""`, while JSON `null`
+clears the field to `null`. See the [update snapshot reference],
+[Cinder snapshot update schema], and [Cinder snapshot update controller].
+
+In Gophercloud v2.15.0, pass `snapshots.UpdateOpts` to `snapshots.Update`.
+Use a nil field pointer to omit the field or a pointer to an empty string
+to write `""`. Use a raw request to send JSON `null`. This update works
+for snapshots in `creating`, `available`, or `error` and preserves their
+status, source volume ID, and size. See the [Gophercloud snapshot update options].
+
+The `200` response shows the new name or description with the previous
+`updated_at` value. Read the snapshot again to observe the persisted
+timestamp, as Cinder returns the saved snapshot without reloading it.
+See the [Cinder snapshot save implementation].
+
 ## Read the attachment state
 
 After [Nova attaches a volume](compute.md#attach-and-detach-a-cinder-volume),
@@ -203,6 +224,8 @@ failed extension. The HTTP tests use the
 [snapshot list reference], and [delete snapshot reference].
 The volume update tests check field omission, explicit clearing, validation,
 and preservation of an existing attachment.
+The snapshot update tests check partial changes, preserved source state,
+and the timestamp returned by later reads.
 Detailed list tests exercise Gophercloud filters after volume updates and
 check empty results and invalid queries over HTTP.
 The transient detail outage test checks the Cinder `503` response and
@@ -222,6 +245,11 @@ The [Cinder snapshot lookup], [Cinder size default], and
 [Cinder WSGI fault mapping]: https://github.com/openstack/cinder/blob/master/cinder/api/openstack/wsgi.py#L1203-L1228
 [sandbox reset]: reset.md
 [create snapshot reference]: https://docs.openstack.org/api-ref/block-storage/v3/#create-a-snapshot
+[update snapshot reference]: https://docs.openstack.org/api-ref/block-storage/v3/#update-a-snapshot
+[Cinder snapshot update schema]: https://github.com/openstack/cinder/blob/master/cinder/api/schemas/snapshots.py#L42-L64
+[Cinder snapshot update controller]: https://github.com/openstack/cinder/blob/master/cinder/api/v3/snapshots.py#L213-L236
+[Cinder snapshot save implementation]: https://github.com/openstack/cinder/blob/master/cinder/objects/snapshot.py#L175-L202
+[Gophercloud snapshot update options]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/blockstorage/v3/snapshots/requests.go#L149-L170
 [snapshot details reference]: https://docs.openstack.org/api-ref/block-storage/v3/#show-a-snapshot-s-details
 [snapshot list reference]: https://docs.openstack.org/api-ref/block-storage/v3/#list-snapshots-and-details
 [delete snapshot reference]: https://docs.openstack.org/api-ref/block-storage/v3/#delete-a-snapshot

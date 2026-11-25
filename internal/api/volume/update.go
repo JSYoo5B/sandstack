@@ -35,31 +35,27 @@ func (h handler) updateVolume(w http.ResponseWriter, r *http.Request, projectID 
 	}
 }
 
-func parseUpdateVolume(data []byte) (app.VolumeUpdate, error) {
+func parseUpdateVolume(data []byte) (app.TextUpdate, error) {
 	if !utf8.Valid(data) {
-		return app.VolumeUpdate{}, errInvalidVolumeObject
+		return app.TextUpdate{}, errInvalidVolumeObject
 	}
 	envelope, err := readUniqueObject(data)
 	if err != nil || len(envelope) != 1 {
-		return app.VolumeUpdate{}, errInvalidVolumeObject
+		return app.TextUpdate{}, errInvalidVolumeObject
 	}
 	fields, err := readUniqueObject(envelope["volume"])
 	if err != nil {
-		return app.VolumeUpdate{}, errInvalidVolumeObject
+		return app.TextUpdate{}, errInvalidVolumeObject
 	}
-	var changes app.VolumeUpdate
+	var changes app.TextUpdate
 	for field, value := range fields {
-		var raw *string
-		if err := json.Unmarshal(value, &raw); err != nil {
-			return app.VolumeUpdate{}, errInvalidVolumeObject
+		text, err := decodeNullableText(value)
+		if err != nil {
+			return app.TextUpdate{}, errInvalidVolumeObject
 		}
-		text := &domain.NullableText{}
-		if raw != nil {
-			text.Value = strings.TrimSpace(*raw)
-			text.Valid = true
-			if utf8.RuneCountInString(text.Value) > maxVolumeTextLength {
-				return app.VolumeUpdate{}, errors.New("volume name and description may contain up to 255 characters")
-			}
+		text.Value = strings.TrimSpace(text.Value)
+		if utf8.RuneCountInString(text.Value) > maxVolumeTextLength {
+			return app.TextUpdate{}, errors.New("volume name and description may contain up to 255 characters")
 		}
 		switch field {
 		case "name":
@@ -67,8 +63,19 @@ func parseUpdateVolume(data []byte) (app.VolumeUpdate, error) {
 		case "description":
 			changes.Description = text
 		default:
-			return app.VolumeUpdate{}, errInvalidVolumeObject
+			return app.TextUpdate{}, errInvalidVolumeObject
 		}
 	}
 	return changes, nil
+}
+
+func decodeNullableText(data json.RawMessage) (*domain.NullableText, error) {
+	var value *string
+	if err := json.Unmarshal(data, &value); err != nil {
+		return nil, err
+	}
+	if value == nil {
+		return &domain.NullableText{}, nil
+	}
+	return &domain.NullableText{Value: *value, Valid: true}, nil
 }

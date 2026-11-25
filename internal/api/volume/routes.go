@@ -42,6 +42,7 @@ func Register(
 	router.Get(snapshots+"/detail", h.withProject(withoutQuery(h.listSnapshots)))
 	router.Post(snapshots, h.withProject(withoutQuery(h.createSnapshot)))
 	router.Get(snapshots+"/{snapshotID}", h.withProject(withoutQuery(h.showSnapshot)))
+	router.Put(snapshots+"/{snapshotID}", h.withProject(withoutQuery(h.updateSnapshot)))
 	router.Delete(snapshots+"/{snapshotID}", h.withProject(withoutQuery(h.deleteSnapshot)))
 }
 

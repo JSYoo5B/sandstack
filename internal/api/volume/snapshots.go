@@ -29,12 +29,16 @@ type snapshotDetailBody struct {
 	Progress  string `json:"os-extended-snapshot-attributes:progress"`
 }
 
+type snapshotResponse struct {
+	Snapshot snapshotBody `json:"snapshot"`
+}
+
 func describeSnapshot(snapshot domain.Snapshot) snapshotBody {
 	return snapshotBody{
 		ID:          snapshot.ID,
 		VolumeID:    snapshot.VolumeID,
-		Name:        optionalText(snapshot.Name),
-		Description: optionalText(snapshot.Description),
+		Name:        describeNullableText(snapshot.Name),
+		Description: describeNullableText(snapshot.Description),
 		Size:        snapshot.Size,
 		Status:      string(snapshot.State),
 		CreatedAt:   snapshot.CreatedAt.UTC().Format(timestampLayout),
@@ -75,9 +79,7 @@ func (h handler) createSnapshot(w http.ResponseWriter, r *http.Request, projectI
 	case err != nil:
 		writeFault(w, http.StatusInternalServerError, "computeFault", "Unable to create the snapshot.")
 	default:
-		writeJSON(w, http.StatusAccepted, struct {
-			Snapshot snapshotBody `json:"snapshot"`
-		}{Snapshot: describeSnapshot(snapshot)})
+		writeJSON(w, http.StatusAccepted, snapshotResponse{Snapshot: describeSnapshot(snapshot)})
 	}
 }
 

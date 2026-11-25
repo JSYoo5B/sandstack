@@ -4,6 +4,7 @@ import (
 	"errors"
 	"slices"
 	"strings"
+	"time"
 
 	domain "github.com/JSYoo5B/sandstack/internal/domain/volume"
 )
@@ -36,8 +37,8 @@ func (s *Service) CreateSnapshot(projectID, volumeID, name, description string) 
 		ID:          id,
 		ProjectID:   projectID,
 		VolumeID:    volumeID,
-		Name:        name,
-		Description: description,
+		Name:        domain.NullableText{Value: name, Valid: name != ""},
+		Description: domain.NullableText{Value: description, Valid: description != ""},
 		Size:        volume.Size,
 		CreatedAt:   s.now().UTC(),
 		State:       domain.StateCreating,
@@ -57,6 +58,34 @@ func (s *Service) GetSnapshot(projectID, snapshotID string) (domain.Snapshot, er
 		return domain.Snapshot{}, ErrSnapshotNotFound
 	}
 	return snapshot, nil
+}
+
+func (s *Service) UpdateSnapshot(
+	projectID, snapshotID string,
+	changes TextUpdate,
+) (domain.Snapshot, time.Time, error) {
+	if s.seed.ProjectID != projectID {
+		return domain.Snapshot{}, time.Time{}, ErrSnapshotNotFound
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	snapshot, ok := s.snapshots[snapshotID]
+	if !ok {
+		return domain.Snapshot{}, time.Time{}, ErrSnapshotNotFound
+	}
+	before := snapshot
+	if changes.Name != nil {
+		snapshot.Name = *changes.Name
+	}
+	if changes.Description != nil {
+		snapshot.Description = *changes.Description
+	}
+	if snapshot.Name != before.Name || snapshot.Description != before.Description {
+		snapshot.UpdatedAt = s.now().UTC()
+		s.snapshots[snapshotID] = snapshot
+	}
+	return snapshot, before.UpdatedAt, nil
 }
 
 // ListSnapshots returns the project's snapshots ordered by ID.

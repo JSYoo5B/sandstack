@@ -2,12 +2,12 @@ package volume
 
 import domain "github.com/JSYoo5B/sandstack/internal/domain/volume"
 
-type VolumeUpdate struct {
+type TextUpdate struct {
 	Name        *domain.NullableText
 	Description *domain.NullableText
 }
 
-func (s *Service) Update(projectID, volumeID string, changes VolumeUpdate) (domain.Volume, error) {
+func (s *Service) Update(projectID, volumeID string, changes TextUpdate) (domain.Volume, error) {
 	if s.seed.ProjectID != projectID {
 		return domain.Volume{}, ErrVolumeNotFound
 	}
