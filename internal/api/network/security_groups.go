@@ -37,6 +37,7 @@ type securityGroupRuleBody struct {
 	RemoteIPPrefix       *string `json:"remote_ip_prefix"`
 	RemoteAddressGroupID *string `json:"remote_address_group_id"`
 	NormalizedCIDR       *string `json:"normalized_cidr"`
+	BelongsToDefault     *bool   `json:"belongs_to_default_sg,omitempty"`
 }
 
 type securityGroupResponse struct {
@@ -88,18 +89,7 @@ func (h handler) showSecurityGroup(w http.ResponseWriter, r *http.Request, proje
 func describeSecurityGroup(group domain.SecurityGroup) securityGroupBody {
 	rules := make([]securityGroupRuleBody, len(group.Rules))
 	for i, rule := range group.Rules {
-		body := securityGroupRuleBody{
-			ID:              rule.ID,
-			SecurityGroupID: group.ID,
-			ProjectID:       group.ProjectID,
-			TenantID:        group.ProjectID,
-			Direction:       rule.Direction,
-			EtherType:       rule.EtherType,
-		}
-		if rule.RemoteGroupID != "" {
-			body.RemoteGroupID = &rule.RemoteGroupID
-		}
-		rules[i] = body
+		rules[i] = describeSecurityGroupRule(rule, group.ID, group.ProjectID)
 	}
 	return securityGroupBody{
 		ID:          group.ID,
@@ -110,4 +100,19 @@ func describeSecurityGroup(group domain.SecurityGroup) securityGroupBody {
 		Stateful:    group.Stateful,
 		Rules:       rules,
 	}
+}
+
+func describeSecurityGroupRule(rule domain.SecurityGroupRule, groupID, projectID string) securityGroupRuleBody {
+	body := securityGroupRuleBody{
+		ID:              rule.ID,
+		SecurityGroupID: groupID,
+		ProjectID:       projectID,
+		TenantID:        projectID,
+		Direction:       rule.Direction,
+		EtherType:       rule.EtherType,
+	}
+	if rule.RemoteGroupID != "" {
+		body.RemoteGroupID = &rule.RemoteGroupID
+	}
+	return body
 }

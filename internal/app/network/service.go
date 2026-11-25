@@ -21,15 +21,15 @@ const networkIDAttempts = 8
 var networkIDPattern = regexp.MustCompile(`^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$`)
 
 type Service struct {
-	mu                   sync.RWMutex
-	seed                 domain.Network
-	networks             map[string]domain.Network
-	subnets              map[string]domain.Subnet
-	ports                map[string]domain.Port
-	routers              map[string]domain.Router
-	securityGroups       map[string]domain.SecurityGroup
-	securityGroupRuleIDs map[string]struct{}
-	newID                func() string
+	mu                      sync.RWMutex
+	seed                    domain.Network
+	networks                map[string]domain.Network
+	subnets                 map[string]domain.Subnet
+	ports                   map[string]domain.Port
+	routers                 map[string]domain.Router
+	securityGroups          map[string]domain.SecurityGroup
+	securityGroupRuleGroups map[string]string
+	newID                   func() string
 }
 
 type ListFilter struct {
@@ -43,14 +43,14 @@ type ListFilter struct {
 func New(seed domain.Network, newID func() string) *Service {
 	seed.SubnetIDs = nil
 	return &Service{
-		seed:                 seed,
-		networks:             map[string]domain.Network{seed.ID: seed},
-		subnets:              make(map[string]domain.Subnet),
-		ports:                make(map[string]domain.Port),
-		routers:              make(map[string]domain.Router),
-		securityGroups:       make(map[string]domain.SecurityGroup),
-		securityGroupRuleIDs: make(map[string]struct{}),
-		newID:                newID,
+		seed:                    seed,
+		networks:                map[string]domain.Network{seed.ID: seed},
+		subnets:                 make(map[string]domain.Subnet),
+		ports:                   make(map[string]domain.Port),
+		routers:                 make(map[string]domain.Router),
+		securityGroups:          make(map[string]domain.SecurityGroup),
+		securityGroupRuleGroups: make(map[string]string),
+		newID:                   newID,
 	}
 }
 
@@ -152,7 +152,7 @@ func (s *Service) allocateID(available func(string) bool) (string, error) {
 		_, portExists := s.ports[id]
 		_, routerExists := s.routers[id]
 		_, groupExists := s.securityGroups[id]
-		_, ruleExists := s.securityGroupRuleIDs[id]
+		_, ruleExists := s.securityGroupRuleGroups[id]
 		if networkExists || subnetExists || portExists || routerExists || id == s.seed.ID ||
 			groupExists || ruleExists || isDefaultSecurityGroupID(id) ||
 			(available != nil && !available(id)) {
@@ -205,7 +205,7 @@ func (s *Service) Reset() {
 	s.ports = make(map[string]domain.Port)
 	s.routers = make(map[string]domain.Router)
 	s.securityGroups = make(map[string]domain.SecurityGroup)
-	s.securityGroupRuleIDs = make(map[string]struct{})
+	s.securityGroupRuleGroups = make(map[string]string)
 }
 
 func snapshot(network domain.Network) domain.Network {

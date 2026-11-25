@@ -56,6 +56,22 @@ Use `groups.Delete` to remove a custom group and its rules. It returns
 Deleting the project's default group with the project token returns
 `409`. See the [Neutron group name tests] and [Neutron group deletion].
 
+## Read security group rules
+
+Use `rules.List` with `rules.ListOpts{SecGroupID: groupID}` and follow a
+rule ID with `rules.Get`. The Neutron v2.0 routes are
+`GET /security-group-rules` and `GET /security-group-rules/{rule_id}`.
+They return `200` and include the same rule fields as group detail. These
+standalone reads also expose `belongs_to_default_sg`. A missing rule
+returns `404`. Deleting a custom group removes its rules from both
+standalone reads. See the [Neutron rule lookups] and [Gophercloud rule operations].
+
+Filter the list by ID, group ID, direction, EtherType, or either project
+alias. Repeated values within a filter are alternatives and different
+filters apply together. EtherType accepts IPv4 or IPv6 regardless of
+case. An invalid EtherType returns `400`. A list with no matches returns
+an empty `security_group_rules` array.
+
 ## Create a network
 
 Send a `network` object with `name` and `admin_state_up` as needed. A name
@@ -189,3 +205,5 @@ deletion, rule defaults, and project scoping over HTTP.
 [Neutron custom group creation tests]: https://github.com/openstack/neutron/blob/ba84fbf374cc7f5055eb2ff4ebc34d2a19cbbc3d/neutron/tests/unit/extensions/test_securitygroup.py#L338-L377
 [Neutron group name tests]: https://github.com/openstack/neutron/blob/ba84fbf374cc7f5055eb2ff4ebc34d2a19cbbc3d/neutron/tests/unit/extensions/test_securitygroup.py#L515-L545
 [Neutron group deletion]: https://github.com/openstack/neutron/blob/ba84fbf374cc7f5055eb2ff4ebc34d2a19cbbc3d/neutron/db/securitygroups_db.py#L261-L300
+[Neutron rule lookups]: https://github.com/openstack/neutron/blob/ba84fbf374cc7f5055eb2ff4ebc34d2a19cbbc3d/neutron/db/securitygroups_db.py#L1046-L1099
+[Gophercloud rule operations]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/networking/v2/extensions/security/rules/requests.go#L19-L64

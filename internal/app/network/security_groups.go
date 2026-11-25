@@ -95,7 +95,7 @@ func (s *Service) CreateSecurityGroup(projectID, name, description string, state
 	}
 	s.securityGroups[group.ID] = group
 	for _, rule := range group.Rules {
-		s.securityGroupRuleIDs[rule.ID] = struct{}{}
+		s.securityGroupRuleGroups[rule.ID] = group.ID
 	}
 	return cloneSecurityGroup(group), nil
 }
@@ -112,7 +112,7 @@ func (s *Service) DeleteSecurityGroup(projectID, groupID string) error {
 	}
 	delete(s.securityGroups, groupID)
 	for _, rule := range group.Rules {
-		delete(s.securityGroupRuleIDs, rule.ID)
+		delete(s.securityGroupRuleGroups, rule.ID)
 	}
 	return nil
 }
