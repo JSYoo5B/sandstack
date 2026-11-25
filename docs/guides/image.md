@@ -80,11 +80,19 @@ requires both tags. SandStack trims surrounding whitespace on each query
 value before matching. Tag filters combine with `name` and `status` when
 present. See the [Glance list reference] and [Glance tag filters].
 
+Set `images.ListOpts.ID` to an ID or `eq:<id>` for an exact match.
+Use `in:<id>,<id>` to match any listed ID. Double quotes can enclose
+an individual operand, and spaces outside quotes remain part of the
+value. The ID filter combines with the name, status, and tag filters.
+An unknown ID or empty operand matches no image. Unsupported operators,
+malformed quotes, and repeated `id` parameters return `400`. See the
+[Glance ID filters] and [Glance filter operands].
+
 The response includes `images`, a `first` link that preserves the filters,
 including repeated tag values, and a `schema` link. A query with no matches
 returns `images: []`. SandStack accepts one value each for `name` and
 `status`. Repeating either key, using an unsupported query key, or using
-a comparison operator other than `eq:` returns `400`. See the [Glance
+a name or status comparison operator other than `eq:` returns `400`. See the [Glance
 image list serializer].
 
 ### Page through the image list
@@ -266,6 +274,8 @@ and a ranged retry over HTTP.
 The creation tests check the location and queued metadata over HTTP and
 read the new record through SDK detail and paginated list requests.
 The upload tests check size, checksum, and complete and ranged reads.
+ID filter tests use several images to check exact and multi-ID selection
+and preservation of the filter across SDK pages.
 
 [Glance discovery reference]: https://docs.openstack.org/api-ref/image/versions/index.html
 [Glance image reference]: https://docs.openstack.org/api-ref/image/v2/#show-image
@@ -288,6 +298,8 @@ The upload tests check size, checksum, and complete and ranged reads.
 [Glance marker lookup]: https://github.com/openstack/glance/blob/master/glance/db/sqlalchemy/api.py#L664-L679
 [Glance image list filters]: https://github.com/openstack/glance/blob/master/glance/db/sqlalchemy/api.py#L508-L524
 [Glance tag filters]: https://github.com/openstack/glance/blob/master/glance/db/sqlalchemy/api.py#L470-L476
+[Glance ID filters]: https://github.com/openstack/glance/blob/12.0.0/glance/db/sqlalchemy/api.py#L515-L530
+[Glance filter operands]: https://github.com/openstack/glance/blob/12.0.0/glance/common/utils.py#L594-L659
 [Gophercloud image list options]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/image/v2/images/requests.go#L25-L78
 [Gophercloud image next links]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/image/v2/images/urls.go#L42-L64
 [Glance update reference]: https://docs.openstack.org/api-ref/image/v2/#update-image

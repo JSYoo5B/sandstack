@@ -89,6 +89,13 @@ func parseImageListQuery(query url.Values) (imageListOptions, error) {
 		}
 		value := values[0]
 		switch field {
+		case "id":
+			ids, err := parseImageIDFilter(value)
+			if err != nil {
+				return imageListOptions{}, err
+			}
+			options.filter.IDs = ids
+			continue
 		case "limit":
 			limit, err := strconv.Atoi(strings.TrimSpace(value))
 			if err != nil || limit < 0 {

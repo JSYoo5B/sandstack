@@ -8,12 +8,18 @@ import (
 )
 
 type ListFilter struct {
+	IDs    map[string]struct{}
 	Name   *string
 	Status *string
 	Tags   []string
 }
 
 func (f ListFilter) matches(image domain.Image) bool {
+	if f.IDs != nil {
+		if _, match := f.IDs[image.ID]; !match {
+			return false
+		}
+	}
 	if (f.Name != nil && *f.Name != image.Name) || (f.Status != nil && *f.Status != image.Status()) {
 		return false
 	}
