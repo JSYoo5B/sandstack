@@ -12,6 +12,12 @@ import (
 	domain "github.com/JSYoo5B/sandstack/internal/domain/image"
 )
 
+const (
+	fixtureContainerFormat = "bare"
+	fixtureDiskFormat      = "qcow2"
+	fixtureVisibility      = "private"
+)
+
 type imageBody struct {
 	ID              string    `json:"id"`
 	Name            string    `json:"name"`
@@ -40,15 +46,15 @@ func describeImage(image domain.Image) imageBody {
 		Name:            image.Name,
 		Owner:           image.ProjectID,
 		Status:          image.Status(),
-		Visibility:      "private",
+		Visibility:      fixtureVisibility,
 		CreatedAt:       image.CreatedAt,
 		UpdatedAt:       image.UpdatedAt,
-		ContainerFormat: "bare",
-		DiskFormat:      "qcow2",
+		ContainerFormat: fixtureContainerFormat,
+		DiskFormat:      fixtureDiskFormat,
 		Tags:            append([]string{}, image.Tags...),
 		Self:            self,
 		File:            self + "/file",
-		Schema:          Path + "/schemas/image",
+		Schema:          imageSchemaPath,
 	}
 	if image.Checksum != "" {
 		body.Checksum = &image.Checksum

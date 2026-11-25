@@ -35,7 +35,7 @@ func (h handler) listImages(w http.ResponseWriter, r *http.Request, projectID st
 	response := imageListBody{
 		Images: make([]imageBody, len(images)),
 		First:  first,
-		Schema: Path + "/schemas/images",
+		Schema: imageListSchemaPath,
 	}
 	for i, image := range images {
 		response.Images[i] = describeImage(image)

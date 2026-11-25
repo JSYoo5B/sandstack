@@ -33,6 +33,8 @@ func Register(
 	router.Get(CatalogPath, h.versions)
 	router.Get(CatalogPath+"/", h.versions)
 	router.Get(Path+"/images", h.withProject(h.listImages))
+	router.Get(imageSchemaPath, h.withProject(showSchema(imageSchema)))
+	router.Get(imageListSchemaPath, h.withProject(showSchema(imageListSchema)))
 	resource := Path + "/images/{imageID}"
 	router.Get(resource, h.withProject(h.showImage))
 	router.Patch(resource, h.withProject(h.updateImage))

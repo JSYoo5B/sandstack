@@ -34,6 +34,23 @@ accepts one value each for `name` and `status`. Repeating either of those
 keys, using other query keys, or using a `name` or `status` operator other
 than `eq:` returns `400`. See the [Glance image list serializer].
 
+## Discover image schemas
+
+Follow the `schema` link in an image detail or list response using the
+same project token. An image links to `GET /image/v2/schemas/image`. The
+list links to `GET /image/v2/schemas/images`. Both return `200` with a
+Glance-style JSON schema document. The item schema describes fixture
+properties such as `id`, `status`, `tags`, `size`, and `checksum`. The
+collection schema describes the `images` array and its item schema.
+See the [Glance image schema reference], [Glance collection schema reference],
+and [Glance schema builders].
+
+With Gophercloud v2.15.0, resolve the returned path against the Image
+endpoint's origin and fetch the resulting URL with `ServiceClient.Get`.
+Decode the response into a JSON object. The SDK exposes the detail link
+as `Image.Schema` and the list link is in the raw response envelope.
+See the [Gophercloud image result].
+
 ## Rename the fixture image
 
 Use `PATCH /image/v2/images/{image_id}` with the owning project's token.
@@ -120,8 +137,7 @@ response, err := client.Get(
 On success, read and close `response.Body`. The fixture supports full and
 single-range downloads through the baseline Glance v2.0 API. On an active
 image, the legacy request `Content-Range` header and query parameters such
-as `prefer` receive `400`. Upload and schema documents are outside this
-scope.
+as `prefer` receive `400`. Upload is outside this scope.
 
 ## Deactivate and reactivate the fixture image
 
@@ -155,9 +171,15 @@ The rename tests follow the new name through detail and filtered list
 reads and check media-type negotiation over HTTP.
 The tag tests check replacement, clearing, validation, and matching all
 requested tags in the image list.
+Schema tests resolve the links from detail and list responses and check
+the fixture response types against the returned schemas.
 
 [Glance discovery reference]: https://docs.openstack.org/api-ref/image/versions/index.html
 [Glance image reference]: https://docs.openstack.org/api-ref/image/v2/#show-image
+[Glance image schema reference]: https://docs.openstack.org/api-ref/image/v2/#show-image-schema
+[Glance collection schema reference]: https://docs.openstack.org/api-ref/image/v2/#show-images-schema
+[Glance schema builders]: https://github.com/openstack/glance/blob/master/glance/api/v2/images.py#L1963-L2008
+[Gophercloud image result]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/image/v2/images/results.go#L81-L90
 [Glance list reference]: https://docs.openstack.org/api-ref/image/v2/#list-images
 [Glance image list serializer]: https://github.com/openstack/glance/blob/master/glance/api/v2/images.py#L1697-L1713
 [Glance image list filters]: https://github.com/openstack/glance/blob/master/glance/db/sqlalchemy/api.py#L508-L524
