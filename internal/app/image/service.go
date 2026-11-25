@@ -12,9 +12,10 @@ import (
 )
 
 var (
-	ErrImageNotFound       = errors.New("image not found")
-	ErrImageDeactivated    = errors.New("image is deactivated")
-	ErrDownloadUnavailable = errors.New("image download temporarily unavailable")
+	ErrImageNotFound        = errors.New("image not found")
+	ErrImageDeactivated     = errors.New("image is deactivated")
+	ErrDownloadUnavailable  = errors.New("image download temporarily unavailable")
+	ErrImageMarkerForbidden = errors.New("image list marker is not accessible")
 )
 
 type Service struct {
@@ -81,21 +82,46 @@ type ListFilter struct {
 	Tags   []string
 }
 
+type ImagePage struct {
+	Images     []domain.Image
+	NextMarker string
+}
+
 func (s *Service) List(projectID string, filter ListFilter) []domain.Image {
+	page, _ := s.ListPage(projectID, filter, nil, -1)
+	return page.Images
+}
+
+// ListPage resolves marker visibility before applying filters or limiting results.
+func (s *Service) ListPage(projectID string, filter ListFilter, marker *string, limit int) (ImagePage, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	if projectID != s.image.ProjectID ||
+	page := ImagePage{Images: []domain.Image{}}
+	if marker != nil {
+		if *marker == "" || *marker != s.image.ID {
+			return ImagePage{}, ErrImageNotFound
+		}
+		if projectID != s.image.ProjectID {
+			return ImagePage{}, ErrImageMarkerForbidden
+		}
+		return page, nil
+	}
+	if limit == 0 || projectID != s.image.ProjectID ||
 		(filter.Name != nil && *filter.Name != s.image.Name) ||
 		(filter.Status != nil && *filter.Status != s.image.Status()) {
-		return []domain.Image{}
+		return page, nil
 	}
 	for _, tag := range filter.Tags {
 		if _, found := slices.BinarySearch(s.image.Tags, tag); !found {
-			return []domain.Image{}
+			return page, nil
 		}
 	}
-	return []domain.Image{snapshot(s.image)}
+	page.Images = append(page.Images, snapshot(s.image))
+	if limit == 1 {
+		page.NextMarker = s.image.ID
+	}
+	return page, nil
 }
 
 // CheckDownload returns the resource length without consuming a download fault.

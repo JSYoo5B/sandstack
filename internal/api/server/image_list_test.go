@@ -135,7 +135,6 @@ func TestImageListFiltersWire(t *testing.T) {
 		"status=banana%3Aactive",
 		"name=%zz",
 		"owner=another-project",
-		"limit=1",
 	} {
 		status, _, body := request(t, instance, http.MethodGet, imagesPath+"?"+rejected, "", auth)
 		assert.Equal(t, http.StatusBadRequest, status, "%s: %s", rejected, body)

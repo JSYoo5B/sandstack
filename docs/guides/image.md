@@ -29,10 +29,25 @@ present. See the [Glance list reference] and [Glance tag filters].
 
 The response includes `images`, a `first` link that preserves the filters,
 including repeated tag values, and a `schema` link. A query with no matches
-returns `images: []`. The single-image fixture returns one page. SandStack
-accepts one value each for `name` and `status`. Repeating either of those
-keys, using other query keys, or using a `name` or `status` operator other
-than `eq:` returns `400`. See the [Glance image list serializer].
+returns `images: []`. SandStack accepts one value each for `name` and
+`status`. Repeating either key, using an unsupported query key, or using
+a comparison operator other than `eq:` returns `400`. See the [Glance
+image list serializer].
+
+### Page through the image list
+
+Set `Limit` and `Marker` in `images.ListOpts` and use the SDK pager to
+follow `next`. The default limit is 25 and the maximum is 1,000. A raw
+`limit=0` returns an empty array. A full page contains a `next` link,
+so `Limit: 1` returns the fixture and links to an empty page. The
+marker must identify an image visible to the project even when current
+filters exclude it. An unknown or empty marker returns `400`. See the
+[Glance image pagination] and [Glance marker lookup].
+
+The `first` link omits the marker. Both links retain the other parameters,
+including every tag value. SandStack emits `next` relative to the Image
+catalog endpoint, as expected by Gophercloud v2.15.0. See the [Glance image
+list serializer] and [Gophercloud image next links].
 
 ## Discover image schemas
 
@@ -202,9 +217,12 @@ and a ranged retry over HTTP.
 [Gophercloud image result]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/image/v2/images/results.go#L81-L90
 [Glance list reference]: https://docs.openstack.org/api-ref/image/v2/#list-images
 [Glance image list serializer]: https://github.com/openstack/glance/blob/master/glance/api/v2/images.py#L1697-L1713
+[Glance image pagination]: https://github.com/openstack/glance/blob/master/glance/api/v2/images.py#L497-L534
+[Glance marker lookup]: https://github.com/openstack/glance/blob/master/glance/db/sqlalchemy/api.py#L664-L679
 [Glance image list filters]: https://github.com/openstack/glance/blob/master/glance/db/sqlalchemy/api.py#L508-L524
 [Glance tag filters]: https://github.com/openstack/glance/blob/master/glance/db/sqlalchemy/api.py#L470-L476
 [Gophercloud image list options]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/image/v2/images/requests.go#L25-L78
+[Gophercloud image next links]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/image/v2/images/urls.go#L42-L64
 [Glance update reference]: https://docs.openstack.org/api-ref/image/v2/#update-image
 [Glance patch media-type handling]: https://github.com/openstack/glance/blob/master/glance/api/v2/images.py#L1380-L1395
 [Glance update serializer]: https://github.com/openstack/glance/blob/master/glance/api/v2/images.py#L1693-L1696
