@@ -92,7 +92,7 @@ Deleting an unbound port returns its IP to the pool. Network deletion returns
 `409` while ports remain on it. Subnet deletion returns `409` while a port
 holds an IP from it. Reset clears ports and their allocations.
 
-## Manage an unattached router
+## Manage a router
 
 Use the project's `X-Auth-Token` on the v2.0 network endpoint. SandStack
 creates each router in the token's project. A supplied `project_id` or
@@ -107,10 +107,26 @@ router starts with `status: ACTIVE` even if you create it with
 | `POST /network/v2.0/routers` | `routers.Create` | `201` with the created router. |
 | `GET /network/v2.0/routers` | `routers.List` | `200` with an unfiltered list of the project's routers. |
 | `GET /network/v2.0/routers/{router_id}` | `routers.Get` | `200` with the router's current metadata. |
+| `PUT /network/v2.0/routers/{router_id}` | `routers.Update` | `200` with updated router metadata. |
 | `DELETE /network/v2.0/routers/{router_id}` | `routers.Delete` | `204` and the router disappears from subsequent reads. |
 
 List query parameters return `400`. Router responses show
 `external_gateway_info: null`, `gw_port_id: null`, and `routes: []`.
+
+### Update router metadata
+
+Send a `router` object containing any of `name`, `description`, or
+`admin_state_up`. Fields you omit keep their current values, and an empty
+`router` object returns the current metadata. A supplied empty string
+clears the name or description. An explicit `false` sets the administrative
+state to down. The sandbox reports `ACTIVE` independently of the
+administrative state. Updates retain project ownership and existing
+interface attachments. See the [router update reference].
+
+Use `routers.UpdateOpts` with `routers.Update`. Pass a pointer to an empty
+string or `false` to send those values in `Description` or `AdminStateUp`
+respectively. To clear the router name, send `{"router":{"name":""}}` as
+a raw request. Gophercloud omits an empty `UpdateOpts.Name`.
 
 ## Attach and remove an IPv4 router interface
 
@@ -167,7 +183,7 @@ other dependencies are clear. See [Neutron interface removal] and
 [Neutron removal by port].
 
 Each interface has one IPv4 fixed IP. Static routes, external gateways,
-router updates, and packet forwarding are outside this scope.
+and packet forwarding are outside this scope.
 [Reset the sandbox](reset.md) to clear the created routers, interfaces, and
 ports.
 
@@ -194,8 +210,9 @@ The raw HTTP tests use the [Neutron filtering reference], [Neutron list referenc
 [subnet create reference], and [port create reference]. The [Neutron database
 implementation] and [exception types] explain deletion and exhaustion conflicts.
 The router tests use the [router create reference], [router list reference],
-[router details reference], and [router delete reference]. The interface
-tests cover both attachment selectors, port identity, allocation reuse, and
+[router details reference], [router update reference], and
+[router delete reference]. Interface tests cover both attachment
+selectors, port identity, allocation reuse, and
 blocked deletions using the [add interface reference] and
 [remove interface reference].
 
@@ -210,6 +227,7 @@ blocked deletions using the [add interface reference] and
 [router create reference]: https://docs.openstack.org/api-ref/network/v2/#create-router
 [router list reference]: https://docs.openstack.org/api-ref/network/v2/#list-routers
 [router details reference]: https://docs.openstack.org/api-ref/network/v2/#show-router-details
+[router update reference]: https://docs.openstack.org/api-ref/network/v2/#update-router
 [router delete reference]: https://docs.openstack.org/api-ref/network/v2/#delete-router
 [add interface reference]: https://docs.openstack.org/api-ref/network/v2/#add-interface-to-router
 [remove interface reference]: https://docs.openstack.org/api-ref/network/v2/#remove-interface-from-router

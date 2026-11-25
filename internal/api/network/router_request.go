@@ -3,6 +3,8 @@ package network
 import (
 	"errors"
 	"unicode/utf8"
+
+	app "github.com/JSYoo5B/sandstack/internal/app/network"
 )
 
 const maxRouterDescriptionLength = 255
@@ -17,36 +19,50 @@ type createRouterParams struct {
 }
 
 func parseCreateRouter(data []byte) (createRouterParams, error) {
+	params := createRouterParams{adminStateUp: true}
+	fields := app.RouterUpdate{
+		Name: &params.name, Description: &params.description, AdminStateUp: &params.adminStateUp,
+	}
+	err := parseRouterFields(data, &fields, &params.requestOwnership)
+	return params, err
+}
+
+func parseRouterFields(data []byte, changes *app.RouterUpdate, ownership *requestOwnership) error {
 	fields, err := readCreateFields(data, "router")
 	if err != nil {
-		return createRouterParams{}, errInvalidRouterRequest
+		return errInvalidRouterRequest
 	}
-	params := createRouterParams{adminStateUp: true}
 	for field, value := range fields {
 		var target any
 		switch field {
 		case "name":
-			target = &params.name
+			target = &changes.Name
 		case "description":
-			target = &params.description
+			target = &changes.Description
 		case "admin_state_up":
-			target = &params.adminStateUp
+			target = &changes.AdminStateUp
 		case "project_id":
-			target = &params.projectID
+			if ownership == nil {
+				return errInvalidRouterRequest
+			}
+			target = &ownership.projectID
 		case "tenant_id":
-			target = &params.tenantID
+			if ownership == nil {
+				return errInvalidRouterRequest
+			}
+			target = &ownership.tenantID
 		default:
-			return createRouterParams{}, errInvalidRouterRequest
+			return errInvalidRouterRequest
 		}
 		if !decodeCreateField(value, target) {
-			return createRouterParams{}, errInvalidRouterRequest
+			return errInvalidRouterRequest
 		}
 	}
-	if !validResourceName(params.name) {
-		return createRouterParams{}, errors.New("router name must be printable and contain at most 255 characters")
+	if changes.Name != nil && !validResourceName(*changes.Name) {
+		return errors.New("router name must be printable and contain at most 255 characters")
 	}
-	if utf8.RuneCountInString(params.description) > maxRouterDescriptionLength {
-		return createRouterParams{}, errors.New("router description may contain up to 255 characters")
+	if changes.Description != nil && utf8.RuneCountInString(*changes.Description) > maxRouterDescriptionLength {
+		return errors.New("router description may contain up to 255 characters")
 	}
-	return params, nil
+	return nil
 }

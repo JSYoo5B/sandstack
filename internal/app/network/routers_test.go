@@ -39,6 +39,10 @@ func TestScopedRouterLifecycleUsesSharedNetworkIDs(t *testing.T) {
 	assert.Equal(t, []domain.Router{foreign}, service.ListRouters(foreign.ProjectID))
 	_, err = service.GetRouter(seed.ProjectID, foreign.ID)
 	assert.ErrorIs(t, err, app.ErrRouterNotFound)
+	foreignName := "unauthorized name"
+	_, err = service.UpdateRouter(seed.ProjectID, foreign.ID, app.RouterUpdate{Name: &foreignName})
+	assert.ErrorIs(t, err, app.ErrRouterNotFound)
+	assert.Equal(t, []domain.Router{foreign}, service.ListRouters(foreign.ProjectID))
 	assert.ErrorIs(t, service.DeleteRouter(seed.ProjectID, foreign.ID), app.ErrRouterNotFound)
 	loaded, err := service.GetRouter(seed.ProjectID, first.ID)
 	require.NoError(t, err)

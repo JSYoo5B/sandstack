@@ -84,6 +84,25 @@ func (h handler) showRouter(w http.ResponseWriter, r *http.Request, projectID st
 	writeJSON(w, http.StatusOK, routerResponse{Router: describeRouter(router)})
 }
 
+func (h handler) updateRouter(w http.ResponseWriter, r *http.Request, projectID string) {
+	data, ok := readCreateBody(w, r, "router")
+	if !ok {
+		return
+	}
+	var changes app.RouterUpdate
+	if err := parseRouterFields(data, &changes, nil); err != nil {
+		writeError(w, http.StatusBadRequest, "BadRequest", err.Error())
+		return
+	}
+	routerID := chi.URLParam(r, "routerID")
+	router, err := h.service.UpdateRouter(projectID, routerID, changes)
+	if err != nil {
+		writeRouterError(w, routerID, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, routerResponse{Router: describeRouter(router)})
+}
+
 func (h handler) deleteRouter(w http.ResponseWriter, r *http.Request, projectID string) {
 	if !requireEmptyDeleteBody(w, r) {
 		return

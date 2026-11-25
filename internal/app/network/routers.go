@@ -43,6 +43,32 @@ func (s *Service) GetRouter(projectID, routerID string) (domain.Router, error) {
 	return router, nil
 }
 
+type RouterUpdate struct {
+	Name         *string
+	Description  *string
+	AdminStateUp *bool
+}
+
+func (s *Service) UpdateRouter(projectID, routerID string, changes RouterUpdate) (domain.Router, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	router, ok := s.routers[routerID]
+	if !ok || router.ProjectID != projectID {
+		return domain.Router{}, ErrRouterNotFound
+	}
+	if changes.Name != nil {
+		router.Name = *changes.Name
+	}
+	if changes.Description != nil {
+		router.Description = *changes.Description
+	}
+	if changes.AdminStateUp != nil {
+		router.AdminStateUp = *changes.AdminStateUp
+	}
+	s.routers[routerID] = router
+	return router, nil
+}
+
 // ListRouters returns the project's routers ordered by ID.
 func (s *Service) ListRouters(projectID string) []domain.Router {
 	routers := []domain.Router{}
