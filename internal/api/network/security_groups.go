@@ -110,9 +110,23 @@ func describeSecurityGroupRule(rule domain.SecurityGroupRule, groupID, projectID
 		TenantID:        projectID,
 		Direction:       rule.Direction,
 		EtherType:       rule.EtherType,
+		Description:     rule.Description,
 	}
 	if rule.RemoteGroupID != "" {
 		body.RemoteGroupID = &rule.RemoteGroupID
+	}
+	if rule.Protocol != "" {
+		body.Protocol = &rule.Protocol
+	}
+	if rule.PortRangeMin != 0 {
+		body.PortRangeMin = &rule.PortRangeMin
+		body.PortRangeMax = &rule.PortRangeMax
+	}
+	if rule.RemoteIPPrefix.IsValid() {
+		prefix := rule.RemoteIPPrefix.String()
+		normalized := rule.RemoteIPPrefix.Masked().String()
+		body.RemoteIPPrefix = &prefix
+		body.NormalizedCIDR = &normalized
 	}
 	return body
 }

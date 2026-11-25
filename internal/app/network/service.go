@@ -38,20 +38,20 @@ type ListFilter struct {
 	AdminStates []bool
 }
 
-// New starts a service with one private network. The generator
-// supplies a lowercase UUID for each created resource, or an empty string on failure.
+// New starts a service with one private network and its default security group.
+// The generator supplies a lowercase UUID on success or an empty string on failure.
 func New(seed domain.Network, newID func() string) *Service {
 	seed.SubnetIDs = nil
-	return &Service{
-		seed:                    seed,
-		networks:                map[string]domain.Network{seed.ID: seed},
-		subnets:                 make(map[string]domain.Subnet),
-		ports:                   make(map[string]domain.Port),
-		routers:                 make(map[string]domain.Router),
-		securityGroups:          make(map[string]domain.SecurityGroup),
-		securityGroupRuleGroups: make(map[string]string),
-		newID:                   newID,
+	s := &Service{
+		seed:     seed,
+		networks: map[string]domain.Network{seed.ID: seed},
+		subnets:  make(map[string]domain.Subnet),
+		ports:    make(map[string]domain.Port),
+		routers:  make(map[string]domain.Router),
+		newID:    newID,
 	}
+	s.resetSecurityGroups()
+	return s
 }
 
 func (s *Service) Get(projectID, networkID string) (domain.Network, error) {
@@ -204,8 +204,7 @@ func (s *Service) Reset() {
 	s.subnets = make(map[string]domain.Subnet)
 	s.ports = make(map[string]domain.Port)
 	s.routers = make(map[string]domain.Router)
-	s.securityGroups = make(map[string]domain.SecurityGroup)
-	s.securityGroupRuleGroups = make(map[string]string)
+	s.resetSecurityGroups()
 }
 
 func snapshot(network domain.Network) domain.Network {

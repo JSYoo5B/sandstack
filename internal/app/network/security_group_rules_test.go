@@ -1,6 +1,7 @@
 package network_test
 
 import (
+	"net/netip"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -9,6 +10,58 @@ import (
 	app "github.com/JSYoo5B/sandstack/internal/app/network"
 	domain "github.com/JSYoo5B/sandstack/internal/domain/network"
 )
+
+func TestSecurityGroupRuleMutationsUpdateEmbeddedRulesAndResetDefaults(t *testing.T) {
+	const projectID = "owner"
+	sequence := 0
+	service := app.New(domain.Network{ID: "network", ProjectID: projectID}, func() string {
+		sequence++
+		return fixtureID(sequence)
+	})
+	defaults := service.ListSecurityGroups(projectID, app.SecurityGroupFilter{})
+	require.Len(t, defaults, 1)
+	group := defaults[0]
+	require.Len(t, group.Rules, 4)
+	original := group.Rules[0]
+	rule := domain.SecurityGroupRule{
+		Description: "SSH", Direction: "ingress", EtherType: "IPv4", Protocol: "tcp",
+		PortRangeMin: 22, PortRangeMax: 22, RemoteIPPrefix: netip.MustParsePrefix("198.51.100.7/24"),
+	}
+
+	_, err := service.CreateSecurityGroupRule("foreign", group.ID, rule)
+	assert.ErrorIs(t, err, app.ErrSecurityGroupRuleForbidden)
+	_, err = service.CreateSecurityGroupRule(projectID, "missing", rule)
+	assert.ErrorIs(t, err, app.ErrSecurityGroupNotFound)
+	created, err := service.CreateSecurityGroupRule(projectID, group.ID, rule)
+	require.NoError(t, err)
+	assert.Equal(t, fixtureID(1), created.Rule.ID)
+	assert.Equal(t, rule.RemoteIPPrefix, created.Rule.RemoteIPPrefix)
+	assert.True(t, created.BelongsToDefault)
+
+	rule.Description = "Duplicate with another description"
+	_, err = service.CreateSecurityGroupRule(projectID, group.ID, rule)
+	assert.ErrorIs(t, err, app.ErrSecurityGroupRuleExists)
+	rule.RemoteIPPrefix = netip.MustParsePrefix("198.51.100.8/24")
+	distinct, err := service.CreateSecurityGroupRule(projectID, group.ID, rule)
+	require.NoError(t, err)
+	assert.Equal(t, fixtureID(2), distinct.Rule.ID)
+
+	assert.ErrorIs(t, service.DeleteSecurityGroupRule("foreign", original.ID), app.ErrSecurityGroupRuleNotFound)
+	require.NoError(t, service.DeleteSecurityGroupRule(projectID, original.ID))
+	_, err = service.GetSecurityGroupRule(projectID, original.ID)
+	assert.ErrorIs(t, err, app.ErrSecurityGroupRuleNotFound)
+	updated, err := service.GetSecurityGroup(projectID, group.ID)
+	require.NoError(t, err)
+	assert.Equal(t, append(group.Rules[1:], created.Rule, distinct.Rule), updated.Rules)
+	assert.ErrorIs(t, service.DeleteSecurityGroup(projectID, group.ID), app.ErrSecurityGroupDefaultDelete)
+
+	service.Reset()
+	restored, err := service.GetSecurityGroup(projectID, group.ID)
+	require.NoError(t, err)
+	assert.Equal(t, group, restored)
+	_, err = service.GetSecurityGroupRule(projectID, created.Rule.ID)
+	assert.ErrorIs(t, err, app.ErrSecurityGroupRuleNotFound)
+}
 
 func TestStandaloneSecurityGroupRulesStayScopedAndTrackParentDeletion(t *testing.T) {
 	const projectID = "owner"

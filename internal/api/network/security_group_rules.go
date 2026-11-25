@@ -31,15 +31,12 @@ func (h handler) listSecurityGroupRules(w http.ResponseWriter, r *http.Request, 
 	}
 	var etherTypes []string
 	for _, value := range query["ethertype"] {
-		switch strings.ToLower(value) {
-		case "ipv4":
-			etherTypes = append(etherTypes, "IPv4")
-		case "ipv6":
-			etherTypes = append(etherTypes, "IPv6")
-		default:
+		etherType := canonicalRuleEtherType(value)
+		if etherType == "" {
 			writeError(w, http.StatusBadRequest, "SecurityGroupRuleInvalidEtherType", "The rule ethertype must be IPv4 or IPv6.")
 			return
 		}
+		etherTypes = append(etherTypes, etherType)
 	}
 	rules := h.service.ListSecurityGroupRules(projectID, app.SecurityGroupRuleFilter{
 		IDs: query["id"], GroupIDs: query["security_group_id"], Directions: query["direction"],
@@ -52,6 +49,17 @@ func (h handler) listSecurityGroupRules(w http.ResponseWriter, r *http.Request, 
 	writeJSON(w, http.StatusOK, struct {
 		Rules []securityGroupRuleBody `json:"security_group_rules"`
 	}{Rules: items})
+}
+
+func canonicalRuleEtherType(value string) string {
+	switch strings.ToLower(value) {
+	case "ipv4":
+		return "IPv4"
+	case "ipv6":
+		return "IPv6"
+	default:
+		return ""
+	}
 }
 
 func (h handler) showSecurityGroupRule(w http.ResponseWriter, r *http.Request, projectID string) {

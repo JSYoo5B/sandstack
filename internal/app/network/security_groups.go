@@ -39,12 +39,6 @@ func (f SecurityGroupFilter) matches(group domain.SecurityGroup) bool {
 
 func (s *Service) ListSecurityGroups(projectID string, filter SecurityGroupFilter) []domain.SecurityGroup {
 	groups := []domain.SecurityGroup{}
-	if projectID == s.seed.ProjectID {
-		group := defaultSecurityGroup(projectID)
-		if filter.matches(group) {
-			groups = append(groups, group)
-		}
-	}
 	s.mu.RLock()
 	for _, group := range s.securityGroups {
 		if group.ProjectID == projectID && filter.matches(group) {
@@ -57,9 +51,6 @@ func (s *Service) ListSecurityGroups(projectID string, filter SecurityGroupFilte
 }
 
 func (s *Service) GetSecurityGroup(projectID, id string) (domain.SecurityGroup, error) {
-	if projectID == s.seed.ProjectID && id == defaultSecurityGroupID {
-		return defaultSecurityGroup(projectID), nil
-	}
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	group, found := s.securityGroups[id]
@@ -101,20 +92,29 @@ func (s *Service) CreateSecurityGroup(projectID, name, description string, state
 }
 
 func (s *Service) DeleteSecurityGroup(projectID, groupID string) error {
-	if projectID == s.seed.ProjectID && groupID == defaultSecurityGroupID {
-		return ErrSecurityGroupDefaultDelete
-	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	group, found := s.securityGroups[groupID]
 	if !found || group.ProjectID != projectID {
 		return ErrSecurityGroupNotFound
 	}
+	if groupID == defaultSecurityGroupID {
+		return ErrSecurityGroupDefaultDelete
+	}
 	delete(s.securityGroups, groupID)
 	for _, rule := range group.Rules {
 		delete(s.securityGroupRuleGroups, rule.ID)
 	}
 	return nil
+}
+
+func (s *Service) resetSecurityGroups() {
+	group := defaultSecurityGroup(s.seed.ProjectID)
+	s.securityGroups = map[string]domain.SecurityGroup{group.ID: group}
+	s.securityGroupRuleGroups = make(map[string]string, len(group.Rules))
+	for _, rule := range group.Rules {
+		s.securityGroupRuleGroups[rule.ID] = group.ID
+	}
 }
 
 func defaultSecurityGroup(projectID string) domain.SecurityGroup {

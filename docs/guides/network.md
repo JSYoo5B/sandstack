@@ -26,7 +26,7 @@ Use `groups.List` with `groups.ListOpts{Name: "default"}` and follow the
 returned ID with `groups.Get` in Gophercloud v2.15.0. The Neutron v2.0
 routes are `GET /security-groups` and
 `GET /security-groups/{security_group_id}` under the same endpoint.
-The project's default group is stateful and contains four rules. Its
+The project's default group is stateful and starts with four rules. Its
 IPv4 and IPv6 ingress rules reference the group's own ID. The two egress
 rules cover the same IP versions with no remote group. The rules have no
 protocol, port range, or remote IP prefix restriction. See the [Neutron
@@ -71,6 +71,24 @@ alias. Repeated values within a filter are alternatives and different
 filters apply together. EtherType accepts IPv4 or IPv6 regardless of
 case. An invalid EtherType returns `400`. A list with no matches returns
 an empty `security_group_rules` array.
+
+## Create and delete a security group rule
+
+Use `rules.Create` for a TCP or UDP rule on an owned group. Supply its
+ID, an ingress or egress direction, an IPv4 or IPv6 EtherType, and a
+matching remote address or CIDR. A standalone address uses a host mask.
+The request returns `201` with a `security_group_rule` object. Use the
+returned ID in standalone lookups or read the rule through the group's
+detail. See the [Neutron rule creation] and [Gophercloud rule create options].
+
+For a port restriction, supply both endpoints in the range 1 to 65535.
+Omitting both, or supplying the full range, stores null port bounds.
+The response preserves host bits in `remote_ip_prefix` and exposes the
+masked network in `normalized_cidr`. An existing rule with the same
+selectors returns `409`, regardless of description. Use `rules.Delete`
+to remove an owned rule, including rules in the default group. It
+returns `204` with an empty body. Reset restores the default rules.
+See the [Neutron rule port ranges] and [Neutron rule deletion].
 
 ## Create a network
 
@@ -207,3 +225,7 @@ deletion, rule defaults, and project scoping over HTTP.
 [Neutron group deletion]: https://github.com/openstack/neutron/blob/ba84fbf374cc7f5055eb2ff4ebc34d2a19cbbc3d/neutron/db/securitygroups_db.py#L261-L300
 [Neutron rule lookups]: https://github.com/openstack/neutron/blob/ba84fbf374cc7f5055eb2ff4ebc34d2a19cbbc3d/neutron/db/securitygroups_db.py#L1046-L1099
 [Gophercloud rule operations]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/networking/v2/extensions/security/rules/requests.go#L19-L64
+[Neutron rule creation]: https://github.com/openstack/neutron/blob/ba84fbf374cc7f5055eb2ff4ebc34d2a19cbbc3d/neutron/db/securitygroups_db.py#L965-L1032
+[Neutron rule port ranges]: https://github.com/openstack/neutron/blob/ba84fbf374cc7f5055eb2ff4ebc34d2a19cbbc3d/neutron/db/securitygroups_db.py#L770-L819
+[Neutron rule deletion]: https://github.com/openstack/neutron/blob/ba84fbf374cc7f5055eb2ff4ebc34d2a19cbbc3d/neutron/db/securitygroups_db.py#L1101-L1120
+[Gophercloud rule create options]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/networking/v2/extensions/security/rules/requests.go#L109-L175
