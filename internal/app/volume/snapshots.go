@@ -18,6 +18,7 @@ type SnapshotCreateOptions struct {
 	Name        string
 	Description string
 	Force       bool
+	Metadata    map[string]string
 }
 
 func (s *Service) CreateSnapshot(
@@ -50,7 +51,7 @@ func (s *Service) CreateSnapshot(
 		Size:        volume.Size,
 		CreatedAt:   s.now().UTC(),
 		State:       domain.StateCreating,
-		Metadata:    map[string]string{},
+		Metadata:    copySnapshotMetadata(options.Metadata),
 	}
 	s.snapshots[id] = snapshot
 	return cloneSnapshot(snapshot), nil
@@ -110,10 +111,15 @@ func (s *Service) ReplaceSnapshotMetadata(projectID, snapshotID string, metadata
 		return nil, ErrSnapshotNotFound
 	}
 	// Stored metadata maps are immutable. Create a new map on each replacement.
-	snapshot.Metadata = make(map[string]string, len(metadata))
-	maps.Copy(snapshot.Metadata, metadata)
+	snapshot.Metadata = copySnapshotMetadata(metadata)
 	s.snapshots[snapshotID] = snapshot
 	return maps.Clone(snapshot.Metadata), nil
+}
+
+func copySnapshotMetadata(metadata map[string]string) map[string]string {
+	copied := make(map[string]string, len(metadata))
+	maps.Copy(copied, metadata)
+	return copied
 }
 
 func cloneSnapshot(snapshot domain.Snapshot) domain.Snapshot {

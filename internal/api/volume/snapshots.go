@@ -75,6 +75,7 @@ func (h handler) createSnapshot(w http.ResponseWriter, r *http.Request, projectI
 		Name:        params.name,
 		Description: params.description,
 		Force:       params.force,
+		Metadata:    params.metadata,
 	})
 	switch {
 	case errors.Is(err, app.ErrVolumeNotFound):

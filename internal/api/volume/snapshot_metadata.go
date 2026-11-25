@@ -57,14 +57,18 @@ func parseSnapshotMetadata(data []byte) (map[string]string, error) {
 	if err != nil || len(envelope) != 1 {
 		return nil, errSnapshotMetadataRequest
 	}
-	fields, err := readUniqueObject(envelope["metadata"])
+	return parseSnapshotMetadataValues(envelope["metadata"], snapshotMetadataKey)
+}
+
+func parseSnapshotMetadataValues(data json.RawMessage, keyPattern *regexp.Regexp) (map[string]string, error) {
+	fields, err := readUniqueObject(data)
 	if err != nil {
 		return nil, errSnapshotMetadataRequest
 	}
 	metadata := make(map[string]string, len(fields))
 	for key, raw := range fields {
 		var value *string
-		if !snapshotMetadataKey.MatchString(key) || json.Unmarshal(raw, &value) != nil ||
+		if !keyPattern.MatchString(key) || json.Unmarshal(raw, &value) != nil ||
 			value == nil || utf8.RuneCountInString(*value) > maxVolumeTextLength {
 			return nil, errSnapshotMetadataRequest
 		}

@@ -118,6 +118,16 @@ Both reads include the owning project ID and build progress. Progress is
 `100%` after successful completion and `0%` while pending or after a
 fixture failure.
 
+Use `snapshots.CreateOpts.Metadata` in Gophercloud v2.15.0 to set initial
+metadata for either normal or forced snapshot creation. Each key has 1 to
+255 characters from ASCII letters, digits, spaces, hyphens, underscores,
+periods, colons, and slashes. Each value is a string of up to 255
+characters and may be empty. Omit `metadata` or set that field to `{}`
+or `null` in a raw request to start with an empty map. The snapshot keeps
+its initial metadata through provisioning. See the [Cinder snapshot create schema],
+[Cinder create metadata parameter type], and [Gophercloud snapshot create
+options].
+
 Take the snapshot ID from the create response and send `PUT` to one of the
 SandStack controls with the dedicated admin token.
 
@@ -335,6 +345,8 @@ The [Cinder snapshot lookup], [Cinder size default], and
 [Cinder WSGI fault mapping]: https://github.com/openstack/cinder/blob/master/cinder/api/openstack/wsgi.py#L1203-L1228
 [sandbox reset]: reset.md
 [create snapshot reference]: https://docs.openstack.org/api-ref/block-storage/v3/#create-a-snapshot
+[Cinder snapshot create schema]: https://github.com/openstack/cinder/blob/master/cinder/api/schemas/snapshots.py#L20-L39
+[Cinder create metadata parameter type]: https://github.com/openstack/cinder/blob/master/cinder/api/validation/parameter_types.py#L137-L188
 [Cinder snapshot force handling]: https://github.com/openstack/cinder/blob/master/cinder/api/v3/snapshots.py#L174-L211
 [Cinder snapshot microversion]: https://github.com/openstack/cinder/blob/master/cinder/api/microversions.py#L164
 [Gophercloud snapshot create options]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/blockstorage/v3/snapshots/requests.go#L12-L37

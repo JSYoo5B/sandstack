@@ -15,14 +15,19 @@ func TestSnapshotMetadataReplacementDetachesMapsAndPreservesSnapshot(t *testing.
 	now := time.Date(2026, time.November, 25, 12, 0, 0, 0, time.UTC)
 	seed := domain.Volume{ID: fixtureID, ProjectID: "project", Size: 5}
 	service := app.New(seed, func() time.Time { return now }, func() string { return createdID })
-	created, err := service.CreateSnapshot(seed.ProjectID, seed.ID, app.SnapshotCreateOptions{Name: "checkpoint"})
+	initial := map[string]string{"team/checkpoint": "initial"}
+	created, err := service.CreateSnapshot(seed.ProjectID, seed.ID, app.SnapshotCreateOptions{
+		Name: "checkpoint", Metadata: initial,
+	})
 	require.NoError(t, err)
+	assert.Equal(t, initial, created.Metadata)
+	initial["team/checkpoint"] = "mutated input"
 	created.Metadata["caller"] = "not stored"
 	now = now.Add(time.Minute)
 	require.NoError(t, service.FinishSnapshotCreation(created.ID, false))
 	before, err := service.GetSnapshot(seed.ProjectID, created.ID)
 	require.NoError(t, err)
-	require.Equal(t, map[string]string{}, before.Metadata)
+	require.Equal(t, map[string]string{"team/checkpoint": "initial"}, before.Metadata)
 
 	input := map[string]string{"stage": "ready", "obsolete": "remove"}
 	replaced, err := service.ReplaceSnapshotMetadata(seed.ProjectID, created.ID, input)
@@ -64,5 +69,6 @@ func TestSnapshotMetadataReplacementDetachesMapsAndPreservesSnapshot(t *testing.
 	assert.Equal(t, map[string]string{}, replaced)
 	current, err = service.GetSnapshot(seed.ProjectID, created.ID)
 	require.NoError(t, err)
+	before.Metadata = map[string]string{}
 	assert.Equal(t, before, current)
 }
