@@ -4,6 +4,7 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"errors"
+	"slices"
 	"sync"
 	"time"
 
@@ -25,6 +26,7 @@ type Service struct {
 
 // New starts a service with one private project-owned image and a non-nil clock.
 func New(seed domain.Image, now func() time.Time, data string) *Service {
+	seed.Tags = normalizeTags(seed.Tags)
 	seed.Size = int64(len(data))
 	seed.Checksum = ""
 	if data != "" {
@@ -42,26 +44,39 @@ func (s *Service) Get(projectID, imageID string) (domain.Image, error) {
 	if projectID != s.image.ProjectID || imageID != s.image.ID {
 		return domain.Image{}, ErrImageNotFound
 	}
-	return s.image, nil
+	return snapshot(s.image), nil
 }
 
-func (s *Service) Rename(projectID, imageID, name string) (domain.Image, error) {
+type ImageUpdate struct {
+	Name *string
+	Tags []string
+}
+
+func (s *Service) Update(projectID, imageID string, changes ImageUpdate) (domain.Image, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	if projectID != s.image.ProjectID || imageID != s.image.ID {
 		return domain.Image{}, ErrImageNotFound
 	}
-	if s.image.Name != name {
-		s.image.Name = name
-		s.image.UpdatedAt = s.now().UTC()
+	image := s.image
+	if changes.Name != nil {
+		image.Name = *changes.Name
 	}
-	return s.image, nil
+	if changes.Tags != nil {
+		image.Tags = normalizeTags(changes.Tags)
+	}
+	if image.Name != s.image.Name || !slices.Equal(image.Tags, s.image.Tags) {
+		image.UpdatedAt = s.now().UTC()
+		s.image = image
+	}
+	return snapshot(s.image), nil
 }
 
 type ListFilter struct {
 	Name   *string
 	Status *string
+	Tags   []string
 }
 
 func (s *Service) List(projectID string, filter ListFilter) []domain.Image {
@@ -73,7 +88,12 @@ func (s *Service) List(projectID string, filter ListFilter) []domain.Image {
 		(filter.Status != nil && *filter.Status != s.image.Status()) {
 		return []domain.Image{}
 	}
-	return []domain.Image{s.image}
+	for _, tag := range filter.Tags {
+		if _, found := slices.BinarySearch(s.image.Tags, tag); !found {
+			return []domain.Image{}
+		}
+	}
+	return []domain.Image{snapshot(s.image)}
 }
 
 func (s *Service) Download(projectID, imageID string) (data string, checksum string, err error) {
@@ -111,4 +131,15 @@ func (s *Service) Reset() {
 	defer s.mu.Unlock()
 
 	s.image = s.seed
+}
+
+func normalizeTags(tags []string) []string {
+	normalized := slices.Clone(tags)
+	slices.Sort(normalized)
+	return slices.Compact(normalized)
+}
+
+func snapshot(image domain.Image) domain.Image {
+	image.Tags = slices.Clone(image.Tags)
+	return image
 }

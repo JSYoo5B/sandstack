@@ -46,6 +46,12 @@ func (h handler) listImages(w http.ResponseWriter, r *http.Request, projectID st
 func parseListFilter(query url.Values) (app.ListFilter, error) {
 	var filter app.ListFilter
 	for field, values := range query {
+		if field == "tag" {
+			for _, value := range values {
+				filter.Tags = append(filter.Tags, strings.TrimSpace(value))
+			}
+			continue
+		}
 		if len(values) != 1 {
 			return app.ListFilter{}, errors.New("image list filters accept one value per parameter")
 		}
@@ -62,7 +68,7 @@ func parseListFilter(query url.Values) (app.ListFilter, error) {
 		case "status":
 			filter.Status = &value
 		default:
-			return app.ListFilter{}, errors.New("image lists accept only name and status query parameters")
+			return app.ListFilter{}, errors.New("image lists accept only name, status, and tag query parameters")
 		}
 	}
 	return filter, nil

@@ -45,7 +45,7 @@ func describeImage(image domain.Image) imageBody {
 		UpdatedAt:       image.UpdatedAt,
 		ContainerFormat: "bare",
 		DiskFormat:      "qcow2",
-		Tags:            []string{},
+		Tags:            append([]string{}, image.Tags...),
 		Self:            self,
 		File:            self + "/file",
 		Schema:          Path + "/schemas/image",

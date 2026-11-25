@@ -55,7 +55,8 @@ func TestImageIsPrivateToSeededProject(t *testing.T) {
 
 	_, err := service.Get("another-project", seed.ID)
 	assert.ErrorIs(t, err, app.ErrImageNotFound)
-	_, err = service.Rename("another-project", seed.ID, "not authorized")
+	name := "not authorized"
+	_, err = service.Update("another-project", seed.ID, app.ImageUpdate{Name: &name})
 	assert.ErrorIs(t, err, app.ErrImageNotFound)
 	assert.Empty(t, service.List("another-project", app.ListFilter{}))
 	assert.Equal(t, []domain.Image{seed}, service.List(seed.ProjectID, app.ListFilter{}))
@@ -66,4 +67,34 @@ func TestImageIsPrivateToSeededProject(t *testing.T) {
 	image, err := service.Get(seed.ProjectID, seed.ID)
 	require.NoError(t, err)
 	assert.Equal(t, seed, image)
+}
+
+func TestImageTagsDoNotShareSliceStorageWithCallers(t *testing.T) {
+	seed := domain.Image{ID: "image", ProjectID: "project", Tags: []string{"seed-tag"}}
+	service := app.New(seed, func() time.Time { return time.Time{} }, "")
+	seed.Tags[0] = "modified seed"
+
+	tags := []string{"second", "first", "first"}
+	updated, err := service.Update(seed.ProjectID, seed.ID, app.ImageUpdate{Tags: tags})
+	require.NoError(t, err)
+	assert.Equal(t, []string{"first", "second"}, updated.Tags)
+	tags[0] = "modified request"
+	updated.Tags[0] = "modified response"
+
+	got, err := service.Get(seed.ProjectID, seed.ID)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"first", "second"}, got.Tags)
+	got.Tags[0] = "modified detail"
+	listed := service.List(seed.ProjectID, app.ListFilter{})
+	require.Len(t, listed, 1)
+	assert.Equal(t, []string{"first", "second"}, listed[0].Tags)
+	listed[0].Tags[0] = "modified list"
+	got, err = service.Get(seed.ProjectID, seed.ID)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"first", "second"}, got.Tags)
+
+	service.Reset()
+	restored, err := service.Get(seed.ProjectID, seed.ID)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"seed-tag"}, restored.Tags)
 }

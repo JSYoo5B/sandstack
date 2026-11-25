@@ -21,11 +21,18 @@ active. The list reflects status changes immediately after deactivation or
 reactivation. See the [Glance list reference], [Glance image list filters],
 and [Gophercloud image list options].
 
+Pass `Tags` in `images.ListOpts` to require tags. Gophercloud sends each
+entry as a separate `tag` query value. For example, `?tag=ready&tag=approved`
+requires both tags. SandStack trims surrounding whitespace on each query
+value before matching. Tag filters combine with `name` and `status` when
+present. See the [Glance list reference] and [Glance tag filters].
+
 The response includes `images`, a `first` link that preserves the filters,
-and a `schema` link. A query with no matches returns `images: []`. The
-single-image fixture returns one page. SandStack accepts one value each
-for `name` and `status`. Repeated values, other query keys, and operators
-other than `eq:` return `400`. See the [Glance image list serializer].
+including repeated tag values, and a `schema` link. A query with no matches
+returns `images: []`. The single-image fixture returns one page. SandStack
+accepts one value each for `name` and `status`. Repeating either of those
+keys, using other query keys, or using a `name` or `status` operator other
+than `eq:` returns `400`. See the [Glance image list serializer].
 
 ## Rename the fixture image
 
@@ -46,8 +53,21 @@ image, err := images.Update(ctx, client, imageID, images.UpdateOpts{
 
 The response is `200` with the full image representation. Subsequent
 `images.Get` and `images.List` show the new name. The image ID, activation
-status, and file data stay the same. SandStack supports just this name
-replacement. See the [Glance update serializer] and [Gophercloud image update].
+status, and file data stay the same. See the [Glance update serializer]
+and [Gophercloud image update].
+
+## Replace the fixture image tags
+
+Use the same image PATCH request with one `replace` operation for `/tags`.
+With Gophercloud v2.15.0, pass `images.ReplaceImageTags{NewTags: tags}`
+as the only operation in `images.UpdateOpts`. Supply `[]string{}` to clear
+all tags. A nil slice sends JSON `null` and returns `400`. See the
+[Gophercloud image tag replacement].
+
+Each tag is a string of at most 255 characters. SandStack limits the input
+array to 128 entries before removing duplicates. Exceeding the limit
+returns `413`. The returned tags are distinct and their order is
+unspecified. See the [Glance tag schema] and [Glance image tag quota].
 
 ## Download the fixture image
 
@@ -133,17 +153,23 @@ The list tests exercise exact filters and the live activation state
 through Gophercloud and check the HTTP response shape and query errors.
 The rename tests follow the new name through detail and filtered list
 reads and check media-type negotiation over HTTP.
+The tag tests check replacement, clearing, validation, and matching all
+requested tags in the image list.
 
 [Glance discovery reference]: https://docs.openstack.org/api-ref/image/versions/index.html
 [Glance image reference]: https://docs.openstack.org/api-ref/image/v2/#show-image
 [Glance list reference]: https://docs.openstack.org/api-ref/image/v2/#list-images
 [Glance image list serializer]: https://github.com/openstack/glance/blob/master/glance/api/v2/images.py#L1697-L1713
 [Glance image list filters]: https://github.com/openstack/glance/blob/master/glance/db/sqlalchemy/api.py#L508-L524
-[Gophercloud image list options]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/image/v2/images/requests.go#L25-L59
+[Glance tag filters]: https://github.com/openstack/glance/blob/master/glance/db/sqlalchemy/api.py#L470-L476
+[Gophercloud image list options]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/image/v2/images/requests.go#L25-L78
 [Glance update reference]: https://docs.openstack.org/api-ref/image/v2/#update-image
 [Glance patch media-type handling]: https://github.com/openstack/glance/blob/master/glance/api/v2/images.py#L1380-L1395
 [Glance update serializer]: https://github.com/openstack/glance/blob/master/glance/api/v2/images.py#L1693-L1696
 [Gophercloud image update]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/image/v2/images/requests.go#L236-L248
+[Gophercloud image tag replacement]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/image/v2/images/requests.go#L335-L347
+[Glance tag schema]: https://github.com/openstack/glance/blob/master/glance/api/v2/images.py#L1821-L1828
+[Glance image tag quota]: https://docs.openstack.org/glance/latest/configuration/glance_api.html#DEFAULT.image_tag_quota
 [Glance download reference]: https://docs.openstack.org/api-ref/image/v2/#download-binary-image-data
 [Glance download policy]: https://github.com/openstack/glance/blob/master/glance/api/v2/image_data.py#L442-L459
 [Glance range parser]: https://github.com/openstack/glance/blob/master/glance/common/wsgi.py#L292-L314
