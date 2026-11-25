@@ -50,7 +50,7 @@ func TestSubnetAddressDefaultsAndDetachedNetworkProjection(t *testing.T) {
 	assert.Equal(t, netip.MustParseAddr("192.168.1.254"), second.AllocationStart)
 	assert.Equal(t, second.AllocationStart, second.AllocationEnd)
 	assert.False(t, second.EnableDHCP)
-	assert.Equal(t, []domain.Subnet{second, first}, service.ListSubnets(seed.ProjectID))
+	assert.Equal(t, []domain.Subnet{second, first}, service.ListSubnets(seed.ProjectID, app.SubnetListFilter{}))
 
 	expectedIDs := []string{second.ID, first.ID}
 	parent, err := service.Get(seed.ProjectID, seed.ID)
@@ -105,7 +105,7 @@ func TestSubnetOwnershipAndNetworkScopedOverlap(t *testing.T) {
 	_, err = service.GetSubnet("other-project", subnet.ID)
 	assert.ErrorIs(t, err, app.ErrSubnetNotFound)
 	assert.ErrorIs(t, service.DeleteSubnet("other-project", subnet.ID), app.ErrSubnetNotFound)
-	assert.Empty(t, service.ListSubnets("other-project"))
+	assert.Empty(t, service.ListSubnets("other-project", app.SubnetListFilter{}))
 
 	for _, overlap := range []string{"10.2.0.4/24", "10.2.0.128/25", "10.2.0.0/23"} {
 		_, err = service.CreateSubnet(seed.ProjectID, seed.ID, app.SubnetCreate{
@@ -123,7 +123,7 @@ func TestSubnetOwnershipAndNetworkScopedOverlap(t *testing.T) {
 		})
 		assert.ErrorIs(t, err, app.ErrSubnetCIDR)
 	}
-	assert.Equal(t, []domain.Subnet{subnet}, service.ListSubnets(seed.ProjectID))
+	assert.Equal(t, []domain.Subnet{subnet}, service.ListSubnets(seed.ProjectID, app.SubnetListFilter{}))
 
 	other, err := service.Create(seed.ProjectID, "another network", false)
 	require.NoError(t, err)
@@ -164,11 +164,11 @@ func TestNetworkDeletionAndResetRemoveChildSubnets(t *testing.T) {
 	require.NoError(t, service.Delete(seed.ProjectID, seed.ID))
 	_, err = service.GetSubnet(seed.ProjectID, seedSubnet.ID)
 	assert.ErrorIs(t, err, app.ErrSubnetNotFound)
-	assert.Equal(t, []domain.Subnet{otherSubnet}, service.ListSubnets(seed.ProjectID))
+	assert.Equal(t, []domain.Subnet{otherSubnet}, service.ListSubnets(seed.ProjectID, app.SubnetListFilter{}))
 
 	service.Reset()
 	assert.Equal(t, []domain.Network{seed}, service.List(seed.ProjectID, app.ListFilter{}))
-	assert.Empty(t, service.ListSubnets(seed.ProjectID))
+	assert.Empty(t, service.ListSubnets(seed.ProjectID, app.SubnetListFilter{}))
 	_, err = service.GetSubnet(seed.ProjectID, otherSubnet.ID)
 	assert.ErrorIs(t, err, app.ErrSubnetNotFound)
 }

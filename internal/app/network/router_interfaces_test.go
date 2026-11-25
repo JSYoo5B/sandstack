@@ -68,7 +68,7 @@ func TestRouterInterfaceOwnsOnlyItsManagedGatewayPort(t *testing.T) {
 	service.Reset()
 	assert.Empty(t, service.ListPorts(seed.ProjectID, app.PortListFilter{}))
 	assert.Empty(t, service.ListRouters(seed.ProjectID))
-	assert.Empty(t, service.ListSubnets(seed.ProjectID))
+	assert.Empty(t, service.ListSubnets(seed.ProjectID, app.SubnetListFilter{}))
 }
 
 func TestRouterInterfaceRejectsWrongScopeAndConflictingSubnets(t *testing.T) {

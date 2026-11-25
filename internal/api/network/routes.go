@@ -39,7 +39,7 @@ func Register(
 	router.Post(Path+"/networks", h.withProject(withEmptyQuery(h.createNetwork)))
 	router.Get(Path+"/networks/{networkID}", h.withProject(withEmptyQuery(h.showNetwork)))
 	router.Delete(Path+"/networks/{networkID}", h.withProject(withEmptyQuery(h.deleteNetwork)))
-	router.Get(Path+"/subnets", h.withProject(withEmptyQuery(h.listSubnets)))
+	router.Get(Path+"/subnets", h.withProject(h.listSubnets))
 	router.Post(Path+"/subnets", h.withProject(withEmptyQuery(h.createSubnet)))
 	router.Get(Path+"/subnets/{subnetID}", h.withProject(withEmptyQuery(h.showSubnet)))
 	router.Put(Path+"/subnets/{subnetID}", h.withProject(withEmptyQuery(h.updateSubnet)))

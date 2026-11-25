@@ -112,8 +112,17 @@ func (h handler) createSubnet(w http.ResponseWriter, r *http.Request, projectID 
 	}
 }
 
-func (h handler) listSubnets(w http.ResponseWriter, _ *http.Request, projectID string) {
-	subnets := h.service.ListSubnets(projectID)
+func (h handler) listSubnets(w http.ResponseWriter, r *http.Request, projectID string) {
+	filter, err := parseSubnetListQuery(r.URL.RawQuery)
+	if err != nil {
+		kind := "BadRequest"
+		if errors.Is(err, errSubnetListCIDR) || errors.Is(err, errSubnetListDHCP) {
+			kind = "InvalidInput"
+		}
+		writeError(w, http.StatusBadRequest, kind, err.Error())
+		return
+	}
+	subnets := h.service.ListSubnets(projectID, filter)
 	response := struct {
 		Subnets []subnetBody `json:"subnets"`
 	}{Subnets: make([]subnetBody, len(subnets))}

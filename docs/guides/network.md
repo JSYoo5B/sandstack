@@ -65,7 +65,23 @@ the [subnet create reference] and [Gophercloud subnet options].
 
 Network reads include the IDs of their subnets. Deleting a subnet removes
 its ID from the network. Deleting a network with no ports also deletes its subnets.
-The subnet list is unfiltered. A sandbox reset clears created subnets.
+A sandbox reset clears created subnets.
+
+### Filter the subnet list
+
+`GET /network/v2.0/subnets` lists subnets in the token's project. Filter
+by `name`, `network_id`, `cidr`, or `enable_dhcp`. A repeated key matches
+any of its values. Different keys must all match, and an omitted key leaves
+that field unrestricted. Supply CIDRs as an address and prefix length.
+For a subnet with CIDR `192.0.2.0/24`, `192.0.2.0/24` matches and
+`192.0.2.10/24` returns no match. SandStack returns `400` for unsupported
+query keys and invalid CIDR or DHCP filter values. See the
+[subnet list reference], [Neutron filter parser], and [Neutron query filters].
+
+In Gophercloud v2.15.0, pass `Name`, `NetworkID`, `CIDR`, or `EnableDHCP`
+in `subnets.ListOpts` to `subnets.List`. Set `EnableDHCP` to a pointer to
+`false` to select subnets with DHCP disabled. Leave the pointer nil to
+include both DHCP states. See the [Gophercloud subnet options].
 
 ### Update subnet metadata
 
@@ -389,7 +405,10 @@ blocked deletions using the [add interface reference] and
 [Neutron create reference]: https://docs.openstack.org/api-ref/network/v2/#create-network
 [Neutron delete reference]: https://docs.openstack.org/api-ref/network/v2/#delete-network
 [subnet create reference]: https://docs.openstack.org/api-ref/network/v2/#create-subnet
+[subnet list reference]: https://docs.openstack.org/api-ref/network/v2/#list-subnets
 [subnet update reference]: https://docs.openstack.org/api-ref/network/v2/#update-subnet
+[Neutron filter parser]: https://github.com/openstack/neutron/blob/master/neutron/api/api_common.py#L65-L107
+[Neutron query filters]: https://github.com/openstack/neutron-lib/blob/master/neutron_lib/db/model_query.py#L198-L236
 [Neutron subnet schema]: https://github.com/openstack/neutron-lib/blob/master/neutron_lib/api/definitions/subnet.py
 [Neutron host route schema]: https://github.com/openstack/neutron-lib/blob/master/neutron_lib/api/definitions/subnet.py#L103-L108
 [Neutron host route validation]: https://github.com/openstack/neutron-lib/blob/master/neutron_lib/api/validators/__init__.py#L747-L777

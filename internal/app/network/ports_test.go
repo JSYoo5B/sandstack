@@ -114,7 +114,7 @@ func TestPortSubnetSelectionAndProjectScope(t *testing.T) {
 	service.Reset()
 	assert.Empty(t, service.ListPorts(seed.ProjectID, app.PortListFilter{}))
 	assert.Empty(t, service.ListPorts(other.ProjectID, app.PortListFilter{}))
-	assert.Empty(t, service.ListSubnets(seed.ProjectID))
+	assert.Empty(t, service.ListSubnets(seed.ProjectID, app.SubnetListFilter{}))
 	assert.Equal(t, []domain.Network{seed}, service.List(seed.ProjectID, app.ListFilter{}))
 }
 

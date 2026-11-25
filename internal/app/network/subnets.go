@@ -119,12 +119,26 @@ func (s *Service) UpdateSubnet(projectID, subnetID string, changes SubnetUpdate)
 	return copySubnet(subnet), nil
 }
 
-// ListSubnets returns the project's subnets ordered by ID.
-func (s *Service) ListSubnets(projectID string) []domain.Subnet {
+type SubnetListFilter struct {
+	Names      []string
+	NetworkIDs []string
+	CIDRs      []netip.Prefix
+	DHCPStates []bool
+}
+
+func (f SubnetListFilter) matches(subnet domain.Subnet) bool {
+	return (len(f.Names) == 0 || slices.Contains(f.Names, subnet.Name)) &&
+		(len(f.NetworkIDs) == 0 || slices.Contains(f.NetworkIDs, subnet.NetworkID)) &&
+		(len(f.CIDRs) == 0 || slices.Contains(f.CIDRs, subnet.CIDR)) &&
+		(len(f.DHCPStates) == 0 || slices.Contains(f.DHCPStates, subnet.EnableDHCP))
+}
+
+// ListSubnets returns the project's matching subnets ordered by ID.
+func (s *Service) ListSubnets(projectID string, filter SubnetListFilter) []domain.Subnet {
 	subnets := []domain.Subnet{}
 	s.mu.RLock()
 	for _, subnet := range s.subnets {
-		if subnet.ProjectID == projectID {
+		if subnet.ProjectID == projectID && filter.matches(subnet) {
 			subnets = append(subnets, copySubnet(subnet))
 		}
 	}
