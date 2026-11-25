@@ -23,6 +23,7 @@ type SubnetCreate struct {
 	EnableDHCP     bool
 	DNSNameservers []netip.Addr
 	HostRoutes     []domain.SubnetHostRoute
+	AllocationPool *SubnetAllocationPool
 }
 
 func (s *Service) CreateSubnet(projectID, networkID string, options SubnetCreate) (domain.Subnet, error) {
@@ -44,11 +45,15 @@ func (s *Service) CreateSubnet(projectID, networkID string, options SubnetCreate
 		}
 	}
 
+	gateway := prefix.Addr().Next()
+	pool, err := subnetAllocationPool(prefix, gateway, options.AllocationPool)
+	if err != nil {
+		return domain.Subnet{}, err
+	}
 	id, err := s.allocateID(nil)
 	if err != nil {
 		return domain.Subnet{}, err
 	}
-	gateway := prefix.Addr().Next()
 	subnet := domain.Subnet{
 		ID:              id,
 		NetworkID:       networkID,
@@ -59,8 +64,8 @@ func (s *Service) CreateSubnet(projectID, networkID string, options SubnetCreate
 		DNSNameservers:  slices.Clone(options.DNSNameservers),
 		HostRoutes:      slices.Clone(options.HostRoutes),
 		Gateway:         gateway,
-		AllocationStart: gateway.Next(),
-		AllocationEnd:   lastUsableAddress(prefix),
+		AllocationStart: pool.Start,
+		AllocationEnd:   pool.End,
 	}
 	s.subnets[id] = subnet
 	network.SubnetIDs = append(network.SubnetIDs, id)

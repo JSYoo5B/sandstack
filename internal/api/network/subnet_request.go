@@ -24,6 +24,7 @@ type createSubnetParams struct {
 	enableDHCP     bool
 	dnsNameservers []netip.Addr
 	hostRoutes     []domain.SubnetHostRoute
+	allocationPool *app.SubnetAllocationPool
 	requestOwnership
 }
 
@@ -54,6 +55,12 @@ func parseCreateSubnet(data []byte) (createSubnetParams, error) {
 			continue
 		case "host_routes":
 			params.hostRoutes, err = parseSubnetHostRoutes(value)
+			if err != nil {
+				return createSubnetParams{}, err
+			}
+			continue
+		case "allocation_pools":
+			params.allocationPool, err = parseSubnetAllocationPool(value)
 			if err != nil {
 				return createSubnetParams{}, err
 			}

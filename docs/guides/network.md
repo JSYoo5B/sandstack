@@ -75,11 +75,8 @@ subnet ID to read or remove a subnet. Gophercloud provides `subnets.Create`,
 Create a subnet on a network owned by the token's project. Send `network_id`,
 `ip_version: 4`, and an IPv4 `cidr` with a prefix length from 1 through 30.
 The optional name defaults to an empty string and `enable_dhcp` defaults to
-`true`. SandStack normalizes the prefix, uses the first usable address as the
-gateway, and derives one allocation pool from the remaining usable
-addresses. For `192.0.2.0/24`, the gateway is `192.0.2.1` and the pool is
-`192.0.2.2` through `192.0.2.254`. Custom gateways and pools are outside
-this scenario. Overlapping subnets on one network receive `400`.
+`true`. SandStack normalizes the prefix and uses the first usable address
+as the default gateway. Overlapping subnets on one network receive `400`.
 
 Set `dns_nameservers` to an ordered array of up to five distinct IPv4
 addresses when creating a subnet. The default is an empty array. With
@@ -90,6 +87,28 @@ the [subnet create reference] and [Gophercloud subnet options].
 Network reads include the IDs of their subnets. Deleting a subnet removes
 its ID from the network. Deleting a network with no ports also deletes its subnets.
 A sandbox reset clears created subnets.
+
+### Set an IPv4 allocation pool
+
+At subnet creation, send `allocation_pools` with one `start` and `end`
+pair. For example, `[{"start":"192.0.2.10","end":"192.0.2.12"}]` makes
+those three addresses available for automatic allocation. Set the range
+with `subnets.CreateOpts.AllocationPools` in Gophercloud v2.15.0. Leave
+the field out or send `[]` or `null` to derive the default pool. For
+`192.0.2.0/24` with the default gateway `192.0.2.1`, the default pool is
+`192.0.2.2` through `192.0.2.254`. See the [subnet create reference],
+[Gophercloud subnet options], and [Neutron allocation pool defaults].
+
+Both endpoints are inclusive. A malformed, reversed, or out-of-bounds
+range returns `400`, including any range that includes the network or
+broadcast address. A range that includes the gateway returns `409`.
+The fixture supports a single range at creation and derives the gateway
+from the CIDR. See the [Neutron allocation pool bounds] and [Neutron
+allocation pool gateway check].
+
+Automatic allocation uses only the pool. An explicit `fixed_ips` request
+can still select a valid, free IPv4 address in the subnet outside the
+pool. See the [Neutron IP allocation validation].
 
 ### Filter the subnet list
 
@@ -449,6 +468,9 @@ blocked deletions using the [add interface reference] and
 [Neutron delete reference]: https://docs.openstack.org/api-ref/network/v2/#delete-network
 [Gophercloud network options]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/networking/v2/networks/requests.go#L119-L143
 [subnet create reference]: https://docs.openstack.org/api-ref/network/v2/#create-subnet
+[Neutron allocation pool defaults]: https://github.com/openstack/neutron/blob/master/neutron/ipam/drivers/neutrondb_ipam/driver.py#L56-L77
+[Neutron allocation pool bounds]: https://github.com/openstack/neutron/blob/master/neutron/db/ipam_backend_mixin.py#L270-L310
+[Neutron allocation pool gateway check]: https://github.com/openstack/neutron/blob/master/neutron/db/ipam_backend_mixin.py#L415-L430
 [subnet list reference]: https://docs.openstack.org/api-ref/network/v2/#list-subnets
 [subnet update reference]: https://docs.openstack.org/api-ref/network/v2/#update-subnet
 [Neutron filter parser]: https://github.com/openstack/neutron/blob/master/neutron/api/api_common.py#L65-L107

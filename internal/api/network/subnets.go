@@ -99,12 +99,19 @@ func (h handler) createSubnet(w http.ResponseWriter, r *http.Request, projectID 
 		EnableDHCP:     params.enableDHCP,
 		DNSNameservers: params.dnsNameservers,
 		HostRoutes:     params.hostRoutes,
+		AllocationPool: params.allocationPool,
 	})
 	switch {
 	case errors.Is(err, app.ErrNetworkNotFound):
 		writeNetworkNotFound(w, params.networkID)
 	case errors.Is(err, app.ErrSubnetCIDR), errors.Is(err, app.ErrSubnetOverlap):
 		writeError(w, http.StatusBadRequest, "InvalidInput", err.Error())
+	case errors.Is(err, app.ErrSubnetAllocationPool):
+		writeError(w, http.StatusBadRequest, "InvalidAllocationPool", err.Error())
+	case errors.Is(err, app.ErrSubnetAllocationPoolBounds):
+		writeError(w, http.StatusBadRequest, "OutOfBoundsAllocationPool", err.Error())
+	case errors.Is(err, app.ErrSubnetAllocationPoolGateway):
+		writeError(w, http.StatusConflict, "GatewayConflictWithAllocationPools", err.Error())
 	case err != nil:
 		writeError(w, http.StatusInternalServerError, "HTTPInternalServerError", "Unable to create the subnet.")
 	default:
@@ -163,7 +170,8 @@ func (h handler) updateSubnet(w http.ResponseWriter, r *http.Request, projectID 
 
 func writeSubnetRequestError(w http.ResponseWriter, err error) {
 	switch {
-	case errors.Is(err, errInvalidNameservers), errors.Is(err, errInvalidHostRoutes):
+	case errors.Is(err, errInvalidNameservers), errors.Is(err, errInvalidHostRoutes),
+		errors.Is(err, errInvalidSubnetPoolRequest):
 		writeError(w, http.StatusBadRequest, "HTTPBadRequest", err.Error())
 	case errors.Is(err, errNameserverIPVersion), errors.Is(err, errHostRouteIPVersion):
 		writeError(w, http.StatusBadRequest, "InvalidInput", err.Error())
