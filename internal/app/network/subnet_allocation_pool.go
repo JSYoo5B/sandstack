@@ -40,12 +40,22 @@ func subnetAllocationPools(
 			return nil, ErrSubnetAllocationPoolOverlap
 		}
 	}
-	for _, pool := range pools {
-		if gateway.IsValid() && gateway.Compare(pool.Start) >= 0 && gateway.Compare(pool.End) <= 0 {
-			return nil, ErrSubnetAllocationPoolGateway
-		}
+	if err := validateGatewayOutsidePools(gateway, pools); err != nil {
+		return nil, err
 	}
 	return pools, nil
+}
+
+func validateGatewayOutsidePools(gateway netip.Addr, pools []domain.AllocationPool) error {
+	if !gateway.IsValid() {
+		return nil
+	}
+	for _, pool := range pools {
+		if gateway.Compare(pool.Start) >= 0 && gateway.Compare(pool.End) <= 0 {
+			return ErrSubnetAllocationPoolGateway
+		}
+	}
+	return nil
 }
 
 func defaultAllocationPools(prefix netip.Prefix, first, last, gateway netip.Addr) []domain.AllocationPool {

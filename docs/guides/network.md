@@ -107,8 +107,22 @@ validation], [Neutron gateway pool generation], and [Neutron allocation
 pool gateway check].
 
 SandStack uses this gateway as subnet metadata and to allocate an address
-for a router interface attached by subnet ID. Gateway configuration is
-set at creation and models no packet forwarding.
+for a router interface attached by subnet ID.
+
+Use `PUT /network/v2.0/subnets/{subnet_id}` with `gateway_ip` in the
+`subnet` object to change the gateway. Use `subnets.UpdateOpts.GatewayIP`
+with `subnets.Update`. A nil pointer omits the field. A pointer to an
+empty string sends JSON `null`, which clears the gateway. The update
+preserves the existing allocation pools and port IPs. A later router
+attachment by subnet ID uses the new gateway when it is within the subnet.
+See the [subnet update reference], [Gophercloud gateway update encoding],
+and [Neutron gateway update].
+
+Changing or clearing a gateway currently assigned to a router interface
+returns `409` with `GatewayIpInUse`. Sending the same gateway succeeds.
+A new gateway within an existing allocation pool returns `409` with
+`GatewayConflictWithAllocationPools`. See the [Neutron gateway validation]
+and [Neutron gateway update].
 
 ### Set IPv4 allocation pools
 
@@ -152,10 +166,10 @@ include both DHCP states. See the [Gophercloud subnet options].
 ### Update subnet metadata
 
 Send `PUT /network/v2.0/subnets/{subnet_id}` with a `subnet` object to
-update `name`, `enable_dhcp`, `dns_nameservers`, or `host_routes` in the
-token's project. A successful request returns `200` with the updated
-subnet. Omitted fields keep their values. Use an empty string to clear
-the name or `false` to disable the DHCP flag. In Gophercloud, pass `Name` and
+update `name`, `enable_dhcp`, `dns_nameservers`, `host_routes`, or
+`gateway_ip` in the token's project. A successful request returns `200`
+with the updated subnet. Omitted fields keep their values. Use an empty
+string to clear the name or `false` to disable the DHCP flag. Pass `Name` and
 `EnableDHCP` pointers in `subnets.UpdateOpts` to `subnets.Update`.
 See the [subnet update reference].
 
@@ -169,7 +183,7 @@ unchanged. The limit matches the [Neutron DNS nameserver default].
 
 SandStack records the DHCP flag and DNS nameservers as metadata. The
 subnet's existing IPv4 allocations and router attachment remain in place.
-The CIDR, gateway, and allocation pools are set when the subnet is created.
+The CIDR and allocation pools are set when the subnet is created.
 
 ### Configure IPv4 host routes
 
@@ -477,6 +491,8 @@ and [Neutron nameserver validation].
 The subnet host route scenario checks creation and reads, replacement,
 omission, clearing, and invalid updates against the [Neutron host route
 schema] and [Neutron host route validation].
+Gateway update tests check pool and port address preservation, conflicts,
+and attachment with the updated gateway.
 The router tests use the [router create reference], [router list reference],
 [router details reference], [router update reference], and
 [router delete reference]. Route tests check replacement, atomic addition
@@ -495,7 +511,9 @@ blocked deletions using the [add interface reference] and
 [Gophercloud network options]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/networking/v2/networks/requests.go#L119-L143
 [subnet create reference]: https://docs.openstack.org/api-ref/network/v2/#create-subnet
 [Gophercloud gateway encoding]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/networking/v2/subnets/requests.go#L158-L169
-[Neutron gateway validation]: https://github.com/openstack/neutron/blob/master/neutron/db/db_base_plugin_v2.py#L687-L699
+[Gophercloud gateway update encoding]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/networking/v2/subnets/requests.go#L234-L244
+[Neutron gateway validation]: https://github.com/openstack/neutron/blob/master/neutron/db/db_base_plugin_v2.py#L687-L718
+[Neutron gateway update]: https://github.com/openstack/neutron/blob/master/neutron/db/db_base_plugin_v2.py#L943-L994
 [Neutron gateway pool generation]: https://github.com/openstack/neutron/blob/master/neutron/ipam/utils.py#L33-L73
 [Neutron allocation pool defaults]: https://github.com/openstack/neutron/blob/master/neutron/ipam/drivers/neutrondb_ipam/driver.py#L56-L77
 [Neutron allocation pool bounds]: https://github.com/openstack/neutron/blob/master/neutron/db/ipam_backend_mixin.py#L270-L329

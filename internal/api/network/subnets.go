@@ -207,13 +207,18 @@ func (h handler) deleteSubnet(w http.ResponseWriter, r *http.Request, projectID 
 }
 
 func writeSubnetError(w http.ResponseWriter, subnetID string, err error) {
-	if errors.Is(err, app.ErrSubnetNotFound) {
+	switch {
+	case errors.Is(err, app.ErrSubnetNotFound):
 		writeError(w, http.StatusNotFound, "SubnetNotFound", fmt.Sprintf("Subnet %s could not be found.", subnetID))
-		return
-	}
-	if errors.Is(err, app.ErrSubnetInUse) {
+	case errors.Is(err, app.ErrSubnetInUse):
 		writeError(w, http.StatusConflict, "SubnetInUse", "The subnet still has ports allocated to it.")
-		return
+	case errors.Is(err, app.ErrSubnetGateway):
+		writeError(w, http.StatusBadRequest, "InvalidInput", err.Error())
+	case errors.Is(err, app.ErrSubnetGatewayAttached):
+		writeError(w, http.StatusConflict, "GatewayIpInUse", err.Error())
+	case errors.Is(err, app.ErrSubnetAllocationPoolGateway):
+		writeError(w, http.StatusConflict, "GatewayConflictWithAllocationPools", err.Error())
+	default:
+		writeError(w, http.StatusInternalServerError, "HTTPInternalServerError", "Unable to process the subnet request.")
 	}
-	writeError(w, http.StatusInternalServerError, "HTTPInternalServerError", "Unable to process the subnet request.")
 }

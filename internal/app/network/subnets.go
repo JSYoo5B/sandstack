@@ -100,6 +100,7 @@ func (s *Service) GetSubnet(projectID, subnetID string) (domain.Subnet, error) {
 type SubnetUpdate struct {
 	Name           *string
 	EnableDHCP     *bool
+	Gateway        *netip.Addr
 	DNSNameservers []netip.Addr
 	HostRoutes     []domain.SubnetHostRoute
 }
@@ -111,6 +112,13 @@ func (s *Service) UpdateSubnet(projectID, subnetID string, changes SubnetUpdate)
 	subnet, ok := s.subnets[subnetID]
 	if !ok || subnet.ProjectID != projectID {
 		return domain.Subnet{}, ErrSubnetNotFound
+	}
+	if changes.Gateway != nil {
+		gateway, err := s.changeSubnetGateway(subnet, changes.Gateway)
+		if err != nil {
+			return domain.Subnet{}, err
+		}
+		subnet.Gateway = gateway
 	}
 	if changes.Name != nil {
 		subnet.Name = *changes.Name

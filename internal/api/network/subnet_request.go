@@ -122,6 +122,12 @@ func parseUpdateSubnet(data []byte) (app.SubnetUpdate, error) {
 			target = &changes.Name
 		case "enable_dhcp":
 			target = &changes.EnableDHCP
+		case "gateway_ip":
+			changes.Gateway, err = parseSubnetGateway(value)
+			if err != nil {
+				return app.SubnetUpdate{}, err
+			}
+			continue
 		case "dns_nameservers":
 			changes.DNSNameservers, err = parseDNSNameservers(value)
 			if err != nil {
