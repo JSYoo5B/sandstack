@@ -94,13 +94,14 @@ func TestPortSubnetSelectionAndProjectScope(t *testing.T) {
 	assert.ErrorIs(t, service.DeletePort(seed.ProjectID, foreignPort.ID), app.ErrPortNotFound)
 	assert.ErrorIs(t, service.Delete(seed.ProjectID, other.ID), app.ErrNetworkNotFound)
 
-	assert.Equal(t, []domain.Port{withoutIP, withIP}, service.ListPorts(seed.ProjectID, nil))
-	assert.Empty(t, service.ListPorts(seed.ProjectID, []string{other.ID}))
-	assert.Equal(t, []domain.Port{foreignPort}, service.ListPorts(other.ProjectID, []string{seed.ID, other.ID}))
+	assert.Equal(t, []domain.Port{withoutIP, withIP}, service.ListPorts(seed.ProjectID, app.PortListFilter{}))
+	assert.Empty(t, service.ListPorts(seed.ProjectID, app.PortListFilter{NetworkIDs: []string{other.ID}}))
+	bothNetworks := app.PortListFilter{NetworkIDs: []string{seed.ID, other.ID}}
+	assert.Equal(t, []domain.Port{foreignPort}, service.ListPorts(other.ProjectID, bothNetworks))
 
 	service.Reset()
-	assert.Empty(t, service.ListPorts(seed.ProjectID, nil))
-	assert.Empty(t, service.ListPorts(other.ProjectID, nil))
+	assert.Empty(t, service.ListPorts(seed.ProjectID, app.PortListFilter{}))
+	assert.Empty(t, service.ListPorts(other.ProjectID, app.PortListFilter{}))
 	assert.Empty(t, service.ListSubnets(seed.ProjectID))
 	assert.Equal(t, []domain.Network{seed}, service.List(seed.ProjectID, app.ListFilter{}))
 }
@@ -132,7 +133,7 @@ func TestConcurrentPortAllocationsNeverDuplicateFixedIPs(t *testing.T) {
 			assert.NoError(t, err)
 		}
 	}
-	ports := service.ListPorts(seed.ProjectID, nil)
+	ports := service.ListPorts(seed.ProjectID, app.PortListFilter{})
 	require.Len(t, ports, 5)
 	assert.Equal(t, attempts-len(ports), exhausted)
 	for i, port := range ports {

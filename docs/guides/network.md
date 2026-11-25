@@ -75,11 +75,18 @@ network has several subnets, pass one entry such as
 `"fixed_ips":[]` to create a port without an address. An exhausted pool
 returns `409`. The fixture supports one IPv4 allocation per port.
 
-Use `GET /network/v2.0/ports` for the project's port list. An optional
-`network_id` query parameter filters the list, and repeats match any of
-the requested network IDs. Use `GET` or `DELETE` on the path followed by
-the port ID to read or remove the port. The corresponding Gophercloud
-operations are `ports.Create`, `ports.List`, `ports.Get`, and `ports.Delete`.
+Use `GET /network/v2.0/ports` for the project's port list. The `network_id`,
+`device_id`, and `device_owner` filters match exact values. Repeating a key
+matches any of its values. Combining different keys requires a match for
+each key. Omit a key to leave it unrestricted. In a raw query, `device_id=`
+or `device_owner=` matches ports with the corresponding empty field.
+Unsupported query keys return `400`. See the [port list reference] and
+[Neutron filtering reference].
+
+Use `GET` or `DELETE` on the path followed by the port ID to read or remove
+the port. The corresponding Gophercloud operations are `ports.Create`,
+`ports.List`, `ports.Get`, and `ports.Delete`. Use `NetworkID`, `DeviceID`,
+and `DeviceOwner` in `ports.ListOpts`.
 
 Deleting an unbound port returns its IP to the pool. Network deletion returns
 `409` while ports remain on it. Subnet deletion returns `409` while a port
@@ -145,11 +152,12 @@ returns `409`. A port with no fixed IP returns `400`. See
 
 ### Inspect and remove the interface
 
-Use `ports.Get` on the returned `port_id` or `ports.List` on the subnet's
-network. The interface port shows the router ID in `device_id` and
-`network:router_interface` in `device_owner`. Adding a new interface on a
-subnet already present on the router, or on a subnet that overlaps one
-already present, returns `400`. See [Neutron router subnet checks].
+Use `ports.Get` on the returned `port_id`. To discover a router's managed
+interface ports, call `ports.List` with `DeviceID` set to the router ID and
+`DeviceOwner` set to `network:router_interface` in `ports.ListOpts`.
+Adding a new interface on a subnet already present on the router, or on a
+subnet that overlaps one already present, returns `400`. See
+[Neutron router subnet checks].
 
 While the interface exists, deleting its port, router, subnet, or network
 directly returns `409`. Remove the interface first. Removing it deletes
@@ -198,6 +206,7 @@ blocked deletions using the [add interface reference] and
 [Neutron delete reference]: https://docs.openstack.org/api-ref/network/v2/#delete-network
 [subnet create reference]: https://docs.openstack.org/api-ref/network/v2/#create-subnet
 [port create reference]: https://docs.openstack.org/api-ref/network/v2/#create-port
+[port list reference]: https://docs.openstack.org/api-ref/network/v2/#list-ports
 [router create reference]: https://docs.openstack.org/api-ref/network/v2/#create-router
 [router list reference]: https://docs.openstack.org/api-ref/network/v2/#list-routers
 [router details reference]: https://docs.openstack.org/api-ref/network/v2/#show-router-details

@@ -81,13 +81,21 @@ func (s *Service) GetPort(projectID, portID string) (domain.Port, error) {
 	return port, nil
 }
 
+type PortListFilter struct {
+	NetworkIDs   []string
+	DeviceIDs    []string
+	DeviceOwners []string
+}
+
 // ListPorts returns the project's matching ports ordered by ID.
-func (s *Service) ListPorts(projectID string, networkIDs []string) []domain.Port {
+func (s *Service) ListPorts(projectID string, filter PortListFilter) []domain.Port {
 	ports := []domain.Port{}
 	s.mu.RLock()
 	for _, port := range s.ports {
 		if port.ProjectID == projectID &&
-			(len(networkIDs) == 0 || slices.Contains(networkIDs, port.NetworkID)) {
+			(len(filter.NetworkIDs) == 0 || slices.Contains(filter.NetworkIDs, port.NetworkID)) &&
+			(len(filter.DeviceIDs) == 0 || slices.Contains(filter.DeviceIDs, port.DeviceID)) &&
+			(len(filter.DeviceOwners) == 0 || slices.Contains(filter.DeviceOwners, port.DeviceOwner)) {
 			ports = append(ports, port)
 		}
 	}

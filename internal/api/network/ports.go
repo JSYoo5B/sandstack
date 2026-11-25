@@ -90,13 +90,21 @@ func (h handler) listPorts(w http.ResponseWriter, r *http.Request, projectID str
 		writeError(w, http.StatusBadRequest, "BadRequest", "The port list query is malformed.")
 		return
 	}
-	networkIDs := query["network_id"]
-	if len(query) != 0 && (len(query) != 1 || networkIDs == nil) {
-		writeError(w, http.StatusBadRequest, "BadRequest", "Port lists accept only network_id query parameters.")
-		return
+	for key := range query {
+		switch key {
+		case "network_id", "device_id", "device_owner":
+		default:
+			writeError(w, http.StatusBadRequest, "BadRequest",
+				"Port lists accept only network_id, device_id, and device_owner query parameters.")
+			return
+		}
 	}
 
-	ports := h.service.ListPorts(projectID, networkIDs)
+	ports := h.service.ListPorts(projectID, app.PortListFilter{
+		NetworkIDs:   query["network_id"],
+		DeviceIDs:    query["device_id"],
+		DeviceOwners: query["device_owner"],
+	})
 	response := struct {
 		Ports []portBody `json:"ports"`
 	}{Ports: make([]portBody, len(ports))}

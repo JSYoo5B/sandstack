@@ -32,7 +32,7 @@ func TestExistingRouterInterfaceRetainsPortAndReleasesIPOnRemoval(t *testing.T) 
 	expected.DeviceID = router.ID
 	expected.DeviceOwner = domain.DeviceOwnerRouterInterface
 	assert.Equal(t, expected, attached)
-	assert.Equal(t, []domain.Port{expected}, service.ListPorts(seed.ProjectID, nil))
+	assert.Equal(t, []domain.Port{expected}, service.ListPorts(seed.ProjectID, app.PortListFilter{}))
 	_, err = service.AddRouterInterfaceByPort(seed.ProjectID, otherRouter.ID, port.ID)
 	assert.ErrorIs(t, err, app.ErrPortInUse)
 	assert.ErrorIs(t, service.DeletePort(seed.ProjectID, port.ID), app.ErrServicePortInUse)
@@ -40,7 +40,7 @@ func TestExistingRouterInterfaceRetainsPortAndReleasesIPOnRemoval(t *testing.T) 
 	assert.ErrorIs(t, err, app.ErrRouterInterfacePortNotFound)
 	_, err = service.RemoveRouterInterfaceByPort(seed.ProjectID, router.ID, port.ID, "other-subnet")
 	assert.ErrorIs(t, err, app.ErrRouterInterfaceSubnetMismatch)
-	assert.Equal(t, []domain.Port{expected}, service.ListPorts(seed.ProjectID, nil))
+	assert.Equal(t, []domain.Port{expected}, service.ListPorts(seed.ProjectID, app.PortListFilter{}))
 	_, err = service.CreatePort(seed.ProjectID, seed.ID, "over pool capacity", false, nil)
 	assert.ErrorIs(t, err, app.ErrPortIPExhausted)
 

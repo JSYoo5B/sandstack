@@ -38,7 +38,11 @@ func TestRouterInterfaceOwnsOnlyItsManagedGatewayPort(t *testing.T) {
 	assert.NotEmpty(t, managed.MACAddress)
 	assert.NotEqual(t, ordinary.MACAddress, managed.MACAddress)
 	assert.Equal(t, subnet.AllocationStart, ordinary.FixedIP)
-	assert.Equal(t, []domain.Port{ordinary, managed}, service.ListPorts(seed.ProjectID, []string{seed.ID}))
+	networkFilter := app.PortListFilter{NetworkIDs: []string{seed.ID}}
+	assert.Equal(t, []domain.Port{ordinary, managed}, service.ListPorts(seed.ProjectID, networkFilter))
+	routerFilter := app.PortListFilter{DeviceIDs: []string{router.ID}}
+	assert.Equal(t, []domain.Port{managed}, service.ListPorts(seed.ProjectID, routerFilter))
+	assert.Empty(t, service.ListPorts("foreign-project", routerFilter))
 	assert.ErrorIs(t, service.DeletePort(seed.ProjectID, managed.ID), app.ErrServicePortInUse)
 	assert.ErrorIs(t, service.DeleteRouter(seed.ProjectID, router.ID), app.ErrRouterInUse)
 
@@ -49,7 +53,8 @@ func TestRouterInterfaceOwnsOnlyItsManagedGatewayPort(t *testing.T) {
 	assert.ErrorIs(t, err, app.ErrRouterInterfaceNotFound)
 	_, err = service.GetPort(seed.ProjectID, managed.ID)
 	assert.ErrorIs(t, err, app.ErrPortNotFound)
-	assert.Equal(t, []domain.Port{ordinary}, service.ListPorts(seed.ProjectID, []string{seed.ID}))
+	assert.Equal(t, []domain.Port{ordinary}, service.ListPorts(seed.ProjectID, networkFilter))
+	assert.Empty(t, service.ListPorts(seed.ProjectID, routerFilter))
 
 	_, err = service.AddRouterInterface(seed.ProjectID, router.ID, subnet.ID)
 	require.NoError(t, err)
@@ -58,7 +63,7 @@ func TestRouterInterfaceOwnsOnlyItsManagedGatewayPort(t *testing.T) {
 	assert.ErrorIs(t, service.Delete(seed.ProjectID, seed.ID), app.ErrNetworkInUse)
 
 	service.Reset()
-	assert.Empty(t, service.ListPorts(seed.ProjectID, nil))
+	assert.Empty(t, service.ListPorts(seed.ProjectID, app.PortListFilter{}))
 	assert.Empty(t, service.ListRouters(seed.ProjectID))
 	assert.Empty(t, service.ListSubnets(seed.ProjectID))
 }
@@ -99,7 +104,7 @@ func TestRouterInterfaceRejectsWrongScopeAndConflictingSubnets(t *testing.T) {
 	assert.ErrorIs(t, err, app.ErrRouterGatewayInUse)
 	_, err = service.RemoveRouterInterface(seed.ProjectID, otherRouter.ID, subnet.ID)
 	assert.ErrorIs(t, err, app.ErrRouterInterfaceNotFound)
-	assert.Equal(t, []domain.Port{attached}, service.ListPorts(seed.ProjectID, nil))
+	assert.Equal(t, []domain.Port{attached}, service.ListPorts(seed.ProjectID, app.PortListFilter{}))
 
 	_, err = service.RemoveRouterInterface(seed.ProjectID, router.ID, subnet.ID)
 	require.NoError(t, err)
@@ -131,5 +136,5 @@ func TestConcurrentRouterInterfacesAllocateGatewayOnlyOnce(t *testing.T) {
 		assert.ErrorIs(t, firstErr, app.ErrRouterGatewayInUse)
 		assert.NoError(t, secondErr)
 	}
-	assert.Len(t, service.ListPorts(seed.ProjectID, nil), 1)
+	assert.Len(t, service.ListPorts(seed.ProjectID, app.PortListFilter{}), 1)
 }
