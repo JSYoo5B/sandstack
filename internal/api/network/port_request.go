@@ -1,6 +1,7 @@
 package network
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"net/netip"
@@ -13,11 +14,12 @@ var errInvalidPortRequest = errors.New("expected one port object with valid fiel
 var errInvalidFixedIPs = errors.New("fixed_ips must be empty or contain one subnet UUID, IPv4 address, or both")
 
 type createPortParams struct {
-	networkID    string
-	name         string
-	adminStateUp bool
-	subnetID     *string
-	fixedIP      netip.Addr
+	networkID      string
+	name           string
+	adminStateUp   bool
+	subnetID       *string
+	fixedIP        netip.Addr
+	securityGroups *[]string
 	requestOwnership
 }
 
@@ -36,7 +38,7 @@ func parseCreatePort(data []byte) (createPortParams, error) {
 			target = &params.name
 		case "admin_state_up":
 			target = &params.adminStateUp
-		case "fixed_ips":
+		case "fixed_ips", "security_groups":
 			continue
 		case "project_id":
 			target = &params.projectID
@@ -60,7 +62,35 @@ func parseCreatePort(data []byte) (createPortParams, error) {
 	if err != nil {
 		return createPortParams{}, err
 	}
+	params.securityGroups, err = parsePortSecurityGroups(fields["security_groups"])
+	if err != nil {
+		return createPortParams{}, err
+	}
 	return params, nil
+}
+
+func parsePortSecurityGroups(value json.RawMessage) (*[]string, error) {
+	if value == nil {
+		return nil, nil
+	}
+	groups := []string{}
+	if bytes.Equal(bytes.TrimSpace(value), []byte("null")) {
+		return &groups, nil
+	}
+	errInvalidGroups := errors.New("security_groups must be null or a list of unique security group UUIDs")
+	if !decodeCreateField(value, &groups) {
+		return nil, errInvalidGroups
+	}
+	seen := make(map[string]bool, len(groups))
+	for i, id := range groups {
+		id = strings.ToLower(id)
+		if !resourceUUIDPattern.MatchString(id) || seen[id] {
+			return nil, errInvalidGroups
+		}
+		seen[id] = true
+		groups[i] = id
+	}
+	return &groups, nil
 }
 
 func parseUpdatePort(data []byte) (app.PortUpdate, error) {

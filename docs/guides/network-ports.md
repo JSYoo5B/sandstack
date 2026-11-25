@@ -7,6 +7,22 @@ supplies a subnet ID when choosing a specific allocation pool.
 To connect an existing port to a router, follow the
 [router interface guide](network-routers.md#attach-and-remove-an-ipv4-router-interface).
 
+## Choose security groups for a new port
+
+Omit `security_groups` when creating an ordinary port to attach the
+project's default security group. A list of group UUIDs attaches exactly
+those groups, and an explicit `[]` or `null` creates a port without groups.
+In Gophercloud, use `ports.CreateOpts.SecurityGroups`, which accepts a
+pointer to a slice. Port responses include the `security_groups` array.
+
+An unknown or inaccessible group returns `404 SecurityGroupNotFound`.
+Combining stateful and stateless groups returns `409 SecurityGroupConflict`.
+Deleting a custom group used by a port returns `409 SecurityGroupInUse`.
+Delete the port before deleting its group. A router interface created
+from a subnet has no groups. Attaching a pre-existing port to a router
+preserves its memberships. See the [security group guide](network-security.md)
+and [Neutron port security group binding].
+
 ## Allocate and release a port address
 
 Use `POST /network/v2.0/ports` with a `port` object containing `network_id`.
@@ -180,6 +196,7 @@ exhaustion and resource-in-use errors.
 [Neutron sort parser]: https://github.com/openstack/neutron/blob/master/neutron/api/api_common.py#L205-L236
 [Neutron marker query]: https://github.com/openstack/neutron-lib/blob/master/neutron_lib/db/model_query.py#L300-L316
 [port create reference]: https://docs.openstack.org/api-ref/network/v2/#create-port
+[Neutron port security group binding]: https://github.com/openstack/neutron/blob/ba84fbf374cc7f5055eb2ff4ebc34d2a19cbbc3d/neutron/db/securitygroups_db.py#L1207-L1302
 [port list reference]: https://docs.openstack.org/api-ref/network/v2/#list-ports
 [Neutron port filter schema]: https://github.com/openstack/neutron-lib/blob/master/neutron_lib/api/definitions/port.py#L37-L60
 [Gophercloud port list options]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/networking/v2/ports/requests.go#L24-L47

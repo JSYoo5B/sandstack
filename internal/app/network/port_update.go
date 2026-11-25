@@ -44,7 +44,7 @@ func (s *Service) UpdatePort(projectID, portID string, changes PortUpdate) (doma
 		port.AdminDown = !*changes.AdminStateUp
 	}
 	s.ports[portID] = port
-	return port, nil
+	return clonePort(port), nil
 }
 
 // updatedPortAddress resolves a replacement while the write lock is held.

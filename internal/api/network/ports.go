@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/netip"
 	"net/url"
 
 	app "github.com/JSYoo5B/sandstack/internal/app/network"
@@ -12,17 +13,18 @@ import (
 )
 
 type portBody struct {
-	ID           string        `json:"id"`
-	Name         string        `json:"name"`
-	NetworkID    string        `json:"network_id"`
-	ProjectID    string        `json:"project_id"`
-	TenantID     string        `json:"tenant_id"`
-	MACAddress   string        `json:"mac_address"`
-	AdminStateUp bool          `json:"admin_state_up"`
-	Status       string        `json:"status"`
-	DeviceID     string        `json:"device_id"`
-	DeviceOwner  string        `json:"device_owner"`
-	FixedIPs     []portFixedIP `json:"fixed_ips"`
+	ID             string        `json:"id"`
+	Name           string        `json:"name"`
+	NetworkID      string        `json:"network_id"`
+	ProjectID      string        `json:"project_id"`
+	TenantID       string        `json:"tenant_id"`
+	MACAddress     string        `json:"mac_address"`
+	AdminStateUp   bool          `json:"admin_state_up"`
+	Status         string        `json:"status"`
+	DeviceID       string        `json:"device_id"`
+	DeviceOwner    string        `json:"device_owner"`
+	FixedIPs       []portFixedIP `json:"fixed_ips"`
+	SecurityGroups []string      `json:"security_groups"`
 }
 
 type portFixedIP struct {
@@ -39,18 +41,23 @@ func describePort(port domain.Port) portBody {
 	if port.FixedIP.IsValid() {
 		fixedIPs = append(fixedIPs, portFixedIP{SubnetID: port.SubnetID, IPAddress: port.FixedIP.String()})
 	}
+	securityGroups := port.SecurityGroups
+	if securityGroups == nil {
+		securityGroups = []string{}
+	}
 	return portBody{
-		ID:           port.ID,
-		Name:         port.Name,
-		NetworkID:    port.NetworkID,
-		ProjectID:    port.ProjectID,
-		TenantID:     port.ProjectID,
-		MACAddress:   port.MACAddress,
-		AdminStateUp: !port.AdminDown,
-		Status:       "DOWN",
-		DeviceID:     port.DeviceID,
-		DeviceOwner:  port.DeviceOwner,
-		FixedIPs:     fixedIPs,
+		ID:             port.ID,
+		Name:           port.Name,
+		NetworkID:      port.NetworkID,
+		ProjectID:      port.ProjectID,
+		TenantID:       port.ProjectID,
+		MACAddress:     port.MACAddress,
+		AdminStateUp:   !port.AdminDown,
+		Status:         "DOWN",
+		DeviceID:       port.DeviceID,
+		DeviceOwner:    port.DeviceOwner,
+		FixedIPs:       fixedIPs,
+		SecurityGroups: securityGroups,
 	}
 }
 
@@ -69,17 +76,22 @@ func (h handler) createPort(w http.ResponseWriter, r *http.Request, projectID st
 		return
 	}
 
-	var port domain.Port
+	var address *netip.Addr
 	if params.fixedIP.IsValid() {
-		port, err = h.service.CreatePortWithFixedIP(
-			projectID, params.networkID, params.name, !params.adminStateUp, params.subnetID, params.fixedIP,
-		)
-	} else {
-		port, err = h.service.CreatePort(projectID, params.networkID, params.name, !params.adminStateUp, params.subnetID)
+		address = &params.fixedIP
 	}
+	port, err := h.service.CreatePortWithOptions(
+		projectID, params.networkID, params.name, !params.adminStateUp,
+		params.subnetID, address, params.securityGroups,
+	)
+	var missingGroup *app.SecurityGroupNotFoundError
 	switch {
 	case errors.Is(err, app.ErrNetworkNotFound):
 		writeNetworkNotFound(w, params.networkID)
+	case errors.As(err, &missingGroup):
+		writeError(w, http.StatusNotFound, "SecurityGroupNotFound", fmt.Sprintf("Security group %s could not be found.", missingGroup.ID))
+	case errors.Is(err, app.ErrSecurityGroupConflict):
+		writeError(w, http.StatusConflict, "SecurityGroupConflict", err.Error())
 	case err != nil:
 		if !writePortAddressError(w, err) {
 			writeError(w, http.StatusInternalServerError, "HTTPInternalServerError", "Unable to create the port.")

@@ -24,7 +24,7 @@ func (s *Service) CreatePort(
 	adminDown bool,
 	subnetID *string,
 ) (domain.Port, error) {
-	return s.createRequestedPort(projectID, networkID, name, adminDown, subnetID, nil)
+	return s.CreatePortWithOptions(projectID, networkID, name, adminDown, subnetID, nil, nil)
 }
 
 func (s *Service) CreatePortWithFixedIP(
@@ -33,14 +33,15 @@ func (s *Service) CreatePortWithFixedIP(
 	subnetID *string,
 	address netip.Addr,
 ) (domain.Port, error) {
-	return s.createRequestedPort(projectID, networkID, name, adminDown, subnetID, &address)
+	return s.CreatePortWithOptions(projectID, networkID, name, adminDown, subnetID, &address, nil)
 }
 
-func (s *Service) createRequestedPort(
+func (s *Service) CreatePortWithOptions(
 	projectID, networkID, name string,
 	adminDown bool,
 	subnetID *string,
 	address *netip.Addr,
+	securityGroups *[]string,
 ) (domain.Port, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -48,6 +49,10 @@ func (s *Service) createRequestedPort(
 	network, ok := s.networks[networkID]
 	if !ok || network.ProjectID != projectID {
 		return domain.Port{}, ErrNetworkNotFound
+	}
+	groupIDs, err := s.portSecurityGroups(projectID, securityGroups)
+	if err != nil {
+		return domain.Port{}, err
 	}
 	subnet, err := s.selectPortSubnet(network, subnetID, address)
 	if err != nil {
@@ -69,12 +74,13 @@ func (s *Service) createRequestedPort(
 		return domain.Port{}, err
 	}
 	return s.createPort(domain.Port{
-		NetworkID: networkID,
-		ProjectID: network.ProjectID,
-		Name:      name,
-		SubnetID:  subnet.ID,
-		FixedIP:   fixedIP,
-		AdminDown: adminDown,
+		NetworkID:      networkID,
+		ProjectID:      network.ProjectID,
+		Name:           name,
+		SubnetID:       subnet.ID,
+		FixedIP:        fixedIP,
+		AdminDown:      adminDown,
+		SecurityGroups: groupIDs,
 	}, usedMACs)
 }
 
@@ -87,7 +93,7 @@ func (s *Service) createPort(port domain.Port, usedMACs map[string]bool) (domain
 	port.ID = id
 	port.MACAddress = portMAC(id)
 	s.ports[id] = port
-	return port, nil
+	return clonePort(port), nil
 }
 
 func (s *Service) GetPort(projectID, portID string) (domain.Port, error) {
@@ -98,7 +104,12 @@ func (s *Service) GetPort(projectID, portID string) (domain.Port, error) {
 	if !ok || port.ProjectID != projectID {
 		return domain.Port{}, ErrPortNotFound
 	}
-	return port, nil
+	return clonePort(port), nil
+}
+
+func clonePort(port domain.Port) domain.Port {
+	port.SecurityGroups = slices.Clone(port.SecurityGroups)
+	return port
 }
 
 type PortListFilter struct {

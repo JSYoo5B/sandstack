@@ -19,9 +19,42 @@ const (
 
 var (
 	ErrSecurityGroupNotFound      = errors.New("security group not found")
+	ErrSecurityGroupInUse         = errors.New("security group is bound to a port")
+	ErrSecurityGroupConflict      = errors.New("cannot apply both stateful and stateless security groups on the same port")
 	ErrSecurityGroupDefaultName   = errors.New("the default security group name is reserved")
 	ErrSecurityGroupDefaultDelete = errors.New("the default security group cannot be deleted")
 )
+
+type SecurityGroupNotFoundError struct{ ID string }
+
+func (e *SecurityGroupNotFoundError) Error() string {
+	return ErrSecurityGroupNotFound.Error() + ": " + e.ID
+}
+
+func (e *SecurityGroupNotFoundError) Unwrap() error { return ErrSecurityGroupNotFound }
+
+// portSecurityGroups resolves a port's owned groups while the write lock is held.
+func (s *Service) portSecurityGroups(projectID string, requested *[]string) ([]string, error) {
+	if requested == nil {
+		if projectID == s.seed.ProjectID {
+			return []string{defaultSecurityGroupID}, nil
+		}
+		return nil, nil
+	}
+	var hasStateful, hasStateless bool
+	for _, id := range *requested {
+		group, found := s.securityGroups[id]
+		if !found || group.ProjectID != projectID {
+			return nil, &SecurityGroupNotFoundError{ID: id}
+		}
+		hasStateful = hasStateful || group.Stateful
+		hasStateless = hasStateless || !group.Stateful
+	}
+	if hasStateful && hasStateless {
+		return nil, ErrSecurityGroupConflict
+	}
+	return slices.Clone(*requested), nil
+}
 
 type SecurityGroupFilter struct {
 	IDs        []string
@@ -100,6 +133,11 @@ func (s *Service) DeleteSecurityGroup(projectID, groupID string) error {
 	}
 	if groupID == defaultSecurityGroupID {
 		return ErrSecurityGroupDefaultDelete
+	}
+	for _, port := range s.ports {
+		if slices.Contains(port.SecurityGroups, groupID) {
+			return ErrSecurityGroupInUse
+		}
 	}
 	delete(s.securityGroups, groupID)
 	for _, rule := range group.Rules {

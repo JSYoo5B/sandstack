@@ -32,7 +32,7 @@ func (s *Service) ListPortsPage(
 	}
 	for _, port := range s.ports {
 		if port.ProjectID == projectID && filter.matches(port) {
-			ports = append(ports, port)
+			ports = append(ports, clonePort(port))
 		}
 	}
 	s.mu.RUnlock()

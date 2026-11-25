@@ -39,7 +39,7 @@ func (s *Service) AddRouterInterfaceByPort(projectID, routerID, portID string) (
 	port.DeviceID = routerID
 	port.DeviceOwner = domain.DeviceOwnerRouterInterface
 	s.ports[portID] = port
-	return port, nil
+	return clonePort(port), nil
 }
 
 func (s *Service) RemoveRouterInterfaceByPort(projectID, routerID, portID, subnetID string) (domain.Port, error) {
@@ -60,5 +60,5 @@ func (s *Service) RemoveRouterInterfaceByPort(projectID, routerID, portID, subne
 		return domain.Port{}, ErrRouterInterfaceInUseByRoute
 	}
 	delete(s.ports, portID)
-	return port, nil
+	return clonePort(port), nil
 }

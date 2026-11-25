@@ -68,7 +68,7 @@ func (s *Service) RemoveRouterInterface(projectID, routerID, subnetID string) (d
 				return domain.Port{}, ErrRouterInterfaceInUseByRoute
 			}
 			delete(s.ports, id)
-			return port, nil
+			return clonePort(port), nil
 		}
 	}
 	return domain.Port{}, ErrRouterInterfaceNotFound

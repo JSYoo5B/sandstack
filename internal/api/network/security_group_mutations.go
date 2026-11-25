@@ -41,6 +41,8 @@ func (h handler) deleteSecurityGroup(w http.ResponseWriter, r *http.Request, pro
 		writeError(w, http.StatusNotFound, "SecurityGroupNotFound", "The security group could not be found.")
 	case errors.Is(err, app.ErrSecurityGroupDefaultDelete):
 		writeError(w, http.StatusConflict, "SecurityGroupCannotRemoveDefault", "Insufficient rights for removing default security group.")
+	case errors.Is(err, app.ErrSecurityGroupInUse):
+		writeError(w, http.StatusConflict, "SecurityGroupInUse", "The security group is bound to a port.")
 	case err != nil:
 		writeError(w, http.StatusInternalServerError, "NeutronError", "Unable to delete the security group.")
 	default:
