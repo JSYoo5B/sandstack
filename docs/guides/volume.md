@@ -36,6 +36,16 @@ volume models provisioning in progress and receives `400`. Deleting an
 is absent from subsequent reads. Reset discards created volumes and
 restores the initial fixture.
 
+## Read the attachment state
+
+After [Nova attaches a volume](compute.md#attach-and-detach-a-cinder-volume),
+Cinder lists it as `in-use`. Its `attachments` array contains the server ID,
+volume ID, assigned device, and attachment timestamp. The `id` is the volume
+ID and `attachment_id` identifies this particular attachment. An `in-use`
+volume returns `400` on Cinder delete and `409` when the volume fault control
+tries to set it to `error`. After detach, the volume becomes `available` with
+an empty `attachments` array. See the [volume details reference].
+
 ## Inject and clear a volume fault
 
 Use the volume ID from the detailed list, or the seeded ID in this example.
@@ -59,3 +69,4 @@ the [create volume reference] and [delete volume reference].
 
 [create volume reference]: https://docs.openstack.org/api-ref/block-storage/v3/#create-a-volume
 [delete volume reference]: https://docs.openstack.org/api-ref/block-storage/v3/#delete-a-volume
+[volume details reference]: https://docs.openstack.org/api-ref/block-storage/v3/#show-a-volume-s-details

@@ -72,7 +72,21 @@ func registerImageControls(router chi.Router, service *appimage.Service) {
 
 func registerVolumeControls(router chi.Router, service *appvolume.Service) {
 	const volumePath = "/volume/volumes/{resourceID}"
-	registerFixtureControl(router, volumePath+"/fault", "Volume not found", service.SetFailed)
+	setFault := func(w http.ResponseWriter, r *http.Request) {
+		err := service.SetFailed(chi.URLParam(r, "resourceID"), r.Method == http.MethodPut)
+		switch {
+		case errors.Is(err, appvolume.ErrVolumeNotFound):
+			http.Error(w, "Volume not found", http.StatusNotFound)
+		case errors.Is(err, appvolume.ErrVolumeStateConflict):
+			http.Error(w, "Volume fault cannot be changed in its current state", http.StatusConflict)
+		case err != nil:
+			http.Error(w, "Unable to change volume fault", http.StatusInternalServerError)
+		default:
+			noContent(w, r)
+		}
+	}
+	router.Put(volumePath+"/fault", setFault)
+	router.Delete(volumePath+"/fault", setFault)
 	router.Put(volumePath+"/complete-create", func(w http.ResponseWriter, r *http.Request) {
 		err := service.CompleteCreation(chi.URLParam(r, "resourceID"))
 		switch {

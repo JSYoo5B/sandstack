@@ -1,0 +1,67 @@
+package compute
+
+import (
+	"errors"
+
+	computedomain "github.com/JSYoo5B/sandstack/internal/domain/compute"
+	volumedomain "github.com/JSYoo5B/sandstack/internal/domain/volume"
+)
+
+var ErrServerAttachmentState = errors.New("volume attachment requires an active server")
+
+type attachmentVolumes interface {
+	Attach(projectID, serverID, volumeID, device string) (volumedomain.Attachment, error)
+	GetAttachment(projectID, serverID, volumeID string) (volumedomain.Attachment, error)
+	ListAttachments(projectID, serverID string) []volumedomain.Attachment
+	Detach(projectID, serverID, volumeID string) error
+}
+
+// Attachments validates the server before changing or reading its volumes.
+type Attachments struct {
+	compute *Service
+	volumes attachmentVolumes
+}
+
+func NewAttachments(compute *Service, volumes attachmentVolumes) *Attachments {
+	return &Attachments{compute: compute, volumes: volumes}
+}
+
+func (a *Attachments) Attach(projectID, serverID, volumeID, device string) (volumedomain.Attachment, error) {
+	if !a.ownsServer(projectID, serverID) {
+		return volumedomain.Attachment{}, ErrServerNotFound
+	}
+
+	// Hold the live server state steady until the volume mutation completes.
+	a.compute.mu.RLock()
+	defer a.compute.mu.RUnlock()
+	if a.compute.server.Status() != computedomain.StatusActive {
+		return volumedomain.Attachment{}, ErrServerAttachmentState
+	}
+	return a.volumes.Attach(projectID, serverID, volumeID, device)
+}
+
+func (a *Attachments) Get(projectID, serverID, volumeID string) (volumedomain.Attachment, error) {
+	if !a.ownsServer(projectID, serverID) {
+		return volumedomain.Attachment{}, ErrServerNotFound
+	}
+	return a.volumes.GetAttachment(projectID, serverID, volumeID)
+}
+
+func (a *Attachments) List(projectID, serverID string) ([]volumedomain.Attachment, error) {
+	if !a.ownsServer(projectID, serverID) {
+		return nil, ErrServerNotFound
+	}
+	return a.volumes.ListAttachments(projectID, serverID), nil
+}
+
+func (a *Attachments) Detach(projectID, serverID, volumeID string) error {
+	if !a.ownsServer(projectID, serverID) {
+		return ErrServerNotFound
+	}
+	return a.volumes.Detach(projectID, serverID, volumeID)
+}
+
+func (a *Attachments) ownsServer(projectID, serverID string) bool {
+	// The seeded server identity stays fixed through faults and resets.
+	return a.compute.seed.ProjectID == projectID && a.compute.seed.ID == serverID
+}

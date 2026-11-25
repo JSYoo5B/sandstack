@@ -23,25 +23,23 @@ const volumeIDAttempts = 8
 var volumeIDPattern = regexp.MustCompile(`^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$`)
 
 type Service struct {
-	mu      sync.RWMutex
-	seed    domain.Volume
-	now     func() time.Time
-	newID   func() string
-	volumes map[string]domain.Volume
+	mu                sync.RWMutex
+	seed              domain.Volume
+	now               func() time.Time
+	newID             func() string
+	volumes           map[string]domain.Volume
+	attachmentVolumes map[string]string
 }
 
 // New takes a seeded volume and a non-nil clock. The generator supplies
-// lowercase UUIDs for new volumes, or an empty string on failure.
+// lowercase UUIDs for new volumes and attachments, or an empty string on failure.
 func New(seed domain.Volume, now func() time.Time, newID func() string) *Service {
 	if seed.State == "" {
 		seed.State = domain.StateAvailable
 	}
-	return &Service{
-		seed:    seed,
-		now:     now,
-		newID:   newID,
-		volumes: map[string]domain.Volume{seed.ID: seed},
-	}
+	service := &Service{seed: seed, now: now, newID: newID}
+	service.Reset()
+	return service
 }
 
 func (s *Service) Get(projectID, volumeID string) (domain.Volume, error) {
@@ -111,7 +109,10 @@ func (s *Service) allocateID() (string, error) {
 		if !volumeIDPattern.MatchString(id) {
 			return "", ErrVolumeIDGeneration
 		}
-		if _, exists := s.volumes[id]; exists || id == s.seed.ID {
+		if _, exists := s.volumes[id]; exists || id == s.seed.ID || id == s.seed.Attachment.ID {
+			continue
+		}
+		if _, attached := s.attachmentVolumes[id]; attached {
 			continue
 		}
 		return id, nil
@@ -165,6 +166,8 @@ func (s *Service) SetFailed(volumeID string, failed bool) error {
 		return ErrVolumeNotFound
 	}
 	switch {
+	case failed && volume.State == domain.StateInUse:
+		return ErrVolumeStateConflict
 	case failed && (volume.State == domain.StateCreating || volume.State == domain.StateAvailable):
 		s.updateState(volume, domain.StateError)
 	case !failed && volume.State == domain.StateError:
@@ -183,4 +186,8 @@ func (s *Service) Reset() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.volumes = map[string]domain.Volume{s.seed.ID: s.seed}
+	s.attachmentVolumes = make(map[string]string)
+	if s.seed.Attachment.ID != "" {
+		s.attachmentVolumes[s.seed.Attachment.ID] = s.seed.ID
+	}
 }

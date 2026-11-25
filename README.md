@@ -3,9 +3,9 @@
 SandStack is a lightweight OpenStack test sandbox with programmable faults.
 It runs as an ephemeral dependency for automated tests of OpenStack clients.
 The fixture supports Keystone authentication and catalog discovery, selected
-Nova and Glance reads, and lifecycle operations for Neutron networks, IPv4
-subnets, ports, and Cinder volumes. Tests can alter fixture state, observe
-stale reads, and reset the sandbox between cases.
+Nova and Glance reads, Nova volume attachment, and lifecycle operations for
+Neutron networks, IPv4 subnets, ports, and Cinder volumes. Tests can alter
+fixture state, observe stale reads, and reset the sandbox between cases.
 
 The [emulation decision](docs/decisions/0002-emulate-openstack-apis.md)
 describes what the sandbox is designed to emulate.
@@ -26,9 +26,9 @@ It listens on `127.0.0.1:8080` by default. Use
 `http://127.0.0.1:8080/identity/v3` as the Identity URL with domain `Default`
 for the user and project. The [Identity guide](docs/guides/identity.md)
 covers token invalidation and reauthentication. The
-[Compute guide](docs/guides/compute.md) covers Nova server faults and stale
-reads. The [Networking guide](docs/guides/network.md) covers Neutron network
-reads and operational downtime. The [Image guide](docs/guides/image.md)
+[Compute guide](docs/guides/compute.md) covers Nova server faults, stale
+reads, and volume attachment. The [Networking guide](docs/guides/network.md)
+covers Neutron network reads and operational downtime. The [Image guide](docs/guides/image.md)
 covers Glance metadata and image deactivation. The
 [Block Storage guide](docs/guides/volume.md) covers volume provisioning and errors.
 [Inspect recent requests](docs/guides/requests.md) to verify what a client

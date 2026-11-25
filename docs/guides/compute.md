@@ -20,6 +20,28 @@ Omit `status` to list all fixture servers. An empty, nonmatching, or unknown
 value produces an empty `servers` array, as in Nova v2.1. SandStack returns
 `400` for other list parameters or a repeated `status` parameter.
 
+## Attach and detach a Cinder volume
+
+Use Gophercloud's `volumeattach.Create` with the fixture server ID and an
+`available` volume from the [Block Storage sandbox](volume.md).
+`POST /servers/{server_id}/os-volume_attachments` returns `200` with the
+attachment. Use `volumeattach.List` and `volumeattach.Get` to read the
+collection and a particular attachment. At Nova v2.1 the attachment `id`
+and the last segment of the item URL are the volume ID.
+
+The server must be `ACTIVE` to attach. Each volume can have one attachment.
+The device can be `/dev/vdb` through `/dev/vdz`. Omitting it picks the first
+free device on the server. An unavailable volume, faulted server, or
+occupied device returns `409`. Server and volume IDs are scoped to the
+authenticated project.
+
+The fixture completes attachment immediately and shows the corresponding
+`in-use` state in Cinder. `volumeattach.Delete` returns `202` and removes
+the attachment immediately, making the volume `available` again. Existing
+attachments remain readable and detachable while the server reports `ERROR`.
+Attachment operations leave server detail faults pending. Reset clears the
+attachments. See the [Nova volume attachment reference].
+
 ## Inject and clear an instance fault
 
 The server initially reports `ACTIVE`. Send a `PUT` with the SandStack admin
@@ -79,7 +101,9 @@ Run `go test ./...` to check catalog discovery and the `ACTIVE` → `ERROR` →
 `ACTIVE` sequence through Gophercloud. The stale-detail test also checks
 that list and detail diverge while the snapshot is active and agree after
 it is cleared. The transient-outage test verifies one failure followed by
-recovery. The raw HTTP checks use the [Compute list reference],
+recovery. The attachment tests check both Nova and Cinder through the SDK
+and verify the status codes and response fields directly over HTTP.
+The raw HTTP checks use the [Compute list reference],
 [Compute detail reference], [Compute fault guide], and [Nova fault response]
 for the OpenStack response shapes.
 
@@ -87,3 +111,4 @@ for the OpenStack response shapes.
 [Compute detail reference]: https://docs.openstack.org/api-ref/compute/#show-server-details
 [Compute fault guide]: https://docs.openstack.org/api-guide/compute/faults.html
 [Nova fault response]: https://github.com/openstack/nova/blob/master/nova/api/openstack/wsgi.py
+[Nova volume attachment reference]: https://docs.openstack.org/api-ref/compute/#attach-a-volume-to-an-instance

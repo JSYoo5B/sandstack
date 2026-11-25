@@ -35,7 +35,7 @@ type volumeBody struct {
 	SnapshotID         *string           `json:"snapshot_id"`
 	SourceVolumeID     *string           `json:"source_volid"`
 	ConsistencyGroupID *string           `json:"consistencygroup_id"`
-	Attachments        []struct{}        `json:"attachments"`
+	Attachments        []attachmentBody  `json:"attachments"`
 	Metadata           map[string]string `json:"metadata"`
 	Links              []volumeLink      `json:"links"`
 	Bootable           string            `json:"bootable"`
@@ -49,11 +49,32 @@ type volumeLink struct {
 	Rel  string `json:"rel"`
 }
 
+type attachmentBody struct {
+	ID           string  `json:"id"`
+	AttachmentID string  `json:"attachment_id"`
+	VolumeID     string  `json:"volume_id"`
+	ServerID     string  `json:"server_id"`
+	Device       string  `json:"device"`
+	AttachedAt   string  `json:"attached_at"`
+	HostName     *string `json:"host_name"`
+}
+
 func (h handler) describeVolume(r *http.Request, volume domain.Volume) volumeBody {
 	var updatedAt *string
 	if !volume.UpdatedAt.IsZero() {
 		stamp := volume.UpdatedAt.UTC().Format(timestampLayout)
 		updatedAt = &stamp
+	}
+	attachments := []attachmentBody{}
+	if attachment := volume.Attachment; attachment.ID != "" {
+		attachments = append(attachments, attachmentBody{
+			ID:           attachment.VolumeID,
+			AttachmentID: attachment.ID,
+			VolumeID:     attachment.VolumeID,
+			ServerID:     attachment.ServerID,
+			Device:       attachment.Device,
+			AttachedAt:   attachment.AttachedAt.UTC().Format(timestampLayout),
+		})
 	}
 	resourcePath := "/" + volume.ProjectID + "/volumes/" + volume.ID
 	return volumeBody{
@@ -68,7 +89,7 @@ func (h handler) describeVolume(r *http.Request, volume domain.Volume) volumeBod
 		UpdatedAt:         updatedAt,
 		AvailabilityZone:  volumeZone,
 		VolumeType:        volumeType,
-		Attachments:       []struct{}{},
+		Attachments:       attachments,
 		Metadata:          map[string]string{},
 		Bootable:          "false",
 		ReplicationStatus: "disabled",

@@ -14,6 +14,7 @@ const Path = "/compute/v2.1"
 
 type handler struct {
 	service         *appcompute.Service
+	attachments     *appcompute.Attachments
 	projectForToken func(string) (string, error)
 	endpointURL     func(*http.Request, string) string
 }
@@ -27,17 +28,28 @@ type requestScope struct {
 func Register(
 	router chi.Router,
 	service *appcompute.Service,
+	attachments *appcompute.Attachments,
 	projectForToken func(string) (string, error),
 	endpointURL func(*http.Request, string) string,
 ) {
 	h := handler{
-		service: service, projectForToken: projectForToken, endpointURL: endpointURL,
+		service: service, attachments: attachments, projectForToken: projectForToken, endpointURL: endpointURL,
 	}
 	show := h.withProject(h.showServer)
 	list := h.withProject(h.listServersDetailed)
+	listAttachments := h.withAttachmentProject(h.listAttachments)
+	createAttachment := h.withAttachmentProject(h.createAttachment)
+	showAttachment := h.withAttachmentProject(h.showAttachment)
+	deleteAttachment := h.withAttachmentProject(h.deleteAttachment)
 	for _, prefix := range []string{Path, Path + "/{projectID}"} {
-		router.Get(prefix+"/servers/{serverID}", show)
+		server := prefix + "/servers/{serverID}"
+		router.Get(server, show)
 		router.Get(prefix+"/servers/detail", list)
+		collection := server + "/os-volume_attachments"
+		router.Get(collection, listAttachments)
+		router.Post(collection, createAttachment)
+		router.Get(collection+"/{volumeID}", showAttachment)
+		router.Delete(collection+"/{volumeID}", deleteAttachment)
 	}
 }
 

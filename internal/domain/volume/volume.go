@@ -8,6 +8,7 @@ const (
 	StateAvailable State = "available"
 	StateCreating  State = "creating"
 	StateError     State = "error"
+	StateInUse     State = "in-use"
 )
 
 type Volume struct {
@@ -20,4 +21,5 @@ type Volume struct {
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 	State       State
+	Attachment  Attachment
 }

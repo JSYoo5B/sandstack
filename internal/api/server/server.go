@@ -122,7 +122,10 @@ func New(config Config) (http.Handler, error) {
 		Name:       "cinder",
 		Path:       apivolume.Path + "/" + fixture.Project.ID,
 	})
-	apicompute.Register(services, computeService, identityService.ProjectForToken, endpointURL)
+	apicompute.Register(
+		services, computeService, appcompute.NewAttachments(computeService, volumeService),
+		identityService.ProjectForToken, endpointURL,
+	)
 	apinetwork.Register(services, networkService, identityService.ProjectForToken, endpointURL)
 	apiimage.Register(services, imageService, identityService.ProjectForToken, endpointURL)
 	apivolume.Register(services, volumeService, identityService.ProjectForToken, endpointURL)
