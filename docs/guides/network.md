@@ -61,9 +61,32 @@ injected outage. With Gophercloud v2.15.0, set `Name`, `Status`, or
 `AdminStateUp` in `networks.ListOpts`. Pass a pointer to `false` to
 select disabled networks. A nil pointer omits the filter.
 
-SandStack returns `400` for invalid boolean values, unsupported list
-keys, and query parameters on network detail, creation, update, and
-deletion.
+The list also accepts the pagination parameters below. SandStack returns
+`400` for invalid boolean filter values, unsupported list parameters, and
+query parameters on network detail, creation, update, and deletion.
+
+## Page through the network list
+
+Use `limit` for the page size and `marker` for the network ID after which
+the next page begins. Results are ordered by ascending network ID. With
+Gophercloud v2.15.0, pass `Limit` and optionally `Marker` in
+`networks.ListOpts`. The SDK follows the absolute `next` URL in
+`networks_links`. Omit `limit` or set it to zero to return all matches and
+ignore the marker. A negative or noninteger limit returns `400`.
+
+A marker can identify a network in the token's project even when the
+current filters exclude that network. A paged request returns `404`
+when its marker identifies an unknown network or a network in another
+project. See the [Neutron network pagination] and [Neutron network
+marker lookup].
+
+Follow the `previous` URL with an authenticated HTTP GET to read the
+preceding page. It uses the first network ID on the current page as the
+marker and sets `page_reverse=True`. With a positive limit and no marker,
+`page_reverse=True` starts at the last page. Reverse requests still show
+results in ascending ID order. Both links retain the filters and page
+size. SandStack includes each link when matching networks remain in that
+direction. See the [Neutron pagination reference].
 
 ## Resource guides
 
@@ -104,7 +127,7 @@ or [reset the sandbox](reset.md) to restore all fixtures.
 ## Verification
 
 Run `go test ./...` to exercise discovery, project-scoped network
-lifecycle, list filters, and the outage controls through Gophercloud.
+lifecycle, filtered pagination, and the outage controls through Gophercloud.
 The HTTP tests use the [Neutron filtering reference], [Neutron list reference],
 [Neutron detail reference], [Neutron create reference], and
 [Neutron delete reference]. Network update tests check partial updates and
@@ -119,3 +142,6 @@ how administrative changes and outages affect later reads. See the
 [Neutron update reference]: https://docs.openstack.org/api-ref/network/v2/#update-network
 [Neutron delete reference]: https://docs.openstack.org/api-ref/network/v2/#delete-network
 [Gophercloud network options]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/networking/v2/networks/requests.go#L119-L143
+[Neutron pagination reference]: https://docs.openstack.org/api-ref/network/v2/#pagination
+[Neutron network pagination]: https://github.com/openstack/neutron/blob/master/neutron/db/db_base_plugin_v2.py#L590-L603
+[Neutron network marker lookup]: https://github.com/openstack/neutron/blob/master/neutron/db/db_base_plugin_common.py#L250-L255

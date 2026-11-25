@@ -90,16 +90,36 @@ func (f RouterListFilter) matches(router domain.Router) bool {
 
 // ListRouters returns the project's matching routers ordered by ID.
 func (s *Service) ListRouters(projectID string, filter RouterListFilter) []domain.Router {
+	page, _ := s.ListRoutersPage(projectID, filter, PageOptions{})
+	return page.Items
+}
+
+func (s *Service) ListRoutersPage(
+	projectID string,
+	filter RouterListFilter,
+	options PageOptions,
+) (Page[domain.Router], error) {
 	routers := []domain.Router{}
+	var marker *domain.Router
 	s.mu.RLock()
+	if options.Limit > 0 && options.Marker != "" {
+		router, exists := s.routers[options.Marker]
+		if !exists || router.ProjectID != projectID {
+			s.mu.RUnlock()
+			return Page[domain.Router]{}, ErrRouterNotFound
+		}
+		marker = &router
+	}
 	for _, router := range s.routers {
 		if router.ProjectID == projectID && filter.matches(router) {
 			routers = append(routers, cloneRouter(router))
 		}
 	}
 	s.mu.RUnlock()
-	slices.SortFunc(routers, func(a, b domain.Router) int { return strings.Compare(a.ID, b.ID) })
-	return routers
+	return paginate(routers, options, marker,
+		func(a, b domain.Router) int { return strings.Compare(a.ID, b.ID) },
+		func(router domain.Router) string { return router.ID },
+	), nil
 }
 
 func cloneRouter(router domain.Router) domain.Router {

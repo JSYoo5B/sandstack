@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 
 	"github.com/go-chi/chi/v5"
 
@@ -73,7 +74,12 @@ func (h handler) createRouter(w http.ResponseWriter, r *http.Request, projectID 
 }
 
 func (h handler) listRouters(w http.ResponseWriter, r *http.Request, projectID string) {
-	filter, err := parseRouterListQuery(r.URL.RawQuery)
+	query, err := url.ParseQuery(r.URL.RawQuery)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "BadRequest", "the router list query is malformed")
+		return
+	}
+	filter, err := parseRouterListQuery(query)
 	if err != nil {
 		kind := "BadRequest"
 		if errors.Is(err, errRouterListAdminState) {
@@ -82,11 +88,24 @@ func (h handler) listRouters(w http.ResponseWriter, r *http.Request, projectID s
 		writeError(w, http.StatusBadRequest, kind, err.Error())
 		return
 	}
-	routers := h.service.ListRouters(projectID, filter)
+	options, err := parsePageOptions(query)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "BadRequest", err.Error())
+		return
+	}
+	page, err := h.service.ListRoutersPage(projectID, filter, options)
+	if err != nil {
+		writeRouterError(w, options.Marker, err)
+		return
+	}
 	response := struct {
 		Routers []routerBody `json:"routers"`
-	}{Routers: make([]routerBody, len(routers))}
-	for i, router := range routers {
+		Links   []pageLink   `json:"routers_links,omitempty"`
+	}{
+		Routers: make([]routerBody, len(page.Items)),
+		Links:   h.pageLinks(r, Path+"/routers", query, page.NextMarker, page.PreviousMarker),
+	}
+	for i, router := range page.Items {
 		response.Routers[i] = describeRouter(router)
 	}
 	writeJSON(w, http.StatusOK, response)

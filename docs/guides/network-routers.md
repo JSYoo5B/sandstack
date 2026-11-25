@@ -33,15 +33,43 @@ with `routes: []`.
 
 Filter the token's routers by exact `name` or `admin_state_up`. A repeated
 key matches any of its values. Supplying both keys requires both fields
-to match. Omitted keys leave those fields unrestricted. SandStack returns
-`400` for other query keys, including `status`. The fixture reports
-operational `status: ACTIVE` for both administrative states. See the
-[router list reference] and [Neutron router filter schema].
+to match. Omitted keys leave those fields unrestricted. SandStack accepts
+these filters and the pagination options below. A `status` query returns
+`400`. The fixture reports operational `status: ACTIVE` for both
+administrative states. See the [router list reference] and [Neutron router
+filter schema].
 
 In Gophercloud v2.15.0, pass `Name` and `AdminStateUp` in
 `routers.ListOpts` to `routers.List`. Set `AdminStateUp` to a pointer to
 `false` to find administratively disabled routers. Leave it nil to
 include both states.
+
+### Page through the router list
+
+Use a positive `limit` to page through matches by ascending router ID.
+The optional `marker` starts the page after that router. Set
+`page_reverse=true` to get the page before the marker, or omit the marker
+to get the last page. Both directions return routers in ascending ID
+order. A router visible to the token can serve as a marker even if the
+current filters exclude it. Unknown or inaccessible markers return
+`404`. With `limit` omitted or set to `0`, the response is unpaged and
+ignores the marker and direction. Repeated pagination keys and invalid
+limits return `400`. Only `true`, matched without regard to letter case,
+enables reverse navigation. See the [Neutron pagination reference] and
+[Neutron router marker lookup].
+
+For a nonempty page, `routers_links` contains an absolute `next` link if
+later matches exist and an absolute `previous` link if earlier matches
+exist. Both links preserve the current filters, repeated filter values,
+and the page size. `next` uses the last router ID as the marker and omits
+`page_reverse`. `previous` uses the first router ID and sets
+`page_reverse=True`. Empty and unpaged responses omit navigation links.
+
+In Gophercloud v2.15.0, set `Limit` and optionally `Marker` in
+`routers.ListOpts`. The pager from `routers.List` follows `next` links
+when you call `AllPages`. For reverse navigation, read `routers_links`
+from the raw response and pass a `previous` URL to `ServiceClient.Get`.
+See the [Gophercloud router list options] and [Gophercloud router page links].
 
 ### Update router metadata
 
@@ -171,6 +199,10 @@ blocked deletions using the [add interface reference] and
 
 [router create reference]: https://docs.openstack.org/api-ref/network/v2/#create-router
 [router list reference]: https://docs.openstack.org/api-ref/network/v2/#list-routers
+[Neutron pagination reference]: https://docs.openstack.org/api-ref/network/v2/#pagination
+[Neutron router marker lookup]: https://github.com/openstack/neutron/blob/master/neutron/db/l3_db.py#L629-L645
+[Gophercloud router list options]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/networking/v2/extensions/layer3/routers/requests.go#L22-L39
+[Gophercloud router page links]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/networking/v2/extensions/layer3/routers/results.go#L131-L149
 [Neutron router filter schema]: https://github.com/openstack/neutron-lib/blob/master/neutron_lib/api/definitions/l3.py#L65-L78
 [router details reference]: https://docs.openstack.org/api-ref/network/v2/#show-router-details
 [router update reference]: https://docs.openstack.org/api-ref/network/v2/#update-router

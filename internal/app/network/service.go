@@ -63,8 +63,23 @@ func (s *Service) Get(projectID, networkID string) (domain.Network, error) {
 
 // List returns the project's matching networks ordered by ID.
 func (s *Service) List(projectID string, filter ListFilter) []domain.Network {
+	page, _ := s.ListNetworksPage(projectID, filter, PageOptions{})
+	return page.Items
+}
+
+// ListNetworksPage windows the project's matching networks in ascending ID order.
+func (s *Service) ListNetworksPage(projectID string, filter ListFilter, options PageOptions) (Page[domain.Network], error) {
 	networks := []domain.Network{}
+	var marker *domain.Network
 	s.mu.RLock()
+	if options.Limit > 0 && options.Marker != "" {
+		network, exists := s.networks[options.Marker]
+		if !exists || network.ProjectID != projectID {
+			s.mu.RUnlock()
+			return Page[domain.Network]{}, ErrNetworkNotFound
+		}
+		marker = &network
+	}
 	for _, network := range s.networks {
 		if network.ProjectID != projectID ||
 			(len(filter.Names) > 0 && !slices.Contains(filter.Names, network.Name)) ||
@@ -76,8 +91,9 @@ func (s *Service) List(projectID string, filter ListFilter) []domain.Network {
 	}
 	s.mu.RUnlock()
 
-	slices.SortFunc(networks, func(a, b domain.Network) int { return strings.Compare(a.ID, b.ID) })
-	return networks
+	return paginate(networks, options, marker,
+		func(a, b domain.Network) int { return strings.Compare(a.ID, b.ID) },
+		func(network domain.Network) string { return network.ID }), nil
 }
 
 func (s *Service) Create(projectID, name string, adminDown bool) (domain.Network, error) {

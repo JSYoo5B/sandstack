@@ -9,16 +9,12 @@ import (
 
 var errRouterListAdminState = errors.New("the router list admin_state_up filter requires a boolean")
 
-func parseRouterListQuery(rawQuery string) (app.RouterListFilter, error) {
-	query, err := url.ParseQuery(rawQuery)
-	if err != nil {
-		return app.RouterListFilter{}, errors.New("the router list query is malformed")
-	}
+func parseRouterListQuery(query url.Values) (app.RouterListFilter, error) {
 	for field := range query {
-		if field != "name" && field != "admin_state_up" {
-			return app.RouterListFilter{}, errors.New(
-				"router lists accept only name and admin_state_up query parameters",
-			)
+		switch field {
+		case "name", "admin_state_up", "limit", "marker", "page_reverse":
+		default:
+			return app.RouterListFilter{}, errors.New("the router list query contains an unsupported parameter")
 		}
 	}
 	states, ok := parseBooleanFilters(query["admin_state_up"])

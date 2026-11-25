@@ -52,10 +52,10 @@ func (h handler) listNetworks(w http.ResponseWriter, r *http.Request, projectID 
 	}
 	for field := range query {
 		switch field {
-		case "name", "status", "admin_state_up":
+		case "name", "status", "admin_state_up", "limit", "marker", "page_reverse":
 		default:
 			writeError(w, http.StatusBadRequest, "BadRequest",
-				"Network lists accept only name, status, and admin_state_up query parameters.")
+				"Network lists accept only name, status, admin_state_up, limit, marker, and page_reverse query parameters.")
 			return
 		}
 	}
@@ -64,12 +64,29 @@ func (h handler) listNetworks(w http.ResponseWriter, r *http.Request, projectID 
 		writeError(w, http.StatusBadRequest, "InvalidInput", "The network list admin_state_up filter requires a boolean.")
 		return
 	}
+	options, err := parsePageOptions(query)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "BadRequest", err.Error())
+		return
+	}
 	filter := app.ListFilter{Names: query["name"], Statuses: query["status"], AdminStates: adminStates}
-	networks := h.service.List(projectID, filter)
+	page, err := h.service.ListNetworksPage(projectID, filter, options)
+	if errors.Is(err, app.ErrNetworkNotFound) {
+		writeNetworkNotFound(w, options.Marker)
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "HTTPInternalServerError", "Unable to list the networks.")
+		return
+	}
 	response := struct {
 		Networks []networkBody `json:"networks"`
-	}{Networks: make([]networkBody, len(networks))}
-	for i, network := range networks {
+		Links    []pageLink    `json:"networks_links,omitempty"`
+	}{
+		Networks: make([]networkBody, len(page.Items)),
+		Links:    h.pageLinks(r, Path+"/networks", query, page.NextMarker, page.PreviousMarker),
+	}
+	for i, network := range page.Items {
 		response.Networks[i] = describeNetwork(network)
 	}
 	writeJSON(w, http.StatusOK, response)
