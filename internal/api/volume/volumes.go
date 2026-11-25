@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -37,6 +38,7 @@ type volumeBody struct {
 	ConsistencyGroupID *string           `json:"consistencygroup_id"`
 	Attachments        []attachmentBody  `json:"attachments"`
 	Metadata           map[string]string `json:"metadata"`
+	ImageMetadata      map[string]string `json:"volume_image_metadata,omitempty"`
 	Links              []volumeLink      `json:"links"`
 	Bootable           string            `json:"bootable"`
 	Encrypted          bool              `json:"encrypted"`
@@ -91,7 +93,7 @@ func (h handler) describeVolume(r *http.Request, volume domain.Volume) volumeBod
 		SnapshotID:        optionalText(volume.SnapshotID),
 		Attachments:       attachments,
 		Metadata:          metadata,
-		Bootable:          "false",
+		Bootable:          strconv.FormatBool(volume.Bootable),
 		ReplicationStatus: "disabled",
 		Links: []volumeLink{
 			{Href: h.endpointURL(r, Path+resourcePath), Rel: "self"},
@@ -150,7 +152,7 @@ func (h handler) listVolumes(w http.ResponseWriter, r *http.Request, projectID s
 		Links:   h.detailListLinks(r, query, Path+"/"+projectID+"/volumes/detail", page.NextMarker),
 	}
 	for i, volume := range page.Volumes {
-		response.Volumes[i] = h.describeVolume(r, volume)
+		response.Volumes[i] = h.describeDetailedVolume(r, volume)
 	}
 	writeJSON(w, http.StatusOK, response)
 }
@@ -169,5 +171,5 @@ func (h handler) showVolume(w http.ResponseWriter, r *http.Request, projectID st
 		writeFault(w, http.StatusInternalServerError, "computeFault", "Unable to read the volume.")
 		return
 	}
-	writeJSON(w, http.StatusOK, volumeResponse{Volume: h.describeVolume(r, volume)})
+	writeJSON(w, http.StatusOK, volumeResponse{Volume: h.describeDetailedVolume(r, volume)})
 }

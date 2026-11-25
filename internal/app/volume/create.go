@@ -26,7 +26,7 @@ func (s *Service) CreateWithMetadata(
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.createVolume(name, description, size, "", metadata)
+	return s.createVolume(name, description, size, "", metadata, domain.ImageSource{})
 }
 
 // CreateFromSnapshot uses the snapshot's size when size is omitted (zero).
@@ -65,7 +65,7 @@ func (s *Service) CreateFromSnapshotWithMetadata(
 	if size < snapshot.Size {
 		return domain.Volume{}, ErrVolumeSmallerThanSnapshot
 	}
-	return s.createVolume(name, description, size, snapshotID, metadata)
+	return s.createVolume(name, description, size, snapshotID, metadata, domain.ImageSource{})
 }
 
 // createVolume runs with the service's write lock held.
@@ -74,6 +74,7 @@ func (s *Service) createVolume(
 	size int,
 	snapshotID string,
 	metadata map[string]string,
+	imageSource domain.ImageSource,
 ) (domain.Volume, error) {
 	id, err := s.allocateID()
 	if err != nil {
@@ -90,6 +91,7 @@ func (s *Service) createVolume(
 		CreatedAt:   s.now().UTC(),
 		State:       domain.StateCreating,
 		Metadata:    maps.Clone(metadata),
+		ImageSource: imageSource,
 	}
 	s.volumes[id] = volume
 	return cloneVolume(volume), nil

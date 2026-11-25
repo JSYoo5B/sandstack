@@ -26,6 +26,7 @@ type Service struct {
 	seed               domain.Volume
 	now                func() time.Time
 	newID              func() string
+	images             imageLookup
 	volumes            map[string]domain.Volume
 	snapshots          map[string]domain.Snapshot
 	attachmentVolumes  map[string]string
@@ -36,10 +37,15 @@ type Service struct {
 // New takes a seeded volume and a non-nil clock. The generator supplies
 // lowercase UUIDs for new resources, or an empty string on failure.
 func New(seed domain.Volume, now func() time.Time, newID func() string) *Service {
+	return NewWithImageLookup(seed, now, newID, nil)
+}
+
+// NewWithImageLookup also enables creation from a scoped Glance image.
+func NewWithImageLookup(seed domain.Volume, now func() time.Time, newID func() string, images imageLookup) *Service {
 	if seed.State == "" {
 		seed.State = domain.StateAvailable
 	}
-	service := &Service{seed: cloneVolume(seed), now: now, newID: newID}
+	service := &Service{seed: cloneVolume(seed), now: now, newID: newID, images: images}
 	service.Reset()
 	return service
 }
@@ -120,6 +126,7 @@ func (s *Service) CompleteCreation(volumeID string) error {
 	}
 	switch volume.State {
 	case domain.StateCreating:
+		volume.Bootable = volume.ImageSource.ID != ""
 		s.updateState(volume, domain.StateAvailable)
 	case domain.StateAvailable:
 		return nil

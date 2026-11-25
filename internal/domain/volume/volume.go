@@ -26,6 +26,20 @@ type Volume struct {
 	State       State
 	Attachment  Attachment
 	Metadata    map[string]string
+	ImageSource ImageSource
+	Bootable    bool
+}
+
+// ImageSource is the Glance image metadata captured for volume provisioning.
+type ImageSource struct {
+	ID              string
+	Name            string
+	Checksum        string
+	ContainerFormat string
+	DiskFormat      string
+	Size            int64
+	MinDiskGiB      int
+	MinRAMMiB       int
 }
 
 // NullableText distinguishes a stored empty string from an unset field.

@@ -69,7 +69,7 @@ func New(config Config) (http.Handler, error) {
 		Name:      "fixture-network",
 		ProjectID: fixture.Project.ID,
 	}, randomUUID)
-	volumeService := appvolume.New(volume.Volume{
+	volumeService := appvolume.NewWithImageLookup(volume.Volume{
 		ID:        "7b37635e-be9b-4bfb-bc2e-d163b75921e6",
 		Name:      volume.NullableText{Value: "fixture-volume", Valid: true},
 		ProjectID: fixture.Project.ID,
@@ -77,7 +77,7 @@ func New(config Config) (http.Handler, error) {
 		Size:      1,
 		CreatedAt: created,
 		UpdatedAt: created,
-	}, now, randomUUID)
+	}, now, randomUUID, imageService)
 	computeService := appcompute.New(compute.Server{
 		ID:        "d8ba25c2-8224-4e09-88ef-fab16c654770",
 		Name:      "fixture-server",

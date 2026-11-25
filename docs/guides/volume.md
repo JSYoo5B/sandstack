@@ -136,6 +136,31 @@ preservation rules apply. Use Gophercloud v2.15.0's `ServiceClient.Post`
 with an explicit `200` success code. See the [merge volume metadata
 reference] and [Cinder volume metadata controller].
 
+## Create a volume from a Glance image
+
+Use a private `active` image from the same project. Pass its UUID as
+`ImageID` in Gophercloud's `volumes.CreateOpts`, and specify the size
+in GiB. Gophercloud sends `imageRef`. A raw request can also use
+`image_id`. The size must cover both the image's stored bytes, rounded
+up to GiB, and its minimum disk size. A missing or inactive image, an
+undersized volume, or a request that also names a snapshot returns
+`400`. See the [Cinder image source validation] and [Gophercloud volume
+create options].
+
+The `202` response shows the volume in `creating` state with
+`bootable: "false"`. SandStack captures the image description on
+acceptance. Use the [provisioning control](#create-and-provision-a-volume)
+to set `available` and publish `bootable: "true"` and
+`volume_image_metadata` together. The detail and detailed list expose
+the source ID, name, formats, checksum, size, and capacity minimums
+as strings. User volume metadata continues to use its own `metadata`
+object. Provisioning failure leaves the volume unbootable and omits the
+source metadata. See the [Cinder image metadata capture] and
+[Cinder volume image metadata projection].
+
+To prepare a source with your own bytes, [upload a Glance
+image](image-data.md#upload-a-queued-image-file).
+
 ## Create a volume from a snapshot
 
 Use the [snapshot guide](volume-snapshots.md) to create an available snapshot.
@@ -267,6 +292,9 @@ The [Cinder snapshot lookup], [Cinder size default], and
 [create volume reference]: https://docs.openstack.org/api-ref/block-storage/v3/#create-a-volume
 [Cinder volume create schema]: https://github.com/openstack/cinder/blob/master/cinder/api/schemas/volumes.py#L23-L69
 [Cinder volume type resolution]: https://github.com/openstack/cinder/blob/master/cinder/api/v3/volumes.py#L360-L375
+[Cinder image source validation]: https://github.com/openstack/cinder/blob/10.0.0/cinder/volume/flows/api/create_volume.py#L194-L233
+[Cinder image metadata capture]: https://github.com/openstack/cinder/blob/10.0.0/cinder/volume/flows/manager/create_volume.py#L561-L595
+[Cinder volume image metadata projection]: https://github.com/openstack/cinder/blob/master/cinder/api/contrib/volume_image_metadata.py#L43-L79
 [Gophercloud volume create options]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/blockstorage/v3/volumes/requests.go#L105-L164
 [detailed volume list reference]: https://docs.openstack.org/api-ref/block-storage/v3/#list-accessible-volumes-with-details
 [Cinder volume list controller]: https://github.com/openstack/cinder/blob/master/cinder/api/v3/volumes.py#L142-L180

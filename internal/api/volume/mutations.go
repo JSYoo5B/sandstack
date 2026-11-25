@@ -51,13 +51,18 @@ func (h handler) createVolume(w http.ResponseWriter, r *http.Request, projectID 
 	}
 
 	var volume domain.Volume
-	if params.snapshotID == "" {
-		volume, err = h.service.CreateWithMetadata(
-			projectID, params.name, params.description, params.size, params.metadata,
+	switch {
+	case params.imageID != "":
+		volume, err = h.service.CreateFromImage(
+			projectID, params.imageID, params.name, params.description, params.size, params.metadata,
 		)
-	} else {
+	case params.snapshotID != "":
 		volume, err = h.service.CreateFromSnapshotWithMetadata(
 			projectID, params.snapshotID, params.name, params.description, params.size, params.metadata,
+		)
+	default:
+		volume, err = h.service.CreateWithMetadata(
+			projectID, params.name, params.description, params.size, params.metadata,
 		)
 	}
 	switch {
@@ -67,6 +72,8 @@ func (h handler) createVolume(w http.ResponseWriter, r *http.Request, projectID 
 		writeFault(w, http.StatusNotFound, "itemNotFound", "The source snapshot could not be found.")
 	case errors.Is(err, app.ErrSnapshotStateConflict):
 		writeFault(w, http.StatusBadRequest, "badRequest", "The source snapshot must be available.")
+	case errors.Is(err, app.ErrVolumeSourceImageUnavailable), errors.Is(err, app.ErrVolumeSourceImageSize):
+		writeFault(w, http.StatusBadRequest, "badRequest", err.Error())
 	case errors.Is(err, app.ErrInvalidVolumeSize), errors.Is(err, app.ErrVolumeSmallerThanSnapshot):
 		writeFault(w, http.StatusBadRequest, "badRequest", err.Error())
 	case err != nil:

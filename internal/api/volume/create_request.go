@@ -23,6 +23,7 @@ type createVolumeParams struct {
 	name        string
 	description string
 	snapshotID  string
+	imageID     string
 	volumeType  string
 	size        int
 	metadata    map[string]string
@@ -44,11 +45,12 @@ func parseCreateVolume(data []byte) (createVolumeParams, error) {
 	var params createVolumeParams
 	var requestedZone *string
 	var requestedSize *int
+	var imageRef, imageID *string
 	for field, value := range fields {
 		var target any
 		if bytes.Equal(value, []byte("null")) {
 			if field == "name" || field == "description" || field == "size" ||
-				field == "metadata" || field == "volume_type" {
+				field == "metadata" || field == "volume_type" || field == "imageRef" || field == "image_id" {
 				continue
 			}
 			return createVolumeParams{}, errInvalidVolumeObject
@@ -58,6 +60,10 @@ func parseCreateVolume(data []byte) (createVolumeParams, error) {
 			target = &requestedSize
 		case "snapshot_id":
 			target = &params.snapshotID
+		case "imageRef":
+			target = &imageRef
+		case "image_id":
+			target = &imageID
 		case "name":
 			target = &params.name
 		case "description":
@@ -81,6 +87,18 @@ func parseCreateVolume(data []byte) (createVolumeParams, error) {
 	}
 	if fields["snapshot_id"] != nil && !resourceUUID.MatchString(params.snapshotID) {
 		return createVolumeParams{}, errors.New("volume snapshot_id must be a UUID")
+	}
+	if fields["image_id"] != nil {
+		imageRef = imageID
+	}
+	if imageRef != nil {
+		if !resourceUUID.MatchString(*imageRef) {
+			return createVolumeParams{}, errors.New("volume imageRef must be an image UUID")
+		}
+		if params.snapshotID != "" {
+			return createVolumeParams{}, errors.New("volume creation accepts only one source")
+		}
+		params.imageID = *imageRef
 	}
 	if requestedSize != nil {
 		if params.snapshotID != "" && *requestedSize <= 0 {
