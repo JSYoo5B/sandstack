@@ -31,10 +31,14 @@ func TestNetworkLifecycleKeepsProjectsAndOperationalFaultsSeparate(t *testing.T)
 
 	_, err = service.Get(other.ProjectID, created.ID)
 	assert.ErrorIs(t, err, app.ErrNetworkNotFound)
+	name := "renamed"
+	_, err = service.Update(other.ProjectID, created.ID, app.NetworkUpdate{Name: &name})
+	assert.ErrorIs(t, err, app.ErrNetworkNotFound)
 	assert.ErrorIs(t, service.Delete(other.ProjectID, created.ID), app.ErrNetworkNotFound)
 	require.NoError(t, service.SetDown(created.ID, true))
 	faulted, err := service.Get(seed.ProjectID, created.ID)
 	require.NoError(t, err)
+	assert.Equal(t, created.Name, faulted.Name)
 	assert.True(t, faulted.Down)
 	assert.True(t, faulted.AdminDown)
 

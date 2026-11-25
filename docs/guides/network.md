@@ -13,6 +13,7 @@ resource requests.
 | `GET /network/v2.0/networks` | Lists the project's private networks, including any networks the client has created. Use `networks.List` in Gophercloud. |
 | `GET /network/v2.0/networks/{network_id}` | Returns one network. Use `networks.Get` in Gophercloud. Unknown network IDs return `404`. |
 | `POST /network/v2.0/networks` | Creates a private network for the token's project and returns `201`. Use `networks.Create` in Gophercloud. |
+| `PUT /network/v2.0/networks/{network_id}` | Updates a network owned by the token's project and returns `200`. Use `networks.Update` in Gophercloud. |
 | `DELETE /network/v2.0/networks/{network_id}` | Removes a network owned by the token's project and returns `204`. Use `networks.Delete` in Gophercloud. |
 
 Use project-scoped `X-Auth-Token` credentials. All networks are private and
@@ -27,6 +28,22 @@ whitespace. The administrative state defaults to up. You can also pass
 `shared: false` and set `project_id` or `tenant_id` to the token's project.
 A network created with `admin_state_up: false` reports `DOWN`.
 
+## Update network metadata
+
+Send `PUT /network/v2.0/networks/{network_id}` with a `network` object
+to change `name` or `admin_state_up`. Omit a field to keep its value or
+send an empty object for a no-op. An empty string clears the name, and
+`false` disables the network administratively. With Gophercloud v2.15.0,
+pass `Name` or `AdminStateUp` pointers in `networks.UpdateOpts` to
+`networks.Update`. Nil pointers omit their fields. See the [Neutron
+update reference] and [Gophercloud network options].
+
+The network reports `DOWN` when it is administratively disabled or has
+an injected outage. Re-enabling it during an outage keeps the status
+`DOWN`. Clearing an outage while the network is disabled also keeps the
+status `DOWN`. The network reports `ACTIVE` once it is enabled and the
+outage is clear.
+
 ## Find a network by name or status
 
 The list accepts `name` and `status` filters, including both in a single
@@ -39,7 +56,7 @@ without matches returns `{"networks":[]}`.
 
 Use `Name` and `Status` in Gophercloud's `networks.ListOpts`. SandStack
 returns `400` for other list query parameters and for query parameters on
-network detail, creation, and deletion.
+network detail, creation, update, and deletion.
 
 ## Add an IPv4 subnet
 
@@ -399,6 +416,9 @@ The raw HTTP tests use the [Neutron filtering reference], [Neutron list referenc
 [Neutron detail reference], [Neutron create reference], [Neutron delete reference],
 [subnet create reference], and [port create reference]. The [Neutron database
 implementation] and [exception types] explain deletion and exhaustion conflicts.
+Network update tests check partial updates and how administrative changes
+and outage controls affect subsequent network reads. See the [Neutron
+update reference].
 Subnet tests verify DNS nameserver order, replacement, clearing, omission,
 and validation against the [subnet update reference], [Neutron subnet schema],
 and [Neutron nameserver validation].
@@ -417,7 +437,9 @@ blocked deletions using the [add interface reference] and
 [Neutron list reference]: https://docs.openstack.org/api-ref/network/v2/#list-networks
 [Neutron detail reference]: https://docs.openstack.org/api-ref/network/v2/#show-network-details
 [Neutron create reference]: https://docs.openstack.org/api-ref/network/v2/#create-network
+[Neutron update reference]: https://docs.openstack.org/api-ref/network/v2/#update-network
 [Neutron delete reference]: https://docs.openstack.org/api-ref/network/v2/#delete-network
+[Gophercloud network options]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/networking/v2/networks/requests.go#L119-L143
 [subnet create reference]: https://docs.openstack.org/api-ref/network/v2/#create-subnet
 [subnet list reference]: https://docs.openstack.org/api-ref/network/v2/#list-subnets
 [subnet update reference]: https://docs.openstack.org/api-ref/network/v2/#update-subnet

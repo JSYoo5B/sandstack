@@ -15,6 +15,7 @@ const maxResourceNameLength = 255
 
 var errInvalidCreateRequest = errors.New("expected one network object with valid fields")
 var errInvalidObject = errors.New("expected one JSON object without repeated fields")
+var errInvalidNetworkName = errors.New("network name must be printable and contain at most 255 characters")
 var resourceUUIDPattern = regexp.MustCompile(`^[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}$`)
 
 type requestOwnership struct {
@@ -64,7 +65,7 @@ func parseCreateNetwork(data []byte) (createNetworkParams, error) {
 		}
 	}
 	if !validResourceName(params.name) {
-		return createNetworkParams{}, errors.New("network name must be printable and contain at most 255 characters")
+		return createNetworkParams{}, errInvalidNetworkName
 	}
 	return params, nil
 }

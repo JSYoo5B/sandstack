@@ -91,6 +91,29 @@ func (s *Service) Create(projectID, name string, adminDown bool) (domain.Network
 	return network, nil
 }
 
+type NetworkUpdate struct {
+	Name         *string
+	AdminStateUp *bool
+}
+
+func (s *Service) Update(projectID, networkID string, changes NetworkUpdate) (domain.Network, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	network, ok := s.networks[networkID]
+	if !ok || network.ProjectID != projectID {
+		return domain.Network{}, ErrNetworkNotFound
+	}
+	if changes.Name != nil {
+		network.Name = *changes.Name
+	}
+	if changes.AdminStateUp != nil {
+		network.AdminDown = !*changes.AdminStateUp
+	}
+	s.networks[networkID] = network
+	return snapshot(network), nil
+}
+
 // allocateID runs with the write lock held. If supplied, available can reject
 // a candidate that conflicts with a resource attribute derived from its ID.
 func (s *Service) allocateID(available func(string) bool) (string, error) {

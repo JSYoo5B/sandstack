@@ -61,6 +61,30 @@ func (h handler) createNetwork(w http.ResponseWriter, r *http.Request, projectID
 	writeJSON(w, http.StatusCreated, networkResponse{Network: describeNetwork(network)})
 }
 
+func (h handler) updateNetwork(w http.ResponseWriter, r *http.Request, projectID string) {
+	data, ok := readCreateBody(w, r, "network")
+	if !ok {
+		return
+	}
+	changes, err := parseUpdateNetwork(data)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "BadRequest", err.Error())
+		return
+	}
+
+	networkID := chi.URLParam(r, "networkID")
+	network, err := h.service.Update(projectID, networkID, changes)
+	if errors.Is(err, app.ErrNetworkNotFound) {
+		writeNetworkNotFound(w, networkID)
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "HTTPInternalServerError", "Unable to update the network.")
+		return
+	}
+	writeJSON(w, http.StatusOK, networkResponse{Network: describeNetwork(network)})
+}
+
 func (h handler) deleteNetwork(w http.ResponseWriter, r *http.Request, projectID string) {
 	if !requireEmptyDeleteBody(w, r) {
 		return
