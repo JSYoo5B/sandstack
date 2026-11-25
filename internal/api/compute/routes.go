@@ -42,6 +42,9 @@ func Register(
 	showMetadata := h.withProject(h.showServerMetadata)
 	replaceMetadata := h.withProject(changeServerMetadata(service.ReplaceMetadata))
 	mergeMetadata := h.withProject(changeServerMetadata(service.MergeMetadata))
+	showMetadatum := h.withProject(h.showServerMetadatum)
+	writeMetadatum := h.withProject(h.writeServerMetadatum)
+	deleteMetadatum := h.withProject(h.deleteServerMetadatum)
 	listAttachments := h.withAttachmentProject(h.listAttachments)
 	createAttachment := h.withAttachmentProject(h.createAttachment)
 	showAttachment := h.withAttachmentProject(h.showAttachment)
@@ -54,6 +57,10 @@ func Register(
 		router.Get(server+"/metadata", showMetadata)
 		router.Put(server+"/metadata", replaceMetadata)
 		router.Post(server+"/metadata", mergeMetadata)
+		item := server + "/metadata/{metadataKey}"
+		router.Get(item, showMetadatum)
+		router.Put(item, writeMetadatum)
+		router.Delete(item, deleteMetadatum)
 		router.Get(prefix+"/servers/detail", list)
 		collection := server + "/os-volume_attachments"
 		router.Get(collection, listAttachments)

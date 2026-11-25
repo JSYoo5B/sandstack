@@ -79,6 +79,21 @@ The same state and validation rules apply, and the quota applies to the
 result after merging. See the [Nova metadata merge reference] and
 [Gophercloud metadata merge operation].
 
+### Use an individual metadata item
+
+Use `servers.CreateMetadatum`, `servers.Metadatum`, and
+`servers.DeleteMetadatum` for `PUT`, `GET`, and `DELETE` on
+`/servers/{server_id}/metadata/{key}`. A successful `GET` or `PUT`
+returns `200` with a single-pair `meta` object. The key in the `PUT`
+body must match the decoded URL key. It adds or replaces only that item
+and follows the same state and quota rules as a collection update.
+
+A missing item returns `404` on `GET` or `DELETE`. An accepted `DELETE`
+returns `204` with an empty body and leaves the server timestamp intact.
+Deleting an existing item while the server reports an injected `ERROR`
+returns `409`. See the [Nova metadata item operations] and [Gophercloud
+metadata item operations].
+
 ## Stop and start a server
 
 Use the fixture server ID with `servers.Stop` and `servers.Start` in
@@ -257,6 +272,8 @@ for the OpenStack response shapes.
 [Nova metadata quota]: https://docs.openstack.org/nova/latest/configuration/config.html#quota.metadata_items
 [Gophercloud metadata operations]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/compute/v2/servers/requests.go#L886-L930
 [Gophercloud metadata merge operation]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/compute/v2/servers/requests.go#L934-L949
+[Nova metadata item operations]: https://github.com/openstack/nova/blob/master/nova/api/openstack/compute/server_metadata.py#L73-L152
+[Gophercloud metadata item operations]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/compute/v2/servers/requests.go#L951-L1007
 [Nova reboot reference]: https://docs.openstack.org/api-ref/compute/#reboot-server-reboot-action
 [Nova reboot schema]: https://github.com/openstack/nova/blob/master/nova/api/openstack/compute/schemas/servers.py#L495-L512
 [Nova reboot state checks]: https://github.com/openstack/nova/blob/master/nova/compute/vm_states.py#L62-L67

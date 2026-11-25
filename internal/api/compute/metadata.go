@@ -21,7 +21,7 @@ type metadataResponse struct {
 
 func (h handler) showServerMetadata(w http.ResponseWriter, r *http.Request, scope requestScope) {
 	values, err := h.service.GetMetadata(scope.projectID, chi.URLParam(r, "serverID"))
-	writeServerMetadata(w, values, err)
+	writeMetadataResult(w, http.StatusOK, metadataResponse{Metadata: values}, err)
 }
 
 func changeServerMetadata(
@@ -32,37 +32,42 @@ func changeServerMetadata(
 		if !ok {
 			return
 		}
-		values, err := parseMetadata(data)
+		values, err := parseMetadata(data, "metadata")
 		if err != nil {
 			writeFault(w, http.StatusBadRequest, "badRequest", err.Error())
 			return
 		}
 		saved, err := change(scope.projectID, chi.URLParam(r, "serverID"), values)
-		writeServerMetadata(w, saved, err)
+		writeMetadataResult(w, http.StatusOK, metadataResponse{Metadata: saved}, err)
 	}
 }
 
-func writeServerMetadata(w http.ResponseWriter, values map[string]string, err error) {
+func writeMetadataResult(w http.ResponseWriter, status int, body any, err error) {
 	switch {
 	case errors.Is(err, appcompute.ErrServerNotFound):
 		writeFault(w, http.StatusNotFound, "itemNotFound", "The server could not be found.")
+	case errors.Is(err, appcompute.ErrServerMetadatumNotFound):
+		writeFault(w, http.StatusNotFound, "itemNotFound", "The metadata item could not be found.")
 	case errors.Is(err, appcompute.ErrServerMetadataState):
 		writeFault(w, http.StatusConflict, "conflictingRequest", err.Error())
 	case errors.Is(err, appcompute.ErrServerMetadataQuota):
 		writeFault(w, http.StatusForbidden, "forbidden", err.Error())
 	case err != nil:
 		writeFault(w, http.StatusInternalServerError, "computeFault", "Unable to access server metadata.")
+	case status == http.StatusNoContent:
+		w.Header().Set("Cache-Control", "no-store")
+		w.WriteHeader(status)
 	default:
-		writeJSON(w, http.StatusOK, metadataResponse{Metadata: values})
+		writeJSON(w, status, body)
 	}
 }
 
-func parseMetadata(data []byte) (map[string]string, error) {
+func parseMetadata(data []byte, wrapper string) (map[string]string, error) {
 	envelope, err := readUniqueObject(data)
 	if err != nil || !utf8.Valid(data) || len(envelope) != 1 {
 		return nil, errInvalidMetadata
 	}
-	fields, err := readUniqueObject(envelope["metadata"])
+	fields, err := readUniqueObject(envelope[wrapper])
 	if err != nil {
 		return nil, errInvalidMetadata
 	}
