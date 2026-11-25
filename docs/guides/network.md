@@ -17,7 +17,7 @@ resource requests.
 
 Use project-scoped `X-Auth-Token` credentials. All networks are private and
 start with no subnets. [Reset the sandbox](reset.md) to restore the seed and
-remove networks created by the client.
+remove networks and subnets created by the client.
 
 ## Create a network
 
@@ -41,6 +41,26 @@ Use `Name` and `Status` in Gophercloud's `networks.ListOpts`. SandStack
 returns `400` for other list query parameters and for query parameters on
 network detail, creation, and deletion.
 
+## Add an IPv4 subnet
+
+The subnet collection supports `POST` and `GET` at
+`/network/v2.0/subnets`. Use `GET` or `DELETE` on that path followed by the
+subnet ID to read or remove a subnet. Gophercloud provides `subnets.Create`,
+`subnets.List`, `subnets.Get`, and `subnets.Delete` for these requests.
+
+Create a subnet on a network owned by the token's project. Send `network_id`,
+`ip_version: 4`, and an IPv4 `cidr` with a prefix length from 1 through 30.
+The optional name defaults to an empty string and `enable_dhcp` defaults to
+`true`. SandStack normalizes the prefix, uses the first usable address as the
+gateway, and derives one allocation pool from the remaining usable
+addresses. For `192.0.2.0/24`, the gateway is `192.0.2.1` and the pool is
+`192.0.2.2` through `192.0.2.254`. Custom gateways and pools are outside
+this scenario. Overlapping subnets on one network receive `400`.
+
+Network reads include the IDs of their subnets. Deleting a subnet removes
+its ID from the network, and deleting a network also deletes its subnets.
+The subnet list is unfiltered. A sandbox reset clears created subnets.
+
 ## Inject and clear a network outage
 
 Use a created or listed network ID. This example uses the seeded ID.
@@ -57,13 +77,15 @@ or [reset the sandbox](reset.md) to restore all fixtures.
 
 ## Verification
 
-Run `go test ./...` to check endpoint discovery, creation, filtered list and
-detail reads, the injected outage, deletion, and reset through Gophercloud.
+Run `go test ./...` to check discovery, network and subnet lifecycle,
+filtered network lists, the injected outage, and reset through Gophercloud.
 The raw HTTP tests use the [Neutron filtering reference], [Neutron list reference],
-[Neutron detail reference], [Neutron create reference], and [Neutron delete reference].
+[Neutron detail reference], [Neutron create reference], [Neutron delete reference],
+and [subnet create reference].
 
 [Neutron filtering reference]: https://docs.openstack.org/api-ref/network/v2/#filtering-and-column-selection
 [Neutron list reference]: https://docs.openstack.org/api-ref/network/v2/#list-networks
 [Neutron detail reference]: https://docs.openstack.org/api-ref/network/v2/#show-network-details
 [Neutron create reference]: https://docs.openstack.org/api-ref/network/v2/#create-network
 [Neutron delete reference]: https://docs.openstack.org/api-ref/network/v2/#delete-network
+[subnet create reference]: https://docs.openstack.org/api-ref/network/v2/#create-subnet

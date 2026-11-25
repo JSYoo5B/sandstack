@@ -2,6 +2,7 @@ package network
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -38,6 +39,10 @@ func Register(
 	router.Post(Path+"/networks", h.withProject(withEmptyQuery(h.createNetwork)))
 	router.Get(Path+"/networks/{networkID}", h.withProject(withEmptyQuery(h.showNetwork)))
 	router.Delete(Path+"/networks/{networkID}", h.withProject(withEmptyQuery(h.deleteNetwork)))
+	router.Get(Path+"/subnets", h.withProject(withEmptyQuery(h.listSubnets)))
+	router.Post(Path+"/subnets", h.withProject(withEmptyQuery(h.createSubnet)))
+	router.Get(Path+"/subnets/{subnetID}", h.withProject(withEmptyQuery(h.showSubnet)))
+	router.Delete(Path+"/subnets/{subnetID}", h.withProject(withEmptyQuery(h.deleteSubnet)))
 }
 
 func (h handler) withProject(next projectHandler) http.HandlerFunc {
@@ -59,7 +64,7 @@ func (h handler) withProject(next projectHandler) http.HandlerFunc {
 func withEmptyQuery(next projectHandler) projectHandler {
 	return func(w http.ResponseWriter, r *http.Request, projectID string) {
 		if r.URL.RawQuery != "" {
-			writeError(w, http.StatusBadRequest, "BadRequest", "Network operations require an empty query string.")
+			writeError(w, http.StatusBadRequest, "BadRequest", "This operation requires an empty query string.")
 			return
 		}
 		next(w, r, projectID)
@@ -100,4 +105,18 @@ func writeJSON(w http.ResponseWriter, status int, body any) {
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(body)
+}
+
+func requireEmptyDeleteBody(w http.ResponseWriter, r *http.Request) bool {
+	var firstByte [1]byte
+	if _, err := io.ReadFull(r.Body, firstByte[:]); err != io.EOF {
+		writeError(w, http.StatusBadRequest, "BadRequest", "Deletion requires an empty request body.")
+		return false
+	}
+	return true
+}
+
+func writeNoContent(w http.ResponseWriter) {
+	w.Header().Set("Cache-Control", "no-store")
+	w.WriteHeader(http.StatusNoContent)
 }

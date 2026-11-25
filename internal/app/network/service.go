@@ -23,6 +23,7 @@ type Service struct {
 	mu       sync.RWMutex
 	seed     domain.Network
 	networks map[string]domain.Network
+	subnets  map[string]domain.Subnet
 	newID    func() string
 }
 
@@ -31,12 +32,14 @@ type ListFilter struct {
 	Statuses []string
 }
 
-// New starts a service with a private fixture. The generator supplies a
-// lowercase UUID for each created network, or an empty string on failure.
+// New starts a service with one private network and no subnets. The generator
+// supplies a lowercase UUID for each created resource, or an empty string on failure.
 func New(seed domain.Network, newID func() string) *Service {
+	seed.SubnetIDs = nil
 	return &Service{
 		seed:     seed,
 		networks: map[string]domain.Network{seed.ID: seed},
+		subnets:  make(map[string]domain.Subnet),
 		newID:    newID,
 	}
 }
@@ -49,7 +52,7 @@ func (s *Service) Get(projectID, networkID string) (domain.Network, error) {
 	if !ok || network.ProjectID != projectID {
 		return domain.Network{}, ErrNetworkNotFound
 	}
-	return network, nil
+	return snapshot(network), nil
 }
 
 // List returns the project's matching networks ordered by ID.
@@ -62,7 +65,7 @@ func (s *Service) List(projectID string, filter ListFilter) []domain.Network {
 			(len(filter.Statuses) > 0 && !slices.Contains(filter.Statuses, network.Status())) {
 			continue
 		}
-		networks = append(networks, network)
+		networks = append(networks, snapshot(network))
 	}
 	s.mu.RUnlock()
 
@@ -74,22 +77,33 @@ func (s *Service) Create(projectID, name string, adminDown bool) (domain.Network
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	id, err := s.allocateID()
+	if err != nil {
+		return domain.Network{}, err
+	}
+	network := domain.Network{ID: id, Name: name, ProjectID: projectID, AdminDown: adminDown}
+	s.networks[id] = network
+	return network, nil
+}
+
+// allocateID runs with the write lock held.
+func (s *Service) allocateID() (string, error) {
 	if s.newID == nil {
-		return domain.Network{}, ErrNetworkIDGeneration
+		return "", ErrNetworkIDGeneration
 	}
 	for range networkIDAttempts {
 		id := s.newID()
 		if !networkIDPattern.MatchString(id) {
-			return domain.Network{}, ErrNetworkIDGeneration
+			return "", ErrNetworkIDGeneration
 		}
-		if _, exists := s.networks[id]; exists || id == s.seed.ID {
+		_, networkExists := s.networks[id]
+		_, subnetExists := s.subnets[id]
+		if networkExists || subnetExists || id == s.seed.ID {
 			continue
 		}
-		network := domain.Network{ID: id, Name: name, ProjectID: projectID, AdminDown: adminDown}
-		s.networks[id] = network
-		return network, nil
+		return id, nil
 	}
-	return domain.Network{}, ErrNetworkIDGeneration
+	return "", ErrNetworkIDGeneration
 }
 
 func (s *Service) Delete(projectID, networkID string) error {
@@ -99,6 +113,9 @@ func (s *Service) Delete(projectID, networkID string) error {
 	network, ok := s.networks[networkID]
 	if !ok || network.ProjectID != projectID {
 		return ErrNetworkNotFound
+	}
+	for _, subnetID := range network.SubnetIDs {
+		delete(s.subnets, subnetID)
 	}
 	delete(s.networks, networkID)
 	return nil
@@ -122,4 +139,10 @@ func (s *Service) Reset() {
 	defer s.mu.Unlock()
 
 	s.networks = map[string]domain.Network{s.seed.ID: s.seed}
+	s.subnets = make(map[string]domain.Subnet)
+}
+
+func snapshot(network domain.Network) domain.Network {
+	network.SubnetIDs = append([]string(nil), network.SubnetIDs...)
+	return network
 }

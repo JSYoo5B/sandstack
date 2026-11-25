@@ -28,6 +28,10 @@ type networkResponse struct {
 }
 
 func describeNetwork(network domain.Network) networkBody {
+	subnets := network.SubnetIDs
+	if subnets == nil {
+		subnets = []string{}
+	}
 	return networkBody{
 		ID:           network.ID,
 		Name:         network.Name,
@@ -36,7 +40,7 @@ func describeNetwork(network domain.Network) networkBody {
 		Status:       network.Status(),
 		AdminStateUp: !network.AdminDown,
 		Shared:       false,
-		Subnets:      []string{},
+		Subnets:      subnets,
 	}
 }
 

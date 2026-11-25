@@ -11,34 +11,40 @@ import (
 	app "github.com/JSYoo5B/sandstack/internal/app/network"
 )
 
-const maxCreateNetworkBody = 64 * 1024
+const maxCreateBody = 64 * 1024
 
-func (h handler) createNetwork(w http.ResponseWriter, r *http.Request, projectID string) {
-	data, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxCreateNetworkBody))
+func readCreateBody(w http.ResponseWriter, r *http.Request, resource string) ([]byte, bool) {
+	data, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxCreateBody))
 	if err != nil {
 		var sizeError *http.MaxBytesError
 		if errors.As(err, &sizeError) {
-			writeError(w, http.StatusRequestEntityTooLarge, "RequestEntityTooLarge", "The network request is too large.")
-			return
+			writeError(w, http.StatusRequestEntityTooLarge, "RequestEntityTooLarge", "The "+resource+" request is too large.")
+			return nil, false
 		}
-		writeError(w, http.StatusBadRequest, "BadRequest", "Unable to read the network request.")
-		return
+		writeError(w, http.StatusBadRequest, "BadRequest", "Unable to read the "+resource+" request.")
+		return nil, false
 	}
 	if contentType := r.Header.Get("Content-Type"); len(data) != 0 && contentType != "" {
 		mediaType, _, err := mime.ParseMediaType(contentType)
 		if err != nil || mediaType != "application/json" {
 			writeError(w, http.StatusUnsupportedMediaType, "BadMediaType", "Expected an application/json request.")
-			return
+			return nil, false
 		}
 	}
+	return data, true
+}
 
+func (h handler) createNetwork(w http.ResponseWriter, r *http.Request, projectID string) {
+	data, ok := readCreateBody(w, r, "network")
+	if !ok {
+		return
+	}
 	params, err := parseCreateNetwork(data)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "BadRequest", err.Error())
 		return
 	}
-	if (params.projectID != nil && *params.projectID != projectID) ||
-		(params.tenantID != nil && *params.tenantID != projectID) {
+	if !params.matches(projectID) {
 		writeError(w, http.StatusBadRequest, "BadRequest", "Network ownership must match the authenticated project.")
 		return
 	}
@@ -56,9 +62,7 @@ func (h handler) createNetwork(w http.ResponseWriter, r *http.Request, projectID
 }
 
 func (h handler) deleteNetwork(w http.ResponseWriter, r *http.Request, projectID string) {
-	var firstByte [1]byte
-	if _, err := io.ReadFull(r.Body, firstByte[:]); err != io.EOF {
-		writeError(w, http.StatusBadRequest, "BadRequest", "Network deletion requires an empty request body.")
+	if !requireEmptyDeleteBody(w, r) {
 		return
 	}
 
@@ -72,6 +76,5 @@ func (h handler) deleteNetwork(w http.ResponseWriter, r *http.Request, projectID
 		writeError(w, http.StatusInternalServerError, "HTTPInternalServerError", "Unable to delete the network.")
 		return
 	}
-	w.Header().Set("Cache-Control", "no-store")
-	w.WriteHeader(http.StatusNoContent)
+	writeNoContent(w)
 }
