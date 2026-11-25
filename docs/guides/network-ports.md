@@ -62,6 +62,24 @@ returns `200` with `ports: []`. Malformed entries and unsupported inner
 keys return `400`, including `ip_address_substr` from Neutron's optional
 `ip-substring-filtering` extension.
 
+### Page through the port list
+
+Use a positive `limit` for forward pagination in ascending port ID
+order. An optional `marker` starts the page after that port ID. The
+marker must identify an existing port in the token's project, even if
+the port falls outside the current filters. An unknown marker returns
+`404`. Omit `limit` or set it to `0` for an unpaged list, which ignores
+the marker. Repeated pagination keys and invalid values return `400`.
+See the [Neutron pagination reference] and [port list reference].
+
+When more matches remain, `ports_links` contains an absolute `next` link
+with the last returned port ID as its marker. The link preserves the
+page size and filters, including repeated values. The final page has no
+`next` link. With Gophercloud v2.15.0, set `Limit` and optionally `Marker`
+in `ports.ListOpts`. The pager from `ports.List` follows these links when
+you call `AllPages`. See the [Gophercloud port list options] and
+[Gophercloud port page links].
+
 ### Request a specific IPv4 address
 
 Send one `fixed_ips` entry with `ip_address` to request that address. You
@@ -127,10 +145,12 @@ The [Neutron database implementation] and [exception types] describe pool
 exhaustion and resource-in-use errors.
 
 [Neutron filtering reference]: https://docs.openstack.org/api-ref/network/v2/#filtering-and-column-selection
+[Neutron pagination reference]: https://docs.openstack.org/api-ref/network/v2/#pagination
 [port create reference]: https://docs.openstack.org/api-ref/network/v2/#create-port
 [port list reference]: https://docs.openstack.org/api-ref/network/v2/#list-ports
 [Neutron port filter schema]: https://github.com/openstack/neutron-lib/blob/master/neutron_lib/api/definitions/port.py#L37-L60
 [Gophercloud port list options]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/networking/v2/ports/requests.go#L24-L47
+[Gophercloud port page links]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/networking/v2/ports/results.go#L165-L184
 [port update reference]: https://docs.openstack.org/api-ref/network/v2/#update-port
 [Neutron fixed IP filter parser]: https://github.com/openstack/neutron-lib/blob/master/neutron_lib/api/converters.py#L110-L137
 [Neutron fixed IP filter query]: https://github.com/openstack/neutron/blob/master/neutron/db/db_base_plugin_v2.py#L1552-L1583

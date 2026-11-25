@@ -128,16 +128,48 @@ func (f PortListFilter) matches(port domain.Port) bool {
 
 // ListPorts returns the project's matching ports ordered by ID.
 func (s *Service) ListPorts(projectID string, filter PortListFilter) []domain.Port {
+	ports, _ := s.listPortsAfter(projectID, filter, "")
+	return ports
+}
+
+// ListPortsPage returns a forward page and whether more matching ports follow.
+func (s *Service) ListPortsPage(
+	projectID string,
+	filter PortListFilter,
+	marker string,
+	limit int,
+) ([]domain.Port, bool, error) {
+	if limit <= 0 {
+		return s.ListPorts(projectID, filter), false, nil
+	}
+	ports, err := s.listPortsAfter(projectID, filter, marker)
+	if err != nil {
+		return nil, false, err
+	}
+	if len(ports) > limit {
+		return ports[:limit], true, nil
+	}
+	return ports, false, nil
+}
+
+func (s *Service) listPortsAfter(projectID string, filter PortListFilter, marker string) ([]domain.Port, error) {
 	ports := []domain.Port{}
 	s.mu.RLock()
+	if marker != "" {
+		port, exists := s.ports[marker]
+		if !exists || port.ProjectID != projectID {
+			s.mu.RUnlock()
+			return nil, ErrPortNotFound
+		}
+	}
 	for _, port := range s.ports {
-		if port.ProjectID == projectID && filter.matches(port) {
+		if port.ProjectID == projectID && port.ID > marker && filter.matches(port) {
 			ports = append(ports, port)
 		}
 	}
 	s.mu.RUnlock()
 	slices.SortFunc(ports, func(a, b domain.Port) int { return strings.Compare(a.ID, b.ID) })
-	return ports
+	return ports, nil
 }
 
 func (s *Service) DeletePort(projectID, portID string) error {

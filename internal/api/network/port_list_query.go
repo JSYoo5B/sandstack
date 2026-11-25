@@ -3,6 +3,7 @@ package network
 import (
 	"errors"
 	"net/url"
+	"strconv"
 	"strings"
 
 	app "github.com/JSYoo5B/sandstack/internal/app/network"
@@ -10,17 +11,13 @@ import (
 
 var errPortListAdminState = errors.New("the port list admin_state_up filter requires a boolean")
 
-func parsePortListQuery(rawQuery string) (app.PortListFilter, error) {
-	query, err := url.ParseQuery(rawQuery)
-	if err != nil {
-		return app.PortListFilter{}, errors.New("The port list query is malformed.")
-	}
+func parsePortListQuery(query url.Values) (app.PortListFilter, error) {
 	for key := range query {
 		switch key {
-		case "id", "name", "admin_state_up", "network_id", "device_id", "device_owner", "fixed_ips":
+		case "id", "name", "admin_state_up", "network_id", "device_id", "device_owner", "fixed_ips", "limit", "marker":
 		default:
 			return app.PortListFilter{}, errors.New(
-				"Port lists accept id, name, admin_state_up, network_id, device_id, device_owner, and fixed_ips.",
+				"Port lists accept id, name, admin_state_up, network_id, device_id, device_owner, fixed_ips, limit, and marker.",
 			)
 		}
 	}
@@ -51,4 +48,19 @@ func parsePortListQuery(rawQuery string) (app.PortListFilter, error) {
 		return app.PortListFilter{}, errors.New("A fixed_ips filter requires ip_address=value or subnet_id=value.")
 	}
 	return filter, nil
+}
+
+func parsePortPageLimit(query url.Values) (int, error) {
+	if len(query["limit"]) > 1 || len(query["marker"]) > 1 {
+		return 0, errors.New("Port pagination parameters cannot be repeated.")
+	}
+	values := query["limit"]
+	if len(values) == 0 {
+		return 0, nil
+	}
+	limit, err := strconv.Atoi(strings.TrimSpace(values[0]))
+	if err != nil || limit < 0 {
+		return 0, errors.New("The port list limit must be an integer of zero or more.")
+	}
+	return limit, nil
 }

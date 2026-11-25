@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 
 	app "github.com/JSYoo5B/sandstack/internal/app/network"
 	domain "github.com/JSYoo5B/sandstack/internal/domain/network"
@@ -107,7 +108,12 @@ func writePortAddressError(w http.ResponseWriter, err error) bool {
 }
 
 func (h handler) listPorts(w http.ResponseWriter, r *http.Request, projectID string) {
-	filter, err := parsePortListQuery(r.URL.RawQuery)
+	query, err := url.ParseQuery(r.URL.RawQuery)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "BadRequest", "The port list query is malformed.")
+		return
+	}
+	filter, err := parsePortListQuery(query)
 	if err != nil {
 		kind := "BadRequest"
 		if errors.Is(err, errPortListAdminState) {
@@ -117,14 +123,37 @@ func (h handler) listPorts(w http.ResponseWriter, r *http.Request, projectID str
 		return
 	}
 
-	ports := h.service.ListPorts(projectID, filter)
+	limit, err := parsePortPageLimit(query)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "BadRequest", err.Error())
+		return
+	}
+	marker := query.Get("marker")
+	ports, hasMore, err := h.service.ListPortsPage(projectID, filter, marker, limit)
+	if err != nil {
+		writePortError(w, marker, err)
+		return
+	}
 	response := struct {
-		Ports []portBody `json:"ports"`
+		Ports []portBody     `json:"ports"`
+		Links []portListLink `json:"ports_links,omitempty"`
 	}{Ports: make([]portBody, len(ports))}
 	for i, port := range ports {
 		response.Ports[i] = describePort(port)
 	}
+	if hasMore {
+		query.Set("marker", ports[len(ports)-1].ID)
+		response.Links = []portListLink{{
+			Rel:  "next",
+			Href: h.endpointURL(r, Path+"/ports") + "?" + query.Encode(),
+		}}
+	}
 	writeJSON(w, http.StatusOK, response)
+}
+
+type portListLink struct {
+	Rel  string `json:"rel"`
+	Href string `json:"href"`
 }
 
 func (h handler) showPort(w http.ResponseWriter, r *http.Request, projectID string) {

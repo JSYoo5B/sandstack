@@ -111,6 +111,14 @@ func TestPortSubnetSelectionAndProjectScope(t *testing.T) {
 	assert.Empty(t, service.ListPorts(seed.ProjectID, app.PortListFilter{NetworkIDs: []string{other.ID}}))
 	bothNetworks := app.PortListFilter{NetworkIDs: []string{seed.ID, other.ID}}
 	assert.Equal(t, []domain.Port{foreignPort}, service.ListPorts(other.ProjectID, bothNetworks))
+	_, _, err = service.ListPortsPage(seed.ProjectID, bothNetworks, foreignPort.ID, 1)
+	assert.ErrorIs(t, err, app.ErrPortNotFound)
+
+	filtered := app.PortListFilter{Names: []string{withIP.Name}}
+	page, hasMore, err := service.ListPortsPage(seed.ProjectID, filtered, withoutIP.ID, 1)
+	require.NoError(t, err)
+	assert.Equal(t, []domain.Port{withIP}, page)
+	assert.False(t, hasMore)
 
 	service.Reset()
 	assert.Empty(t, service.ListPorts(seed.ProjectID, app.PortListFilter{}))
