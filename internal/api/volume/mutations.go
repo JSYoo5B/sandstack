@@ -11,24 +11,32 @@ import (
 	app "github.com/JSYoo5B/sandstack/internal/app/volume"
 )
 
-const maxCreateVolumeBody = 64 * 1024
+const maxCreateBody = 64 * 1024
 
-func (h handler) createVolume(w http.ResponseWriter, r *http.Request, projectID string) {
+func readCreateBody(w http.ResponseWriter, r *http.Request, resource string) ([]byte, bool) {
 	if contentType := r.Header.Get("Content-Type"); contentType != "" {
 		mediaType, _, err := mime.ParseMediaType(contentType)
 		if err != nil || mediaType != "application/json" {
 			writeFault(w, http.StatusUnsupportedMediaType, "badMediaType", "Expected an application/json request.")
-			return
+			return nil, false
 		}
 	}
-	data, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxCreateVolumeBody))
+	data, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxCreateBody))
 	if err != nil {
 		var sizeError *http.MaxBytesError
 		if errors.As(err, &sizeError) {
-			writeFault(w, http.StatusRequestEntityTooLarge, "overLimit", "The volume request is too large.")
-			return
+			writeFault(w, http.StatusRequestEntityTooLarge, "overLimit", "The "+resource+" request is too large.")
+			return nil, false
 		}
-		writeFault(w, http.StatusBadRequest, "badRequest", "Unable to read the volume request.")
+		writeFault(w, http.StatusBadRequest, "badRequest", "Unable to read the "+resource+" request.")
+		return nil, false
+	}
+	return data, true
+}
+
+func (h handler) createVolume(w http.ResponseWriter, r *http.Request, projectID string) {
+	data, ok := readCreateBody(w, r, "volume")
+	if !ok {
 		return
 	}
 	params, err := parseCreateVolume(data)
@@ -61,6 +69,8 @@ func (h handler) deleteVolume(w http.ResponseWriter, r *http.Request, projectID 
 	switch {
 	case errors.Is(err, app.ErrVolumeNotFound):
 		writeFault(w, http.StatusNotFound, "itemNotFound", "The volume could not be found.")
+	case errors.Is(err, app.ErrVolumeHasSnapshots):
+		writeFault(w, http.StatusBadRequest, "badRequest", "The volume has snapshots.")
 	case errors.Is(err, app.ErrVolumeStateConflict):
 		writeFault(w, http.StatusBadRequest, "badRequest", "Volume deletion requires an available or error state.")
 	case err != nil:

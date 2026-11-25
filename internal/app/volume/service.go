@@ -28,11 +28,12 @@ type Service struct {
 	now               func() time.Time
 	newID             func() string
 	volumes           map[string]domain.Volume
+	snapshots         map[string]domain.Snapshot
 	attachmentVolumes map[string]string
 }
 
 // New takes a seeded volume and a non-nil clock. The generator supplies
-// lowercase UUIDs for new volumes and attachments, or an empty string on failure.
+// lowercase UUIDs for new resources, or an empty string on failure.
 func New(seed domain.Volume, now func() time.Time, newID func() string) *Service {
 	if seed.State == "" {
 		seed.State = domain.StateAvailable
@@ -115,6 +116,9 @@ func (s *Service) allocateID() (string, error) {
 		if _, attached := s.attachmentVolumes[id]; attached {
 			continue
 		}
+		if _, exists := s.snapshots[id]; exists {
+			continue
+		}
 		return id, nil
 	}
 	return "", ErrVolumeIDGeneration
@@ -130,6 +134,11 @@ func (s *Service) Delete(projectID, volumeID string) error {
 	volume, ok := s.volumes[volumeID]
 	if !ok {
 		return ErrVolumeNotFound
+	}
+	for _, snapshot := range s.snapshots {
+		if snapshot.VolumeID == volumeID {
+			return ErrVolumeHasSnapshots
+		}
 	}
 	if volume.State != domain.StateAvailable && volume.State != domain.StateError {
 		return ErrVolumeStateConflict
@@ -186,6 +195,7 @@ func (s *Service) Reset() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.volumes = map[string]domain.Volume{s.seed.ID: s.seed}
+	s.snapshots = make(map[string]domain.Snapshot)
 	s.attachmentVolumes = make(map[string]string)
 	if s.seed.Attachment.ID != "" {
 		s.attachmentVolumes[s.seed.Attachment.ID] = s.seed.ID

@@ -3,6 +3,7 @@ package volume
 import (
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
@@ -60,11 +61,6 @@ type attachmentBody struct {
 }
 
 func (h handler) describeVolume(r *http.Request, volume domain.Volume) volumeBody {
-	var updatedAt *string
-	if !volume.UpdatedAt.IsZero() {
-		stamp := volume.UpdatedAt.UTC().Format(timestampLayout)
-		updatedAt = &stamp
-	}
 	attachments := []attachmentBody{}
 	if attachment := volume.Attachment; attachment.ID != "" {
 		attachments = append(attachments, attachmentBody{
@@ -86,7 +82,7 @@ func (h handler) describeVolume(r *http.Request, volume domain.Volume) volumeBod
 		Size:              volume.Size,
 		Status:            string(volume.State),
 		CreatedAt:         volume.CreatedAt.UTC().Format(timestampLayout),
-		UpdatedAt:         updatedAt,
+		UpdatedAt:         optionalTimestamp(volume.UpdatedAt),
 		AvailabilityZone:  volumeZone,
 		VolumeType:        volumeType,
 		Attachments:       attachments,
@@ -105,6 +101,14 @@ func optionalText(value string) *string {
 		return nil
 	}
 	return &value
+}
+
+func optionalTimestamp(value time.Time) *string {
+	if value.IsZero() {
+		return nil
+	}
+	stamp := value.UTC().Format(timestampLayout)
+	return &stamp
 }
 
 func (h handler) listVolumes(w http.ResponseWriter, r *http.Request, projectID string) {

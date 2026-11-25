@@ -36,6 +36,41 @@ volume models provisioning in progress and receives `400`. Deleting an
 is absent from subsequent reads. Reset discards created volumes and
 restores the initial fixture.
 
+## Create and provision a volume snapshot
+
+Use `snapshots.Create` for `POST /snapshots` on the project endpoint. Supply
+the ID of an `available` volume as `volume_id`. The request can also include
+a name and description. Omit `force` or set it to `false`. A `202` response
+contains a snapshot in `creating` status with the source volume ID and size.
+Use `snapshots.Get` for `GET /snapshots/{snapshot_id}` and
+`snapshots.ListDetail` for `GET /snapshots/detail` to observe the outcome.
+The detailed list is unfiltered. Both reads include the owning project ID
+and build progress. Progress is `100%` after successful completion and
+`0%` while pending or after a fixture failure.
+
+Take the snapshot ID from the create response and send `PUT` to one of the
+SandStack controls with the dedicated admin token.
+
+```sh
+snapshot_url="http://127.0.0.1:8080/_sandstack/volume/snapshots/${snapshot_id}"
+curl --fail -X PUT -H "X-SandStack-Admin-Token: ${SANDSTACK_ADMIN_TOKEN}" "$snapshot_url/complete-create"
+```
+
+`complete-create` moves the snapshot to `available`. Use `fail-create`
+instead to move it to `error`. The first call and repeats of the same
+outcome return `204`. Requesting the other outcome after provisioning
+finishes returns `409`.
+
+Use `snapshots.Delete` for `DELETE /snapshots/{snapshot_id}` once the
+snapshot reaches `available` or `error`. The response is `202` and the
+snapshot disappears from both reads. Deleting a snapshot in `creating`
+status or a source volume with any dependent snapshot returns `400`.
+[Reset the sandbox](reset.md) to discard the snapshots and restore the
+seeded volume.
+
+This scenario models the snapshot lifecycle in metadata. Volume creation
+uses the [blank-volume flow](#create-and-provision-a-blank-volume).
+
 ## Read the attachment state
 
 After [Nova attaches a volume](compute.md#attach-and-detach-a-cinder-volume),
@@ -64,9 +99,17 @@ to restore the original values and timestamps.
 ## Verification
 
 Run `go test ./...` to exercise discovery, creation, provisioning, volume
-reads, deletion, faults, and reset through Gophercloud. The HTTP tests use
-the [create volume reference] and [delete volume reference].
+reads, deletion, faults, and reset through Gophercloud. The snapshot tests
+exercise both provisioning outcomes and verify that deleting a dependent
+snapshot releases its source volume for deletion. The HTTP tests use the
+[create volume reference], [delete volume reference],
+[create snapshot reference], [snapshot details reference],
+[snapshot list reference], and [delete snapshot reference].
 
 [create volume reference]: https://docs.openstack.org/api-ref/block-storage/v3/#create-a-volume
 [delete volume reference]: https://docs.openstack.org/api-ref/block-storage/v3/#delete-a-volume
 [volume details reference]: https://docs.openstack.org/api-ref/block-storage/v3/#show-a-volume-s-details
+[create snapshot reference]: https://docs.openstack.org/api-ref/block-storage/v3/#create-a-snapshot
+[snapshot details reference]: https://docs.openstack.org/api-ref/block-storage/v3/#show-a-snapshot-s-details
+[snapshot list reference]: https://docs.openstack.org/api-ref/block-storage/v3/#list-snapshots-and-details
+[delete snapshot reference]: https://docs.openstack.org/api-ref/block-storage/v3/#delete-a-snapshot

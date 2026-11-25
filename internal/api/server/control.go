@@ -100,6 +100,7 @@ func registerVolumeControls(router chi.Router, service *appvolume.Service) {
 			noContent(w, r)
 		}
 	})
+	registerSnapshotControls(router, service)
 }
 
 func registerFixtureControl(router chi.Router, path, notFound string, set func(string, bool) error) {

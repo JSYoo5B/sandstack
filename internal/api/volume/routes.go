@@ -34,6 +34,11 @@ func Register(
 	router.Post(collection, h.withProject(h.createVolume))
 	router.Get(collection+"/{volumeID}", h.withProject(h.showVolume))
 	router.Delete(collection+"/{volumeID}", h.withProject(h.deleteVolume))
+	snapshots := Path + "/{projectID}/snapshots"
+	router.Get(snapshots+"/detail", h.withProject(h.listSnapshots))
+	router.Post(snapshots, h.withProject(h.createSnapshot))
+	router.Get(snapshots+"/{snapshotID}", h.withProject(h.showSnapshot))
+	router.Delete(snapshots+"/{snapshotID}", h.withProject(h.deleteSnapshot))
 }
 
 func (h handler) withProject(next func(http.ResponseWriter, *http.Request, string)) http.HandlerFunc {
@@ -56,7 +61,7 @@ func (h handler) withProject(next func(http.ResponseWriter, *http.Request, strin
 			return
 		}
 		if r.URL.RawQuery != "" {
-			writeFault(w, http.StatusBadRequest, "badRequest", "Volume operations require an empty query string.")
+			writeFault(w, http.StatusBadRequest, "badRequest", "Block Storage operations require an empty query string.")
 			return
 		}
 		next(w, r, projectID)
