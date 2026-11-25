@@ -13,4 +13,5 @@ type Snapshot struct {
 	UpdatedAt   time.Time
 	State       State
 	Metadata    map[string]string
+	ImageSource ImageSource
 }

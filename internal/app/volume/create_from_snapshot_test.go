@@ -73,7 +73,15 @@ func TestCreateFromSnapshotPreservesSizeAndProvenance(t *testing.T) {
 	now = now.Add(time.Minute)
 	require.NoError(t, service.CompleteCreation(defaultSize.ID))
 	require.NoError(t, service.SetFailed(larger.ID, true))
+	require.NoError(t, service.SetBootable(seed.ProjectID, sameSize.ID, true))
 	require.NoError(t, service.DeleteSnapshot(seed.ProjectID, snapshot.ID))
+	assert.ErrorIs(t, service.CompleteCreation(sameSize.ID), app.ErrVolumeStateConflict)
+	missingSource, err := service.Get(seed.ProjectID, sameSize.ID)
+	require.NoError(t, err)
+	assert.Equal(t, domain.StateError, missingSource.State)
+	assert.Equal(t, snapshot.ID, missingSource.SnapshotID)
+	assert.True(t, missingSource.Bootable)
+	assert.False(t, missingSource.ImageMetadataReady)
 	completed, err := service.Get(seed.ProjectID, defaultSize.ID)
 	require.NoError(t, err)
 	assert.Equal(t, domain.StateAvailable, completed.State)
@@ -102,4 +110,66 @@ func TestCreateFromSnapshotRejectsFailedSnapshot(t *testing.T) {
 
 	_, err = service.CreateFromSnapshot(seed.ProjectID, snapshot.ID, "", "", 0)
 	assert.ErrorIs(t, err, app.ErrSnapshotStateConflict)
+}
+
+func TestRestoreUsesCapturedImageSourceAndLiveOriginalBootability(t *testing.T) {
+	seed := domain.Volume{
+		ID: fixtureID, ProjectID: "project", Size: 5, State: domain.StateAvailable,
+		Bootable: true, ImageMetadataReady: true, ImageSource: domain.ImageSource{ID: "image", Name: "origin"},
+	}
+	id := 32
+	service := app.New(seed, time.Now, func() string {
+		id++
+		return fmt.Sprintf("%08x-0000-4000-8000-000000000000", id)
+	})
+	require.NoError(t, service.SetUnavailableDetail(seed.ID, true))
+	snapshot, err := service.CreateSnapshot(seed.ProjectID, seed.ID, app.SnapshotCreateOptions{})
+	require.NoError(t, err)
+	assert.Empty(t, snapshot.ImageSource)
+	require.NoError(t, service.FinishSnapshotCreation(snapshot.ID, false))
+	snapshot, err = service.GetSnapshot(seed.ProjectID, snapshot.ID)
+	require.NoError(t, err)
+	assert.Equal(t, seed.ImageSource, snapshot.ImageSource)
+
+	fromBootable, err := service.CreateFromSnapshot(seed.ProjectID, snapshot.ID, "bootable", "", 0)
+	require.NoError(t, err)
+	assert.False(t, fromBootable.Bootable)
+	assert.False(t, fromBootable.ImageMetadataReady)
+	require.NoError(t, service.CompleteCreation(fromBootable.ID))
+	available, err := service.Get(seed.ProjectID, fromBootable.ID)
+	require.NoError(t, err)
+	assert.True(t, available.Bootable)
+	assert.True(t, available.ImageMetadataReady)
+	assert.Equal(t, seed.ImageSource, available.ImageSource)
+
+	fromUnbootable, err := service.CreateFromSnapshot(seed.ProjectID, snapshot.ID, "manual bootable", "", 0)
+	require.NoError(t, err)
+	require.NoError(t, service.SetBootable(seed.ProjectID, seed.ID, false))
+	require.NoError(t, service.SetBootable(seed.ProjectID, fromUnbootable.ID, true))
+	require.NoError(t, service.CompleteCreation(fromUnbootable.ID))
+	manual, err := service.Get(seed.ProjectID, fromUnbootable.ID)
+	require.NoError(t, err)
+	assert.True(t, manual.Bootable)
+	assert.False(t, manual.ImageMetadataReady)
+	assert.Empty(t, manual.ImageSource)
+	_, err = service.Get(seed.ProjectID, seed.ID)
+	assert.ErrorIs(t, err, app.ErrDetailUnavailable)
+
+	withoutPublishedSource, err := service.CreateSnapshot(seed.ProjectID, seed.ID, app.SnapshotCreateOptions{})
+	require.NoError(t, err)
+	require.NoError(t, service.FinishSnapshotCreation(withoutPublishedSource.ID, false))
+	require.NoError(t, service.SetBootable(seed.ProjectID, seed.ID, true))
+	withoutSource, err := service.CreateFromSnapshot(seed.ProjectID, withoutPublishedSource.ID, "no metadata", "", 0)
+	require.NoError(t, err)
+	require.NoError(t, service.CompleteCreation(withoutSource.ID))
+	current, err := service.Get(seed.ProjectID, withoutSource.ID)
+	require.NoError(t, err)
+	assert.True(t, current.Bootable)
+	assert.False(t, current.ImageMetadataReady)
+	assert.Empty(t, current.ImageSource)
+
+	require.NoError(t, service.DeleteSnapshot(seed.ProjectID, snapshot.ID))
+	current, err = service.Get(seed.ProjectID, fromBootable.ID)
+	require.NoError(t, err)
+	assert.Equal(t, available, current)
 }

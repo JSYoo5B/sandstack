@@ -229,6 +229,12 @@ func (s *Service) FinishSnapshotCreation(snapshotID string, failed bool) error {
 	if snapshot.State != domain.StateCreating {
 		return ErrSnapshotStateConflict
 	}
+	if !failed {
+		original := s.volumes[snapshot.VolumeID]
+		if original.Bootable && original.ImageMetadataReady {
+			snapshot.ImageSource = original.ImageSource
+		}
+	}
 	snapshot.UpdatedAt = s.now().UTC()
 	snapshot.State = state
 	s.snapshots[snapshotID] = snapshot

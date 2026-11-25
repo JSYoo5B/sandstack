@@ -63,6 +63,20 @@ the new volume or simulate a provisioning failure. The new volume keeps
 its `snapshot_id` in either outcome. This scenario models provisioning and
 source metadata.
 
+For a bootable source volume, the snapshot captures its published Glance
+metadata when snapshot provisioning succeeds. The historical Cinder
+v3.0 restore starts with `bootable: "false"`. Successful volume
+provisioning checks the original volume's current bootable flag. If it
+is set, the restored volume becomes bootable and exposes the image
+metadata captured on the snapshot. Snapshot and volume user metadata
+remain independent. See the [Cinder snapshot image metadata copy] and
+[Cinder snapshot restore worker].
+
+If the snapshot is deleted while the restore is pending, the
+provisioning control returns `409` and the restore enters `error`.
+A completed restore retains its source ID and image metadata after
+snapshot deletion. See the [Cinder restore worker failure].
+
 ## Clone an existing volume
 
 Pass an `available` or `in-use` volume from the same project as
@@ -104,5 +118,8 @@ source and size validation.
 [Cinder image metadata lookup]: https://github.com/openstack/cinder/blob/10.0.0/cinder/db/sqlalchemy/api.py#L4341-L4355
 [Gophercloud volume create options]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/blockstorage/v3/volumes/requests.go#L105-L164
 [Cinder snapshot lookup]: https://github.com/openstack/cinder/blob/master/cinder/api/v3/volumes.py#L369-L375
+[Cinder snapshot image metadata copy]: https://github.com/openstack/cinder/blob/10.0.0/cinder/volume/manager.py#L883-L913
+[Cinder snapshot restore worker]: https://github.com/openstack/cinder/blob/10.0.0/cinder/volume/flows/manager/create_volume.py#L446-L477
+[Cinder restore worker failure]: https://github.com/openstack/cinder/blob/10.0.0/cinder/volume/flows/manager/create_volume.py#L76-L90
 [Cinder size default]: https://github.com/openstack/cinder/blob/master/cinder/api/v3/volumes.py#L408-L414
 [Cinder volume creation flow]: https://github.com/openstack/cinder/blob/master/cinder/volume/flows/api/create_volume.py#L127-L205

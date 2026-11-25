@@ -126,18 +126,36 @@ func (s *Service) CompleteCreation(volumeID string) error {
 	}
 	switch volume.State {
 	case domain.StateCreating:
-		if volume.ImageSource.ID != "" {
-			volume.ImageMetadataReady = true
-		}
-		if volume.BootableOnProvision {
-			volume.Bootable = true
+		if err := s.finishProvisioning(&volume); err != nil {
 			volume.BootableOnProvision = false
+			s.updateState(volume, domain.StateError)
+			return err
 		}
 		s.updateState(volume, domain.StateAvailable)
 	case domain.StateAvailable:
 		return nil
 	default:
 		return ErrVolumeStateConflict
+	}
+	return nil
+}
+
+// finishProvisioning applies bootability and publishes image metadata with the write lock held.
+func (s *Service) finishProvisioning(volume *domain.Volume) error {
+	if volume.SnapshotID != "" {
+		snapshot, found := s.snapshots[volume.SnapshotID]
+		if !found {
+			return ErrVolumeStateConflict
+		}
+		if original := s.volumes[snapshot.VolumeID]; original.Bootable {
+			volume.Bootable = true
+			volume.ImageSource = snapshot.ImageSource
+		}
+	}
+	volume.ImageMetadataReady = volume.ImageSource.ID != ""
+	if volume.BootableOnProvision {
+		volume.Bootable = true
+		volume.BootableOnProvision = false
 	}
 	return nil
 }
