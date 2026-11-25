@@ -60,50 +60,15 @@ detail outage is set. See the [Nova update response].
 
 ## Read and replace server metadata
 
-Use `servers.Metadata` and `servers.ResetMetadata` in Gophercloud v2.15.0.
-These send `GET` and `PUT` to `/servers/{server_id}/metadata`. Both return
-`200` with a `metadata` object. Use `servers.MetadataOpts{}` to clear all
-keys. A nil map is sent as JSON `null` and returns `400`. See the [Nova
-metadata reference], [Nova metadata schema], and [Gophercloud metadata
-operations].
-
-Keys contain 1 to 255 ASCII letters, digits, spaces, or `-_.:`. Values are
-strings of up to 255 characters, including empty strings. SandStack uses
-Nova's default limit of 128 entries per server. Exceeding it returns
-`403` and preserves the existing map. See the [Nova metadata quota].
-
-Read metadata in any fixture state. Replace it while the server is
-`ACTIVE` or `SHUTOFF`. A replacement while the server reports an injected
-`ERROR` returns `409`. Use the detailed list or ordinary detail to read
-the same metadata fields. A stale detail snapshot keeps the earlier map.
-The metadata endpoint operates on live state and leaves a scheduled
-detail failure pending. SandStack updates the server timestamp when the
-map changes. See the [Nova metadata state checks].
+See [Read and replace server metadata](compute-metadata.md#read-and-replace-server-metadata).
 
 ### Merge server metadata
 
-Use `servers.UpdateMetadata` with `servers.MetadataOpts` to add or
-update selected keys. It sends `POST /servers/{server_id}/metadata` and
-returns `200` with the full resulting map. Existing keys omitted from the
-request retain their values. An empty object keeps the current map.
-The same state and validation rules apply, and the quota applies to the
-result after merging. See the [Nova metadata merge reference] and
-[Gophercloud metadata merge operation].
+See [Merge server metadata](compute-metadata.md#merge-server-metadata).
 
 ### Use an individual metadata item
 
-Use `servers.CreateMetadatum`, `servers.Metadatum`, and
-`servers.DeleteMetadatum` for `PUT`, `GET`, and `DELETE` on
-`/servers/{server_id}/metadata/{key}`. A successful `GET` or `PUT`
-returns `200` with a single-pair `meta` object. The key in the `PUT`
-body must match the decoded URL key. It adds or replaces only that item
-and follows the same state and quota rules as a collection update.
-
-A missing item returns `404` on `GET` or `DELETE`. An accepted `DELETE`
-returns `204` with an empty body and leaves the server timestamp intact.
-Deleting an existing item while the server reports an injected `ERROR`
-returns `409`. See the [Nova metadata item operations] and [Gophercloud
-metadata item operations].
+See [Use an individual metadata item](compute-metadata.md#use-an-individual-metadata-item).
 
 ## Stop and start a server
 
@@ -175,77 +140,21 @@ array. Gophercloud reads the field as `Server.AttachedVolumes`. See the
 
 ## Inject and clear an instance fault
 
-The server initially reports `ACTIVE`. Send a `PUT` with the SandStack admin
-token to set its fault state.
-
-```sh
-server_id=d8ba25c2-8224-4e09-88ef-fab16c654770
-fault_url="http://127.0.0.1:8080/_sandstack/compute/servers/${server_id}/fault"
-curl --fail -X PUT -H "X-SandStack-Admin-Token: ${SANDSTACK_ADMIN_TOKEN}" "$fault_url"
-```
-
-The control returns `204`. The server detail and the `ERROR` list now show
-an instance fault with code `500`, a message, and its creation time. The
-`ACTIVE` list is empty. Repeating the control preserves the current fault.
-Send `DELETE` to the same URL to remove the fault and reveal the current
-power state. Injecting and clearing an instance fault on a stopped server
-shows `ERROR` and then `SHUTOFF`.
+See [Inject and clear an instance fault](compute-faults.md#inject-and-clear-an-instance-fault).
 
 ## Make a detail read stale
 
-Start with an `ACTIVE` server. Send `PUT` to the `stale-detail` control to
-capture its current detail, then inject the instance fault.
-
-```sh
-stale_url="${fault_url%/fault}/stale-detail"
-curl --fail -X PUT -H "X-SandStack-Admin-Token: ${SANDSTACK_ADMIN_TOKEN}" "$stale_url"
-curl --fail -X PUT -H "X-SandStack-Admin-Token: ${SANDSTACK_ADMIN_TOKEN}" "$fault_url"
-```
-
-Both controls return `204`. `GET /servers/{server_id}` keeps returning the
-captured `ACTIVE` detail, including its original timestamp. The detailed
-list shows `ERROR` and the current instance fault. Repeating `PUT` on
-`stale-detail` keeps the original snapshot. Send `DELETE` to `stale-detail`
-to resume live detail reads. The live fault can then be cleared separately.
-
-The snapshot also retains the attached volume IDs. Capture an unattached
-server and then attach a volume to exercise a stale read. The detail still
-shows an empty array, while the detailed list and standalone attachment
-endpoints show the new attachment. Clearing `stale-detail` exposes the
-current attachment IDs in the detail response.
+See [Make a detail read stale](compute-faults.md#make-a-detail-read-stale).
 
 ## Fail the next detail read
 
-Use a one-shot outage to exercise a client's retry after HTTP `503`. Send
-`PUT` to the `unavailable-detail` control for the listed server ID.
-
-```sh
-outage_url="${fault_url%/fault}/unavailable-detail"
-curl --fail -X PUT -H "X-SandStack-Admin-Token: ${SANDSTACK_ADMIN_TOKEN}" "$outage_url"
-```
-
-The next authorized detail request for that server receives `503` with a
-`serviceUnavailable` error. A retry reads the same server state with the
-same token. List requests and rejected detail requests leave the outage
-pending. Repeating `PUT` while the outage is pending keeps one failure
-scheduled. `DELETE` or a [sandbox reset](reset.md) clears it.
-
-An active stale-detail snapshot is used on retry after the outage is
-consumed.
-
-Inspect [recent requests](requests.md) to check that the attempted detail
-read received `503` before the same route returned `200`.
+See [Fail the next detail read](compute-faults.md#fail-the-next-detail-read).
 
 ## Verification
 
-Run `go test ./...` to check catalog discovery and the `ACTIVE` → `ERROR` →
-`ACTIVE` sequence through Gophercloud. The stale-detail test also checks
-that list and detail diverge while the snapshot is active and agree after
-it is cleared. The transient-outage test verifies one failure followed by
-recovery. The attachment tests check both Nova and Cinder through the SDK
-and verify the status codes and response fields directly over HTTP. They
-also check the attached volume IDs in server detail and detailed list
-through attach, detach, and stale snapshot recovery.
+Run `go test ./...` to check catalog discovery and fixture operations
+through Gophercloud. The attachment tests verify the same volume in
+Nova and Cinder and check the HTTP response fields.
 The stopped-server attachment scenario checks that Cinder reports
 `in-use` while the Nova server stays `SHUTOFF`.
 The power cycle tests exercise stop and start through Gophercloud and
@@ -258,13 +167,10 @@ The rename tests compare the Nova v2.1 update response with SDK detail and
 list reads and check that a pending detail outage still fires.
 The name filter test uses Gophercloud to find the renamed fixture and
 checks the intersection with the status filter.
-The metadata tests use the SDK to exercise replacement and clearing.
-Raw HTTP checks cover the metadata envelope, invalid requests, and quota.
 The flavor test follows the SDK server's flavor ID and checks the v2.1
 swap and link fields over HTTP.
-The raw HTTP checks use the [Compute list reference],
-[Compute detail reference], [Compute fault guide], and [Nova fault response]
-for the OpenStack response shapes.
+The raw HTTP checks follow the [Compute list reference] and
+[Compute detail reference] for the OpenStack response shapes.
 
 [Compute list reference]: https://docs.openstack.org/api-ref/compute/#list-servers-detailed
 [Gophercloud list options]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/compute/v2/servers/requests.go#L42-L55
@@ -272,8 +178,6 @@ for the OpenStack response shapes.
 [Nova flavor reference]: https://docs.openstack.org/api-ref/compute/#show-flavor-details
 [Nova flavor response]: https://github.com/openstack/nova/blob/master/nova/api/openstack/compute/views/flavors.py#L39-L68
 [Gophercloud flavor lookup]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/compute/v2/flavors/requests.go#L191-L197
-[Compute fault guide]: https://docs.openstack.org/api-guide/compute/faults.html
-[Nova fault response]: https://github.com/openstack/nova/blob/master/nova/api/openstack/wsgi.py
 [Nova stop reference]: https://docs.openstack.org/api-ref/compute/#stop-server-os-stop-action
 [Nova start reference]: https://docs.openstack.org/api-ref/compute/#start-server-os-start-action
 [Nova update reference]: https://docs.openstack.org/api-ref/compute/#update-server
@@ -281,15 +185,6 @@ for the OpenStack response shapes.
 [Nova name validation]: https://github.com/openstack/nova/blob/master/nova/api/validation/parameter_types.py#L73-L87
 [Gophercloud update options]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/compute/v2/servers/requests.go#L639-L681
 [Nova update response]: https://github.com/openstack/nova/blob/master/nova/api/openstack/compute/servers.py#L955-L994
-[Nova metadata reference]: https://docs.openstack.org/api-ref/compute/#server-metadata-servers-metadata
-[Nova metadata merge reference]: https://docs.openstack.org/api-ref/compute/#create-or-update-metadata-items
-[Nova metadata schema]: https://github.com/openstack/nova/blob/master/nova/api/openstack/compute/schemas/server_metadata.py#L42-L49
-[Nova metadata state checks]: https://github.com/openstack/nova/blob/master/nova/compute/api.py#L5091-L5122
-[Nova metadata quota]: https://docs.openstack.org/nova/latest/configuration/config.html#quota.metadata_items
-[Gophercloud metadata operations]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/compute/v2/servers/requests.go#L886-L930
-[Gophercloud metadata merge operation]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/compute/v2/servers/requests.go#L934-L949
-[Nova metadata item operations]: https://github.com/openstack/nova/blob/master/nova/api/openstack/compute/server_metadata.py#L73-L152
-[Gophercloud metadata item operations]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/compute/v2/servers/requests.go#L951-L1007
 [Nova reboot reference]: https://docs.openstack.org/api-ref/compute/#reboot-server-reboot-action
 [Nova reboot schema]: https://github.com/openstack/nova/blob/master/nova/api/openstack/compute/schemas/servers.py#L495-L512
 [Nova reboot state checks]: https://github.com/openstack/nova/blob/master/nova/compute/vm_states.py#L62-L67
