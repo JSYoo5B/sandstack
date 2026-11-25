@@ -165,18 +165,25 @@ its previous configuration. See the [Neutron gateway update].
 ### Filter the subnet list
 
 `GET /network/v2.0/subnets` lists subnets in the token's project. Filter
-by `name`, `network_id`, `cidr`, or `enable_dhcp`. A repeated key matches
-any of its values. Different keys must all match, and an omitted key leaves
-that field unrestricted. Supply CIDRs as an address and prefix length.
-For a subnet with CIDR `192.0.2.0/24`, `192.0.2.0/24` matches and
+by `id`, `name`, `network_id`, `cidr`, `gateway_ip`, or `enable_dhcp`. A
+repeated key matches any of its values. Different keys must all match,
+and an omitted key leaves that field unrestricted. Supply CIDRs as an
+address and prefix length. For a subnet with CIDR `192.0.2.0/24`,
+`192.0.2.0/24` matches and
 `192.0.2.10/24` returns no match. SandStack returns `400` for unsupported
 query keys and invalid CIDR or DHCP filter values. See the
-[subnet list reference], [Neutron filter parser], and [Neutron query filters].
+[subnet list reference], [Neutron subnet schema], [Neutron filter parser],
+and [Neutron query filters].
 
-In Gophercloud v2.15.0, pass `Name`, `NetworkID`, `CIDR`, or `EnableDHCP`
-in `subnets.ListOpts` to `subnets.List`. Set `EnableDHCP` to a pointer to
-`false` to select subnets with DHCP disabled. Leave the pointer nil to
-include both DHCP states. See the [Gophercloud subnet options].
+The `id` and `gateway_ip` filters match exact values. Gateway updates
+take effect in the next list request. Malformed IDs and addresses that
+decode successfully return no matches, as do empty values and the
+literal `null`. To include subnets with no gateway, omit `gateway_ip`.
+
+In Gophercloud v2.15.0, pass `ID`, `Name`, `NetworkID`, `CIDR`, `GatewayIP`,
+or `EnableDHCP` in `subnets.ListOpts` to `subnets.List`. Set `EnableDHCP`
+to a pointer to `false` to select subnets with DHCP disabled. Leave the
+pointer nil to include both DHCP states. See the [Gophercloud subnet options].
 
 ### Update subnet metadata
 

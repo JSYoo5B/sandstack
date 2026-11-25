@@ -151,16 +151,22 @@ func (s *Service) UpdateSubnet(projectID, subnetID string, changes SubnetUpdate)
 }
 
 type SubnetListFilter struct {
+	IDs        []string
 	Names      []string
 	NetworkIDs []string
 	CIDRs      []netip.Prefix
+	GatewayIPs []string
 	DHCPStates []bool
 }
 
 func (f SubnetListFilter) matches(subnet domain.Subnet) bool {
-	return (len(f.Names) == 0 || slices.Contains(f.Names, subnet.Name)) &&
+	gatewayMatches := len(f.GatewayIPs) == 0 ||
+		(subnet.Gateway.IsValid() && slices.Contains(f.GatewayIPs, subnet.Gateway.String()))
+	return (len(f.IDs) == 0 || slices.Contains(f.IDs, subnet.ID)) &&
+		(len(f.Names) == 0 || slices.Contains(f.Names, subnet.Name)) &&
 		(len(f.NetworkIDs) == 0 || slices.Contains(f.NetworkIDs, subnet.NetworkID)) &&
 		(len(f.CIDRs) == 0 || slices.Contains(f.CIDRs, subnet.CIDR)) &&
+		gatewayMatches &&
 		(len(f.DHCPStates) == 0 || slices.Contains(f.DHCPStates, subnet.EnableDHCP))
 }
 

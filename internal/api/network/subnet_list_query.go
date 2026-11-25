@@ -18,16 +18,18 @@ func parseSubnetListQuery(rawQuery string) (app.SubnetListFilter, error) {
 	}
 	for field := range query {
 		switch field {
-		case "name", "network_id", "cidr", "enable_dhcp":
+		case "id", "name", "network_id", "cidr", "gateway_ip", "enable_dhcp":
 		default:
 			return app.SubnetListFilter{}, errors.New(
-				"subnet lists accept only name, network_id, cidr, and enable_dhcp query parameters",
+				"subnet lists accept only id, name, network_id, cidr, gateway_ip, and enable_dhcp query parameters",
 			)
 		}
 	}
 	filter := app.SubnetListFilter{
+		IDs:        query["id"],
 		Names:      query["name"],
 		NetworkIDs: query["network_id"],
+		GatewayIPs: query["gateway_ip"],
 	}
 	for _, value := range query["cidr"] {
 		prefix, err := netip.ParsePrefix(value)
