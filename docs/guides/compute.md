@@ -49,14 +49,16 @@ attachment. Use `volumeattach.List` and `volumeattach.Get` to read the
 collection and a particular attachment. At Nova v2.1 the attachment `id`
 and the last segment of the item URL are the volume ID.
 
-The server must be `ACTIVE` to attach. Each volume can have one attachment.
+The fixture server must be `ACTIVE` or `SHUTOFF` to attach. See the
+[Nova attachment state checks]. Each volume can have one attachment.
 The device can be `/dev/vdb` through `/dev/vdz`. Omitting it picks the first
-free device on the server. An unavailable volume, faulted server, or
-occupied device returns `409`. Server and volume IDs are scoped to the
+free device on the server. An unavailable volume, server reporting `ERROR`,
+or occupied device returns `409`. Server and volume IDs are scoped to the
 authenticated project.
 
-The fixture completes attachment immediately and shows the corresponding
-`in-use` state in Cinder. `volumeattach.Delete` returns `202` and removes
+The fixture completes attachment immediately in either supported state and
+shows the corresponding `in-use` state in Cinder. A stopped server stays
+`SHUTOFF` after attachment. `volumeattach.Delete` returns `202` and removes
 the attachment immediately, making the volume `available` again. Existing
 attachments remain readable and detachable while the server reports `ERROR`.
 Attachment operations leave server detail faults pending. Reset clears the
@@ -141,6 +143,8 @@ recovery. The attachment tests check both Nova and Cinder through the SDK
 and verify the status codes and response fields directly over HTTP. They
 also check the attached volume IDs in server detail and detailed list
 through attach, detach, and stale snapshot recovery.
+The stopped-server attachment scenario checks that Cinder reports
+`in-use` while the Nova server stays `SHUTOFF`.
 The power cycle tests exercise stop and start through Gophercloud and
 check the stopped server state, unchanged attachments, and wrong-state
 conflicts. The [Nova stop reference] and [Nova start reference] describe
@@ -157,4 +161,5 @@ for the OpenStack response shapes.
 [Nova start reference]: https://docs.openstack.org/api-ref/compute/#start-server-os-start-action
 [Gophercloud server actions]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/compute/v2/servers/requests.go#L1379-L1391
 [Nova volume attachment reference]: https://docs.openstack.org/api-ref/compute/#attach-a-volume-to-an-instance
+[Nova attachment state checks]: https://github.com/openstack/nova/blob/master/nova/compute/api.py#L4786-L4796
 [Nova attachment representation]: https://github.com/openstack/nova/blob/master/nova/api/openstack/compute/views/servers.py#L709-L727

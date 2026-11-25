@@ -7,7 +7,7 @@ import (
 	volumedomain "github.com/JSYoo5B/sandstack/internal/domain/volume"
 )
 
-var ErrServerAttachmentState = errors.New("volume attachment requires an active server")
+var ErrServerAttachmentState = errors.New("volume attachment requires an active or stopped server")
 
 type attachmentVolumes interface {
 	attachmentLookup
@@ -34,7 +34,8 @@ func (a *Attachments) Attach(projectID, serverID, volumeID, device string) (volu
 	// Hold the live server state steady until the volume mutation completes.
 	a.compute.mu.RLock()
 	defer a.compute.mu.RUnlock()
-	if a.compute.server.Status() != computedomain.StatusActive {
+	status := a.compute.server.Status()
+	if status != computedomain.StatusActive && status != computedomain.StatusShutoff {
 		return volumedomain.Attachment{}, ErrServerAttachmentState
 	}
 	return a.volumes.Attach(projectID, serverID, volumeID, device)
