@@ -39,6 +39,10 @@ type securityGroupRuleBody struct {
 	NormalizedCIDR       *string `json:"normalized_cidr"`
 }
 
+type securityGroupResponse struct {
+	Group securityGroupBody `json:"security_group"`
+}
+
 func (h handler) listSecurityGroups(w http.ResponseWriter, r *http.Request, projectID string) {
 	query, err := url.ParseQuery(r.URL.RawQuery)
 	if err != nil {
@@ -77,9 +81,7 @@ func (h handler) showSecurityGroup(w http.ResponseWriter, r *http.Request, proje
 	case err != nil:
 		writeError(w, http.StatusInternalServerError, "NeutronError", "Unable to read the security group.")
 	default:
-		writeJSON(w, http.StatusOK, struct {
-			Group securityGroupBody `json:"security_group"`
-		}{Group: describeSecurityGroup(group)})
+		writeJSON(w, http.StatusOK, securityGroupResponse{Group: describeSecurityGroup(group)})
 	}
 }
 

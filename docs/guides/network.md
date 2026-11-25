@@ -38,6 +38,24 @@ aliases are supplied, `project_id` takes precedence. A list with no
 matches returns `200` with an empty `security_groups` array. A missing
 group returns `404` on detail. See the [Gophercloud group operations].
 
+## Create and delete a security group
+
+Use `groups.Create` with a name and optional description. The project
+token determines ownership. The request returns `201` with a
+`security_group` object containing one unrestricted IPv4 egress rule
+and one unrestricted IPv6 egress rule. The group is stateful by default.
+Pass a pointer to `false` in `groups.CreateOpts.Stateful` for a stateless
+group. A raw `security_group` object can omit the name and description,
+which default to empty strings. See the [Neutron custom group creation
+tests] and [Gophercloud group operations].
+
+Ordinary names can repeat and each create receives a distinct ID.
+The name `default` is reserved regardless of case and returns `409`.
+Use `groups.Delete` to remove a custom group and its rules. It returns
+`204` with an empty body. Group detail returns `404` after deletion.
+Deleting the project's default group with the project token returns
+`409`. See the [Neutron group name tests] and [Neutron group deletion].
+
 ## Create a network
 
 Send a `network` object with `name` and `admin_state_up` as needed. A name
@@ -151,6 +169,8 @@ The HTTP tests use the [Neutron filtering reference], [Neutron list reference],
 [Neutron delete reference]. Network update tests check partial updates and
 how administrative changes and outages affect later reads. See the
 [Neutron update reference].
+The security group tests exercise SDK discovery, custom creation and
+deletion, rule defaults, and project scoping over HTTP.
 
 [Neutron filtering reference]: https://docs.openstack.org/api-ref/network/v2/#filtering-and-column-selection
 [Neutron list reference]: https://docs.openstack.org/api-ref/network/v2/#list-networks
@@ -166,3 +186,6 @@ how administrative changes and outages affect later reads. See the
 [Neutron default group]: https://github.com/openstack/neutron/blob/ba84fbf374cc7f5055eb2ff4ebc34d2a19cbbc3d/neutron/db/securitygroups_db.py#L166-L231
 [Neutron default rule templates]: https://github.com/openstack/neutron/blob/ba84fbf374cc7f5055eb2ff4ebc34d2a19cbbc3d/neutron/db/migration/alembic_migrations/versions/2023.2/expand/c33da356b165_security_group_default_rules.py#L35-L78
 [Gophercloud group operations]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/networking/v2/extensions/security/groups/requests.go
+[Neutron custom group creation tests]: https://github.com/openstack/neutron/blob/ba84fbf374cc7f5055eb2ff4ebc34d2a19cbbc3d/neutron/tests/unit/extensions/test_securitygroup.py#L338-L377
+[Neutron group name tests]: https://github.com/openstack/neutron/blob/ba84fbf374cc7f5055eb2ff4ebc34d2a19cbbc3d/neutron/tests/unit/extensions/test_securitygroup.py#L515-L545
+[Neutron group deletion]: https://github.com/openstack/neutron/blob/ba84fbf374cc7f5055eb2ff4ebc34d2a19cbbc3d/neutron/db/securitygroups_db.py#L261-L300
