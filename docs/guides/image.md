@@ -27,6 +27,28 @@ single-image fixture returns one page. SandStack accepts one value each
 for `name` and `status`. Repeated values, other query keys, and operators
 other than `eq:` return `400`. See the [Glance image list serializer].
 
+## Rename the fixture image
+
+Use `PATCH /image/v2/images/{image_id}` with the owning project's token.
+The sandbox accepts `Content-Type: application/openstack-images-v2.1-json-patch`
+and a patch array with one `replace` operation for `/name`. The `value`
+must be a string of at most 255 characters. An unsupported media type
+returns `415` with `Accept-Patch` advertising the supported type. See the
+[Glance update reference] and [Glance patch media-type handling].
+
+Gophercloud v2.15.0 sets the media type when you call `images.Update`.
+
+```go
+image, err := images.Update(ctx, client, imageID, images.UpdateOpts{
+    images.ReplaceImageName{NewName: "renamed-fixture-image"},
+}).Extract()
+```
+
+The response is `200` with the full image representation. Subsequent
+`images.Get` and `images.List` show the new name. The image ID, activation
+status, and file data stay the same. SandStack supports just this name
+replacement. See the [Glance update serializer] and [Gophercloud image update].
+
 ## Download the fixture image
 
 Use Gophercloud's `imagedata.Download(ctx, client, imageID).Extract()` to
@@ -109,6 +131,8 @@ headers of a partial response and the rejection statuses. See the
 [Glance download reference].
 The list tests exercise exact filters and the live activation state
 through Gophercloud and check the HTTP response shape and query errors.
+The rename tests follow the new name through detail and filtered list
+reads and check media-type negotiation over HTTP.
 
 [Glance discovery reference]: https://docs.openstack.org/api-ref/image/versions/index.html
 [Glance image reference]: https://docs.openstack.org/api-ref/image/v2/#show-image
@@ -116,6 +140,10 @@ through Gophercloud and check the HTTP response shape and query errors.
 [Glance image list serializer]: https://github.com/openstack/glance/blob/master/glance/api/v2/images.py#L1697-L1713
 [Glance image list filters]: https://github.com/openstack/glance/blob/master/glance/db/sqlalchemy/api.py#L508-L524
 [Gophercloud image list options]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/image/v2/images/requests.go#L25-L59
+[Glance update reference]: https://docs.openstack.org/api-ref/image/v2/#update-image
+[Glance patch media-type handling]: https://github.com/openstack/glance/blob/master/glance/api/v2/images.py#L1380-L1395
+[Glance update serializer]: https://github.com/openstack/glance/blob/master/glance/api/v2/images.py#L1693-L1696
+[Gophercloud image update]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/image/v2/images/requests.go#L236-L248
 [Glance download reference]: https://docs.openstack.org/api-ref/image/v2/#download-binary-image-data
 [Glance download policy]: https://github.com/openstack/glance/blob/master/glance/api/v2/image_data.py#L442-L459
 [Glance range parser]: https://github.com/openstack/glance/blob/master/glance/common/wsgi.py#L292-L314

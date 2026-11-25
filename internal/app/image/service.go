@@ -45,6 +45,20 @@ func (s *Service) Get(projectID, imageID string) (domain.Image, error) {
 	return s.image, nil
 }
 
+func (s *Service) Rename(projectID, imageID, name string) (domain.Image, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if projectID != s.image.ProjectID || imageID != s.image.ID {
+		return domain.Image{}, ErrImageNotFound
+	}
+	if s.image.Name != name {
+		s.image.Name = name
+		s.image.UpdatedAt = s.now().UTC()
+	}
+	return s.image, nil
+}
+
 type ListFilter struct {
 	Name   *string
 	Status *string
