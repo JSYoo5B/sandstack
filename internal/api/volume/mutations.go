@@ -9,6 +9,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	app "github.com/JSYoo5B/sandstack/internal/app/volume"
+	domain "github.com/JSYoo5B/sandstack/internal/domain/volume"
 )
 
 const maxCreateBody = 64 * 1024
@@ -45,11 +46,20 @@ func (h handler) createVolume(w http.ResponseWriter, r *http.Request, projectID 
 		return
 	}
 
-	volume, err := h.service.Create(projectID, params.name, params.description, params.size)
+	var volume domain.Volume
+	if params.snapshotID == "" {
+		volume, err = h.service.Create(projectID, params.name, params.description, params.size)
+	} else {
+		volume, err = h.service.CreateFromSnapshot(projectID, params.snapshotID, params.name, params.description, params.size)
+	}
 	switch {
 	case errors.Is(err, app.ErrVolumeNotFound):
 		writeFault(w, http.StatusNotFound, "itemNotFound", "The volume project could not be found.")
-	case errors.Is(err, app.ErrInvalidVolumeSize):
+	case errors.Is(err, app.ErrSnapshotNotFound):
+		writeFault(w, http.StatusNotFound, "itemNotFound", "The source snapshot could not be found.")
+	case errors.Is(err, app.ErrSnapshotStateConflict):
+		writeFault(w, http.StatusBadRequest, "badRequest", "The source snapshot must be available.")
+	case errors.Is(err, app.ErrInvalidVolumeSize), errors.Is(err, app.ErrVolumeSmallerThanSnapshot):
 		writeFault(w, http.StatusBadRequest, "badRequest", err.Error())
 	case err != nil:
 		writeFault(w, http.StatusInternalServerError, "computeFault", "Unable to create the volume.")

@@ -17,6 +17,7 @@ type Volume struct {
 	Description string
 	ProjectID   string
 	UserID      string
+	SnapshotID  string
 	Size        int
 	CreatedAt   time.Time
 	UpdatedAt   time.Time

@@ -4,15 +4,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"regexp"
 	"strings"
 	"unicode/utf8"
 )
 
-var (
-	errInvalidSnapshotObject = errors.New("expected one snapshot object with valid fields")
-	snapshotVolumeUUID       = regexp.MustCompile(`^[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}$`)
-)
+var errInvalidSnapshotObject = errors.New("expected one snapshot object with valid fields")
 
 type createSnapshotParams struct {
 	volumeID    string
@@ -55,7 +51,7 @@ func parseCreateSnapshot(data []byte) (createSnapshotParams, error) {
 			return createSnapshotParams{}, errInvalidSnapshotObject
 		}
 	}
-	if !snapshotVolumeUUID.MatchString(params.volumeID) {
+	if !resourceUUID.MatchString(params.volumeID) {
 		return createSnapshotParams{}, errors.New("snapshot volume_id must be a UUID")
 	}
 	params.name = strings.TrimSpace(params.name)

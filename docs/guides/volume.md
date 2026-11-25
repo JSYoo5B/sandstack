@@ -10,13 +10,14 @@ Use `volumes.List` for `GET /volumes/detail` and `volumes.Get` for
 The sandbox starts with an unattached `fixture-volume` of 1 GiB. The
 scenario uses baseline Cinder v3 metadata and unfiltered reads.
 
-## Create and provision a blank volume
+## Create and provision a volume
 
 Use `volumes.Create` for `POST /volumes` on the project endpoint. The
-`volume` object requires a positive size in GiB and accepts a name and
-description. The default type is `standard` and the availability zone is
-`nova`. The request returns `202` with a volume in status `creating`.
-Both reads show that status until the test drives an outcome.
+`volume` object accepts a name and description. For a blank volume, supply
+a positive integer size in GiB. The default type is `standard` and the
+availability zone is `nova`. The request returns `202` with a volume in
+status `creating`. Both reads show that status until the test drives an
+outcome.
 
 To make the volume available, take the ID from the create response and
 call the SandStack control with the admin token.
@@ -35,6 +36,23 @@ volume models provisioning in progress and receives `400`. Deleting an
 `available` or `error` volume returns `202` with an empty body. The volume
 is absent from subsequent reads. Reset discards created volumes and
 restores the initial fixture.
+
+## Create a volume from a snapshot
+
+Pass an `available` snapshot from the same project as `SnapshotID` in
+Gophercloud's `volumes.CreateOpts`. Leave `Size` unset to inherit the
+snapshot's size. A raw request can omit `size` or set it to JSON `null`.
+An explicit size must be an integer in GiB at least as large as the
+snapshot. A snapshot absent from the project returns `404`. A snapshot in
+`creating` or `error` status, or an undersized request, returns `400`.
+
+The `202` response contains a new volume in `creating` status. The create
+response, volume detail, and detailed list expose the new volume's size
+and the originating `snapshot_id`. Use the
+[volume provisioning controls](#create-and-provision-a-volume) to complete
+the new volume or simulate a provisioning failure. The new volume keeps
+its `snapshot_id` in either outcome. This scenario models provisioning and
+source metadata.
 
 ## Create and provision a volume snapshot
 
@@ -68,8 +86,8 @@ status or a source volume with any dependent snapshot returns `400`.
 [Reset the sandbox](reset.md) to discard the snapshots and restore the
 seeded volume.
 
-This scenario models the snapshot lifecycle in metadata. Volume creation
-uses the [blank-volume flow](#create-and-provision-a-blank-volume).
+This scenario models the snapshot lifecycle in metadata. Use an available
+snapshot to [create a new volume](#create-a-volume-from-a-snapshot).
 
 ## Read the attachment state
 
@@ -101,10 +119,14 @@ to restore the original values and timestamps.
 Run `go test ./...` to exercise discovery, creation, provisioning, volume
 reads, deletion, faults, and reset through Gophercloud. The snapshot tests
 exercise both provisioning outcomes and verify that deleting a dependent
-snapshot releases its source volume for deletion. The HTTP tests use the
+snapshot releases its source volume for deletion. Volume creation from a
+snapshot is checked for size inheritance, explicit larger sizes, source
+validation, and state transitions. The HTTP tests use the
 [create volume reference], [delete volume reference],
 [create snapshot reference], [snapshot details reference],
 [snapshot list reference], and [delete snapshot reference].
+The [Cinder snapshot lookup], [Cinder size default], and
+[Cinder volume creation flow] describe source and size validation.
 
 [create volume reference]: https://docs.openstack.org/api-ref/block-storage/v3/#create-a-volume
 [delete volume reference]: https://docs.openstack.org/api-ref/block-storage/v3/#delete-a-volume
@@ -113,3 +135,6 @@ snapshot releases its source volume for deletion. The HTTP tests use the
 [snapshot details reference]: https://docs.openstack.org/api-ref/block-storage/v3/#show-a-snapshot-s-details
 [snapshot list reference]: https://docs.openstack.org/api-ref/block-storage/v3/#list-snapshots-and-details
 [delete snapshot reference]: https://docs.openstack.org/api-ref/block-storage/v3/#delete-a-snapshot
+[Cinder snapshot lookup]: https://github.com/openstack/cinder/blob/master/cinder/api/v3/volumes.py#L369-L375
+[Cinder size default]: https://github.com/openstack/cinder/blob/master/cinder/api/v3/volumes.py#L408-L414
+[Cinder volume creation flow]: https://github.com/openstack/cinder/blob/master/cinder/volume/flows/api/create_volume.py#L127-L205

@@ -85,6 +85,7 @@ func (h handler) describeVolume(r *http.Request, volume domain.Volume) volumeBod
 		UpdatedAt:         optionalTimestamp(volume.UpdatedAt),
 		AvailabilityZone:  volumeZone,
 		VolumeType:        volumeType,
+		SnapshotID:        optionalText(volume.SnapshotID),
 		Attachments:       attachments,
 		Metadata:          map[string]string{},
 		Bootable:          "false",

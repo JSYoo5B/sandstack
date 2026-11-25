@@ -72,34 +72,6 @@ func (s *Service) List(projectID string) []domain.Volume {
 	return volumes
 }
 
-func (s *Service) Create(projectID, name, description string, size int) (domain.Volume, error) {
-	if s.seed.ProjectID != projectID {
-		return domain.Volume{}, ErrVolumeNotFound
-	}
-	if size <= 0 {
-		return domain.Volume{}, ErrInvalidVolumeSize
-	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	id, err := s.allocateID()
-	if err != nil {
-		return domain.Volume{}, err
-	}
-	volume := domain.Volume{
-		ID:          id,
-		Name:        name,
-		Description: description,
-		ProjectID:   projectID,
-		UserID:      s.seed.UserID,
-		Size:        size,
-		CreatedAt:   s.now().UTC(),
-		State:       domain.StateCreating,
-	}
-	s.volumes[id] = volume
-	return volume, nil
-}
-
 // allocateID runs with the service's write lock held.
 func (s *Service) allocateID() (string, error) {
 	if s.newID == nil {

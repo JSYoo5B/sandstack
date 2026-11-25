@@ -5,17 +5,22 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"regexp"
 	"strings"
 	"unicode/utf8"
 )
 
 const maxVolumeTextLength = 255
 
-var errInvalidVolumeObject = errors.New("expected one volume object with valid fields")
+var (
+	errInvalidVolumeObject = errors.New("expected one volume object with valid fields")
+	resourceUUID           = regexp.MustCompile(`^[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}$`)
+)
 
 type createVolumeParams struct {
 	name        string
 	description string
+	snapshotID  string
 	size        int
 }
 
@@ -34,17 +39,20 @@ func parseCreateVolume(data []byte) (createVolumeParams, error) {
 
 	var params createVolumeParams
 	var requestedType, requestedZone *string
+	var requestedSize *int
 	for field, value := range fields {
 		var target any
 		if bytes.Equal(value, []byte("null")) {
-			if field == "name" || field == "description" {
+			if field == "name" || field == "description" || field == "size" {
 				continue
 			}
 			return createVolumeParams{}, errInvalidVolumeObject
 		}
 		switch field {
 		case "size":
-			target = &params.size
+			target = &requestedSize
+		case "snapshot_id":
+			target = &params.snapshotID
 		case "name":
 			target = &params.name
 		case "description":
@@ -60,7 +68,18 @@ func parseCreateVolume(data []byte) (createVolumeParams, error) {
 			return createVolumeParams{}, errInvalidVolumeObject
 		}
 	}
-	if fields["size"] == nil {
+	if fields["snapshot_id"] != nil && !resourceUUID.MatchString(params.snapshotID) {
+		return createVolumeParams{}, errors.New("volume snapshot_id must be a UUID")
+	}
+	if requestedSize != nil {
+		if params.snapshotID != "" && *requestedSize <= 0 {
+			return createVolumeParams{}, errors.New("volume size must be positive")
+		}
+		params.size = *requestedSize
+	} else if params.snapshotID == "" {
+		if fields["size"] != nil {
+			return createVolumeParams{}, errInvalidVolumeObject
+		}
 		return createVolumeParams{}, errors.New("volume size is required")
 	}
 	if requestedType != nil && *requestedType != volumeType {
