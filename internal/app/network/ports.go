@@ -103,9 +103,11 @@ func (s *Service) GetPort(projectID, portID string) (domain.Port, error) {
 }
 
 type PortListFilter struct {
-	NetworkIDs   []string
-	DeviceIDs    []string
-	DeviceOwners []string
+	NetworkIDs     []string
+	DeviceIDs      []string
+	DeviceOwners   []string
+	FixedAddresses []string
+	FixedSubnetIDs []string
 }
 
 // ListPorts returns the project's matching ports ordered by ID.
@@ -116,7 +118,11 @@ func (s *Service) ListPorts(projectID string, filter PortListFilter) []domain.Po
 		if port.ProjectID == projectID &&
 			(len(filter.NetworkIDs) == 0 || slices.Contains(filter.NetworkIDs, port.NetworkID)) &&
 			(len(filter.DeviceIDs) == 0 || slices.Contains(filter.DeviceIDs, port.DeviceID)) &&
-			(len(filter.DeviceOwners) == 0 || slices.Contains(filter.DeviceOwners, port.DeviceOwner)) {
+			(len(filter.DeviceOwners) == 0 || slices.Contains(filter.DeviceOwners, port.DeviceOwner)) &&
+			(len(filter.FixedAddresses) == 0 ||
+				(port.FixedIP.IsValid() && slices.Contains(filter.FixedAddresses, port.FixedIP.String()))) &&
+			(len(filter.FixedSubnetIDs) == 0 ||
+				(port.SubnetID != "" && slices.Contains(filter.FixedSubnetIDs, port.SubnetID))) {
 			ports = append(ports, port)
 		}
 	}

@@ -92,6 +92,24 @@ Deleting an unbound port releases its IP. Network deletion returns
 `409` while ports remain on it. Subnet deletion returns `409` while a port
 holds an IP from it. Reset clears ports and their allocations.
 
+### Filter ports by fixed IP
+
+Use `ports.ListOpts.FixedIPs` with `ports.FixedIPOpts.IPAddress` or
+`SubnetID` to find ports with an exact address or subnet match. Gophercloud
+sends each condition as a separate `fixed_ips` query value. For example,
+`fixed_ips=ip_address%3D192.0.2.10&fixed_ips=subnet_id%3DSUBNET_ID` matches
+ports that satisfy both conditions. Repeating an inner key matches any of
+its values. These conditions combine with any `network_id`, `device_id`,
+and `device_owner` filters in the same request. See the [port list
+reference], [Neutron fixed IP filter parser], and [Neutron fixed IP filter
+query].
+
+Ports without a fixed IP are excluded when either fixed IP filter is
+present. Exact values are matched as strings, so an unmatched literal
+returns `200` with `ports: []`. Malformed entries and unsupported inner
+keys return `400`, including `ip_address_substr` from Neutron's optional
+`ip-substring-filtering` extension.
+
 ### Request a specific IPv4 address
 
 Send one `fixed_ips` entry with `ip_address` to request that address. You
@@ -319,6 +337,8 @@ blocked deletions using the [add interface reference] and
 [port create reference]: https://docs.openstack.org/api-ref/network/v2/#create-port
 [port list reference]: https://docs.openstack.org/api-ref/network/v2/#list-ports
 [port update reference]: https://docs.openstack.org/api-ref/network/v2/#update-port
+[Neutron fixed IP filter parser]: https://github.com/openstack/neutron-lib/blob/master/neutron_lib/api/converters.py#L110-L137
+[Neutron fixed IP filter query]: https://github.com/openstack/neutron/blob/master/neutron/db/db_base_plugin_v2.py#L1552-L1583
 [Neutron IP allocation validation]: https://github.com/openstack/neutron/blob/master/neutron/ipam/drivers/neutrondb_ipam/driver.py#L125-L141
 [Neutron IP allocation update]: https://github.com/openstack/neutron/blob/master/neutron/db/ipam_pluggable_backend.py#L439-L506
 [router create reference]: https://docs.openstack.org/api-ref/network/v2/#create-router

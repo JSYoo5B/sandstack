@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 
 	app "github.com/JSYoo5B/sandstack/internal/app/network"
 	domain "github.com/JSYoo5B/sandstack/internal/domain/network"
@@ -113,21 +114,37 @@ func (h handler) listPorts(w http.ResponseWriter, r *http.Request, projectID str
 		writeError(w, http.StatusBadRequest, "BadRequest", "The port list query is malformed.")
 		return
 	}
-	for key := range query {
-		switch key {
-		case "network_id", "device_id", "device_owner":
-		default:
-			writeError(w, http.StatusBadRequest, "BadRequest",
-				"Port lists accept only network_id, device_id, and device_owner query parameters.")
-			return
-		}
-	}
-
-	ports := h.service.ListPorts(projectID, app.PortListFilter{
+	filter := app.PortListFilter{
 		NetworkIDs:   query["network_id"],
 		DeviceIDs:    query["device_id"],
 		DeviceOwners: query["device_owner"],
-	})
+	}
+	for key := range query {
+		switch key {
+		case "network_id", "device_id", "device_owner", "fixed_ips":
+		default:
+			writeError(w, http.StatusBadRequest, "BadRequest",
+				"Port lists accept only network_id, device_id, device_owner, and fixed_ips query parameters.")
+			return
+		}
+	}
+	for _, entry := range query["fixed_ips"] {
+		key, value, ok := strings.Cut(entry, "=")
+		if ok {
+			switch strings.TrimSpace(key) {
+			case "ip_address":
+				filter.FixedAddresses = append(filter.FixedAddresses, strings.TrimSpace(value))
+				continue
+			case "subnet_id":
+				filter.FixedSubnetIDs = append(filter.FixedSubnetIDs, strings.TrimSpace(value))
+				continue
+			}
+		}
+		writeError(w, http.StatusBadRequest, "BadRequest", "A fixed_ips filter requires ip_address=value or subnet_id=value.")
+		return
+	}
+
+	ports := h.service.ListPorts(projectID, filter)
 	response := struct {
 		Ports []portBody `json:"ports"`
 	}{Ports: make([]portBody, len(ports))}
