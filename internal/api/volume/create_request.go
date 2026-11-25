@@ -8,8 +8,6 @@ import (
 	"regexp"
 	"strings"
 	"unicode/utf8"
-
-	app "github.com/JSYoo5B/sandstack/internal/app/volume"
 )
 
 const maxVolumeTextLength = 255
@@ -23,6 +21,7 @@ type createVolumeParams struct {
 	name        string
 	description string
 	snapshotID  string
+	volumeType  string
 	size        int
 	metadata    map[string]string
 }
@@ -41,12 +40,13 @@ func parseCreateVolume(data []byte) (createVolumeParams, error) {
 	}
 
 	var params createVolumeParams
-	var requestedType, requestedZone *string
+	var requestedZone *string
 	var requestedSize *int
 	for field, value := range fields {
 		var target any
 		if bytes.Equal(value, []byte("null")) {
-			if field == "name" || field == "description" || field == "size" || field == "metadata" {
+			if field == "name" || field == "description" || field == "size" ||
+				field == "metadata" || field == "volume_type" {
 				continue
 			}
 			return createVolumeParams{}, errInvalidVolumeObject
@@ -61,7 +61,7 @@ func parseCreateVolume(data []byte) (createVolumeParams, error) {
 		case "description":
 			target = &params.description
 		case "volume_type":
-			target = &requestedType
+			target = &params.volumeType
 		case "availability_zone":
 			target = &requestedZone
 		case "metadata":
@@ -91,8 +91,8 @@ func parseCreateVolume(data []byte) (createVolumeParams, error) {
 		}
 		return createVolumeParams{}, errors.New("volume size is required")
 	}
-	if requestedType != nil && *requestedType != app.StandardVolumeTypeName {
-		return createVolumeParams{}, errors.New("this endpoint supports the standard volume type")
+	if utf8.RuneCountInString(params.volumeType) > maxVolumeTextLength {
+		return createVolumeParams{}, errors.New("volume type may contain up to 255 characters")
 	}
 	if requestedZone != nil && *requestedZone != volumeZone {
 		return createVolumeParams{}, errors.New("this endpoint supports the nova availability zone")

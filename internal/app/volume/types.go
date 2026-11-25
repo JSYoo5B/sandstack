@@ -14,6 +14,19 @@ const (
 
 var ErrVolumeTypeNotFound = errors.New("volume type not found")
 
+// ValidateCreateVolumeType checks a volume creation selector in the fixture project.
+func (s *Service) ValidateCreateVolumeType(projectID, selector string) error {
+	if s.seed.ProjectID != projectID {
+		return ErrVolumeTypeNotFound
+	}
+	switch selector {
+	case "", StandardVolumeTypeName, standardVolumeTypeID:
+		return nil
+	default:
+		return ErrVolumeTypeNotFound
+	}
+}
+
 // GetVolumeType resolves the fixture's default alias and concrete type ID.
 func (s *Service) GetVolumeType(projectID, typeID string) (domain.VolumeType, error) {
 	if s.seed.ProjectID != projectID || (typeID != "default" && typeID != standardVolumeTypeID) {

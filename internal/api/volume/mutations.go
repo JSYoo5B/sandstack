@@ -45,6 +45,10 @@ func (h handler) createVolume(w http.ResponseWriter, r *http.Request, projectID 
 		writeFault(w, http.StatusBadRequest, "badRequest", err.Error())
 		return
 	}
+	if err := h.service.ValidateCreateVolumeType(projectID, params.volumeType); err != nil {
+		writeFault(w, http.StatusNotFound, "itemNotFound", "The volume type could not be found.")
+		return
+	}
 
 	var volume domain.Volume
 	if params.snapshotID == "" {
