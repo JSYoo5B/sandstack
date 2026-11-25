@@ -3,6 +3,7 @@ package server
 import (
 	"crypto/rand"
 	"encoding/base64"
+	"fmt"
 	"net/http"
 	"net/url"
 	"time"
@@ -74,7 +75,7 @@ func New(config Config) (http.Handler, error) {
 		ID:        "43d92fea-ce36-4d02-aba4-29806839f902",
 		Name:      "fixture-network",
 		ProjectID: fixture.Project.ID,
-	})
+	}, randomUUID)
 	volumeService := appvolume.New(volume.Volume{
 		ID:        "7b37635e-be9b-4bfb-bc2e-d163b75921e6",
 		Name:      "fixture-volume",
@@ -151,4 +152,12 @@ func randomID() string {
 	var entropy [16]byte
 	rand.Read(entropy[:])
 	return base64.RawURLEncoding.EncodeToString(entropy[:])
+}
+
+func randomUUID() string {
+	var id [16]byte
+	rand.Read(id[:])
+	id[6] = (id[6] & 0x0f) | 0x40
+	id[8] = (id[8] & 0x3f) | 0x80
+	return fmt.Sprintf("%x-%x-%x-%x-%x", id[:4], id[4:6], id[6:8], id[8:10], id[10:])
 }

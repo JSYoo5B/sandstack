@@ -22,9 +22,13 @@ type networkBody struct {
 	Subnets      []string `json:"subnets"`
 }
 
+type networkResponse struct {
+	Network networkBody `json:"network"`
+}
+
 func describeNetwork(network domain.Network) networkBody {
 	status := "ACTIVE"
-	if network.Down {
+	if network.Down || network.AdminDown {
 		status = "DOWN"
 	}
 	return networkBody{
@@ -33,7 +37,7 @@ func describeNetwork(network domain.Network) networkBody {
 		ProjectID:    network.ProjectID,
 		TenantID:     network.ProjectID,
 		Status:       status,
-		AdminStateUp: true,
+		AdminStateUp: !network.AdminDown,
 		Shared:       false,
 		Subnets:      []string{},
 	}
@@ -54,14 +58,17 @@ func (h handler) showNetwork(w http.ResponseWriter, r *http.Request, projectID s
 	networkID := chi.URLParam(r, "networkID")
 	network, err := h.service.Get(projectID, networkID)
 	if errors.Is(err, app.ErrNetworkNotFound) {
-		writeError(w, http.StatusNotFound, "NetworkNotFound", fmt.Sprintf("Network %s could not be found.", networkID))
+		writeNetworkNotFound(w, networkID)
 		return
 	}
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "HTTPInternalServerError", "Unable to read the network.")
 		return
 	}
-	writeJSON(w, http.StatusOK, struct {
-		Network networkBody `json:"network"`
-	}{Network: describeNetwork(network)})
+	writeJSON(w, http.StatusOK, networkResponse{Network: describeNetwork(network)})
+}
+
+func writeNetworkNotFound(w http.ResponseWriter, networkID string) {
+	writeError(w, http.StatusNotFound, "NetworkNotFound",
+		fmt.Sprintf("Network %s could not be found.", networkID))
 }

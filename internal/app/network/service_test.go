@@ -12,7 +12,7 @@ import (
 
 func TestPrivateNetworkIsVisibleOnlyToOwner(t *testing.T) {
 	seed := domain.Network{ID: "net", Name: "fixture", ProjectID: "owner"}
-	service := app.New(seed)
+	service := app.New(seed, nil)
 
 	assert.Empty(t, service.List("other-project"))
 	_, err := service.Get("other-project", seed.ID)
@@ -26,7 +26,7 @@ func TestPrivateNetworkIsVisibleOnlyToOwner(t *testing.T) {
 
 func TestResetRestoresSeededOperationalState(t *testing.T) {
 	seed := domain.Network{ID: "net", Name: "fixture", ProjectID: "owner", Down: true}
-	service := app.New(seed)
+	service := app.New(seed, nil)
 
 	assert.ErrorIs(t, service.SetDown("other-network", false), app.ErrNetworkNotFound)
 	assert.Equal(t, []domain.Network{seed}, service.List(seed.ProjectID))

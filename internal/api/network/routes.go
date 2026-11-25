@@ -33,7 +33,9 @@ func Register(
 	router.Get(CatalogPath, h.listVersions)
 	router.Get(CatalogPath+"/", h.listVersions)
 	router.Get(Path+"/networks", h.withProject(h.listNetworks))
+	router.Post(Path+"/networks", h.withProject(h.createNetwork))
 	router.Get(Path+"/networks/{networkID}", h.withProject(h.showNetwork))
+	router.Delete(Path+"/networks/{networkID}", h.withProject(h.deleteNetwork))
 }
 
 func (h handler) withProject(next func(http.ResponseWriter, *http.Request, string)) http.HandlerFunc {
@@ -49,7 +51,7 @@ func (h handler) withProject(next func(http.ResponseWriter, *http.Request, strin
 			return
 		}
 		if r.URL.RawQuery != "" {
-			writeError(w, http.StatusBadRequest, "BadRequest", "Network reads require an empty query string.")
+			writeError(w, http.StatusBadRequest, "BadRequest", "Network operations require an empty query string.")
 			return
 		}
 		next(w, r, projectID)
