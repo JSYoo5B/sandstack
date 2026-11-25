@@ -51,6 +51,10 @@ func Register(
 	router.Post(Path+"/routers", h.withProject(withEmptyQuery(h.createRouter)))
 	router.Get(Path+"/routers/{routerID}", h.withProject(withEmptyQuery(h.showRouter)))
 	router.Delete(Path+"/routers/{routerID}", h.withProject(withEmptyQuery(h.deleteRouter)))
+	router.Put(Path+"/routers/{routerID}/add_router_interface",
+		h.withProject(withEmptyQuery(changeRouterInterface(h.service.AddRouterInterface))))
+	router.Put(Path+"/routers/{routerID}/remove_router_interface",
+		h.withProject(withEmptyQuery(changeRouterInterface(h.service.RemoveRouterInterface))))
 }
 
 func (h handler) withProject(next projectHandler) http.HandlerFunc {

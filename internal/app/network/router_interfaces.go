@@ -1,0 +1,84 @@
+package network
+
+import (
+	"errors"
+
+	domain "github.com/JSYoo5B/sandstack/internal/domain/network"
+)
+
+var (
+	ErrRouterSubnetAttached    = errors.New("subnet is already attached to the router")
+	ErrRouterSubnetOverlap     = errors.New("subnet CIDR overlaps a router interface")
+	ErrRouterGatewayInUse      = errors.New("subnet gateway IP is already in use")
+	ErrRouterInterfaceNotFound = errors.New("router interface for subnet not found")
+)
+
+func (s *Service) AddRouterInterface(projectID, routerID, subnetID string) (domain.Port, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	subnet, err := s.routerSubnet(projectID, routerID, subnetID)
+	if err != nil {
+		return domain.Port{}, err
+	}
+
+	gatewayInUse := false
+	usedMACs := make(map[string]bool)
+	for _, port := range s.ports {
+		if port.NetworkID == subnet.NetworkID {
+			usedMACs[port.MACAddress] = true
+		}
+		if port.SubnetID == subnetID && port.FixedIP == subnet.Gateway {
+			gatewayInUse = true
+		}
+		if port.DeviceOwner != domain.DeviceOwnerRouterInterface || port.DeviceID != routerID {
+			continue
+		}
+		if port.SubnetID == subnetID {
+			return domain.Port{}, ErrRouterSubnetAttached
+		}
+		if subnet.CIDR.Overlaps(s.subnets[port.SubnetID].CIDR) {
+			return domain.Port{}, ErrRouterSubnetOverlap
+		}
+	}
+	if gatewayInUse {
+		return domain.Port{}, ErrRouterGatewayInUse
+	}
+
+	return s.createPort(domain.Port{
+		NetworkID:   subnet.NetworkID,
+		ProjectID:   projectID,
+		DeviceID:    routerID,
+		DeviceOwner: domain.DeviceOwnerRouterInterface,
+		SubnetID:    subnetID,
+		FixedIP:     subnet.Gateway,
+	}, usedMACs)
+}
+
+func (s *Service) RemoveRouterInterface(projectID, routerID, subnetID string) (domain.Port, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, err := s.routerSubnet(projectID, routerID, subnetID); err != nil {
+		return domain.Port{}, err
+	}
+	for id, port := range s.ports {
+		if port.DeviceOwner == domain.DeviceOwnerRouterInterface &&
+			port.DeviceID == routerID && port.SubnetID == subnetID {
+			delete(s.ports, id)
+			return port, nil
+		}
+	}
+	return domain.Port{}, ErrRouterInterfaceNotFound
+}
+
+// routerSubnet checks ownership of both resources while the write lock is held.
+func (s *Service) routerSubnet(projectID, routerID, subnetID string) (domain.Subnet, error) {
+	router, ok := s.routers[routerID]
+	if !ok || router.ProjectID != projectID {
+		return domain.Subnet{}, ErrRouterNotFound
+	}
+	subnet, ok := s.subnets[subnetID]
+	if !ok || subnet.ProjectID != projectID {
+		return domain.Subnet{}, ErrSubnetNotFound
+	}
+	return subnet, nil
+}

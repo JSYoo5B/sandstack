@@ -14,6 +14,7 @@ var (
 	ErrPortSubnetRequired = errors.New("port requires a subnet selection on a network with multiple subnets")
 	ErrPortInvalidSubnet  = errors.New("port subnet does not belong to the network")
 	ErrPortIPExhausted    = errors.New("port subnet allocation pool is exhausted")
+	ErrServicePortInUse   = errors.New("port is managed by a network service")
 )
 
 func (s *Service) CreatePort(
@@ -47,20 +48,24 @@ func (s *Service) CreatePort(
 	if err != nil {
 		return domain.Port{}, err
 	}
+	return s.createPort(domain.Port{
+		NetworkID: networkID,
+		ProjectID: network.ProjectID,
+		Name:      name,
+		SubnetID:  subnet.ID,
+		FixedIP:   fixedIP,
+		AdminDown: adminDown,
+	}, usedMACs)
+}
+
+// createPort allocates identifiers with the service's write lock held.
+func (s *Service) createPort(port domain.Port, usedMACs map[string]bool) (domain.Port, error) {
 	id, err := s.allocateID(func(id string) bool { return !usedMACs[portMAC(id)] })
 	if err != nil {
 		return domain.Port{}, err
 	}
-	port := domain.Port{
-		ID:         id,
-		NetworkID:  networkID,
-		ProjectID:  network.ProjectID,
-		Name:       name,
-		MACAddress: portMAC(id),
-		SubnetID:   subnet.ID,
-		FixedIP:    fixedIP,
-		AdminDown:  adminDown,
-	}
+	port.ID = id
+	port.MACAddress = portMAC(id)
 	s.ports[id] = port
 	return port, nil
 }
@@ -98,6 +103,9 @@ func (s *Service) DeletePort(projectID, portID string) error {
 	port, ok := s.ports[portID]
 	if !ok || port.ProjectID != projectID {
 		return ErrPortNotFound
+	}
+	if port.DeviceOwner == domain.DeviceOwnerRouterInterface {
+		return ErrServicePortInUse
 	}
 	delete(s.ports, portID)
 	return nil

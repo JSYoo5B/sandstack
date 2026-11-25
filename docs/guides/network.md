@@ -81,7 +81,7 @@ the requested network IDs. Use `GET` or `DELETE` on the path followed by
 the port ID to read or remove the port. The corresponding Gophercloud
 operations are `ports.Create`, `ports.List`, `ports.Get`, and `ports.Delete`.
 
-Deleting the port returns its IP to the pool. Network deletion returns
+Deleting an unbound port returns its IP to the pool. Network deletion returns
 `409` while ports remain on it. Subnet deletion returns `409` while a port
 holds an IP from it. Reset clears ports and their allocations.
 
@@ -104,9 +104,41 @@ router starts with `status: ACTIVE` even if you create it with
 
 List query parameters return `400`. Router responses show
 `external_gateway_info: null`, `gw_port_id: null`, and `routes: []`.
-Gateway configuration, interface attachment, router updates, and packet
-routing are outside this scope. [Reset the sandbox](reset.md) to clear the
-created routers.
+
+## Attach an IPv4 subnet to a router
+
+Use the project token and an IPv4 subnet owned by the same project as the
+router. Send a top-level `subnet_id` with both interface actions on the
+router URL.
+
+- `PUT /network/v2.0/routers/{router_id}/add_router_interface` uses
+  Gophercloud's `routers.AddInterface` with `AddInterfaceOpts.SubnetID`.
+- `PUT /network/v2.0/routers/{router_id}/remove_router_interface` uses
+  `routers.RemoveInterface` with `RemoveInterfaceOpts.SubnetID`.
+
+Both actions return `200` with an unwrapped interface object. Its `id`
+is the router's ID, `port_id` identifies the generated port, and
+`subnet_ids` contains the attached subnet's ID.
+
+Use `ports.Get` on the returned `port_id` or `ports.List` on the subnet's
+network to inspect the interface. Its fixed IP is the subnet's gateway
+address, `device_id` is the router ID, and `device_owner` is
+`network:router_interface`. An attempt to add the same subnet to the same
+router again, or to add a subnet that overlaps one already attached to
+that router, returns `400`. A subnet gateway already in use by another
+router returns `409`. See [Neutron interface creation] and
+[Neutron router subnet checks].
+
+While the interface exists, deleting its port, router, subnet, or network
+directly returns `409`. Remove the interface first. Removing it deletes
+the generated port and releases its gateway address. The remaining
+resources can then be deleted if their other dependencies are clear. See
+[Neutron interface removal].
+
+The fixture supports attachment by `subnet_id`. Existing-port attachment,
+static routes, external gateways, router updates, and packet forwarding are
+outside this scope. [Reset the sandbox](reset.md) to clear the created
+routers, interfaces, and generated ports.
 
 ## Inject and clear a network outage
 
@@ -131,7 +163,9 @@ The raw HTTP tests use the [Neutron filtering reference], [Neutron list referenc
 [subnet create reference], and [port create reference]. The [Neutron database
 implementation] and [exception types] explain deletion and exhaustion conflicts.
 The router tests use the [router create reference], [router list reference],
-[router details reference], and [router delete reference].
+[router details reference], and [router delete reference]. The interface
+tests check the generated port and blocked deletions using the
+[add interface reference] and [remove interface reference].
 
 [Neutron filtering reference]: https://docs.openstack.org/api-ref/network/v2/#filtering-and-column-selection
 [Neutron list reference]: https://docs.openstack.org/api-ref/network/v2/#list-networks
@@ -144,6 +178,11 @@ The router tests use the [router create reference], [router list reference],
 [router list reference]: https://docs.openstack.org/api-ref/network/v2/#list-routers
 [router details reference]: https://docs.openstack.org/api-ref/network/v2/#show-router-details
 [router delete reference]: https://docs.openstack.org/api-ref/network/v2/#delete-router
+[add interface reference]: https://docs.openstack.org/api-ref/network/v2/#add-interface-to-router
+[remove interface reference]: https://docs.openstack.org/api-ref/network/v2/#remove-interface-from-router
 [Neutron router initialization]: https://github.com/openstack/neutron/blob/master/neutron/db/l3_db.py#L218-L256
+[Neutron interface creation]: https://github.com/openstack/neutron/blob/master/neutron/db/l3_db.py#L838-L898
+[Neutron router subnet checks]: https://github.com/openstack/neutron/blob/master/neutron/db/l3_db.py#L650-L678
+[Neutron interface removal]: https://github.com/openstack/neutron/blob/master/neutron/db/l3_db.py#L1099-L1122
 [Neutron database implementation]: https://github.com/openstack/neutron/blob/master/neutron/db/db_base_plugin_v2.py
 [exception types]: https://github.com/openstack/neutron-lib/blob/master/neutron_lib/exceptions/__init__.py

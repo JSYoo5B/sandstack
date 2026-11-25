@@ -101,5 +101,9 @@ func writeRouterError(w http.ResponseWriter, routerID string, err error) {
 		writeError(w, http.StatusNotFound, "RouterNotFound", fmt.Sprintf("Router %s could not be found.", routerID))
 		return
 	}
+	if errors.Is(err, app.ErrRouterInUse) {
+		writeError(w, http.StatusConflict, "RouterInUse", "Remove the router interfaces before deleting the router.")
+		return
+	}
 	writeError(w, http.StatusInternalServerError, "HTTPInternalServerError", "Unable to process the router request.")
 }

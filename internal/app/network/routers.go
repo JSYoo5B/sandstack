@@ -8,7 +8,10 @@ import (
 	domain "github.com/JSYoo5B/sandstack/internal/domain/network"
 )
 
-var ErrRouterNotFound = errors.New("router not found")
+var (
+	ErrRouterNotFound = errors.New("router not found")
+	ErrRouterInUse    = errors.New("router has attached interfaces")
+)
 
 func (s *Service) CreateRouter(projectID, name, description string, adminStateUp bool) (domain.Router, error) {
 	s.mu.Lock()
@@ -61,6 +64,11 @@ func (s *Service) DeleteRouter(projectID, routerID string) error {
 	router, ok := s.routers[routerID]
 	if !ok || router.ProjectID != projectID {
 		return ErrRouterNotFound
+	}
+	for _, port := range s.ports {
+		if port.DeviceOwner == domain.DeviceOwnerRouterInterface && port.DeviceID == routerID {
+			return ErrRouterInUse
+		}
 	}
 	delete(s.routers, routerID)
 	return nil

@@ -48,6 +48,8 @@ func describePort(port domain.Port) portBody {
 		MACAddress:   port.MACAddress,
 		AdminStateUp: !port.AdminDown,
 		Status:       "DOWN",
+		DeviceID:     port.DeviceID,
+		DeviceOwner:  port.DeviceOwner,
 		FixedIPs:     fixedIPs,
 	}
 }
@@ -129,6 +131,10 @@ func (h handler) deletePort(w http.ResponseWriter, r *http.Request, projectID st
 func writePortError(w http.ResponseWriter, portID string, err error) {
 	if errors.Is(err, app.ErrPortNotFound) {
 		writeError(w, http.StatusNotFound, "PortNotFound", fmt.Sprintf("Port %s could not be found.", portID))
+		return
+	}
+	if errors.Is(err, app.ErrServicePortInUse) {
+		writeError(w, http.StatusConflict, "ServicePortInUse", "Remove the router interface before deleting its port.")
 		return
 	}
 	writeError(w, http.StatusInternalServerError, "HTTPInternalServerError", "Unable to process the port request.")
