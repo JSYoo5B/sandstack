@@ -111,7 +111,8 @@ router starts with `status: ACTIVE` even if you create it with
 | `DELETE /network/v2.0/routers/{router_id}` | `routers.Delete` | `204` and the router disappears from subsequent reads. |
 
 List query parameters return `400`. Router responses show
-`external_gateway_info: null`, `gw_port_id: null`, and `routes: []`.
+`external_gateway_info: null` and `gw_port_id: null`. A new router starts
+with `routes: []`.
 
 ### Update router metadata
 
@@ -127,6 +128,24 @@ Use `routers.UpdateOpts` with `routers.Update`. Pass a pointer to an empty
 string or `false` to send those values in `Description` or `AdminStateUp`
 respectively. To clear the router name, send `{"router":{"name":""}}` as
 a raw request. Gophercloud omits an empty `UpdateOpts.Name`.
+
+### Replace static IPv4 routes
+
+Use `PUT /network/v2.0/routers/{router_id}` with `routes` in the `router`
+object. In Gophercloud, pass a pointer to a `[]routers.Route` as
+`UpdateOpts.Routes` in `routers.Update`. The supplied list replaces all
+current routes. Omit `routes` to preserve them. Use an empty slice, or send
+`routes: []` or `routes: null` over HTTP, to clear them. Read the resulting
+routes with `routers.Get` or `routers.List`. See the [router update reference]
+and [Neutron route attribute definition].
+
+Each route requires a network-aligned IPv4 prefix as `destination` and an
+IPv4 address as `nexthop`. The next hop must belong to an attached subnet
+and differ from the router's own interface addresses. An invalid route
+returns `400` and rejects the entire update. The fixture models route
+configuration through replacement updates. Packet forwarding and the
+separate add and remove route endpoints are outside this scope. See
+[Neutron extra route validation].
 
 ## Attach and remove an IPv4 router interface
 
@@ -182,8 +201,12 @@ an existing port. The remaining resources can then be deleted if their
 other dependencies are clear. See [Neutron interface removal] and
 [Neutron removal by port].
 
-Each interface has one IPv4 fixed IP. Static routes, external gateways,
-and packet forwarding are outside this scope.
+Interface removal returns `409` while a route uses that interface's subnet
+for its next hop. Replace or clear those routes before removing the
+interface. See [Neutron extra route validation].
+
+Each interface has one IPv4 fixed IP. External gateways and packet
+forwarding are outside this scope.
 [Reset the sandbox](reset.md) to clear the created routers, interfaces, and
 ports.
 
@@ -211,10 +234,10 @@ The raw HTTP tests use the [Neutron filtering reference], [Neutron list referenc
 implementation] and [exception types] explain deletion and exhaustion conflicts.
 The router tests use the [router create reference], [router list reference],
 [router details reference], [router update reference], and
-[router delete reference]. Interface tests cover both attachment
-selectors, port identity, allocation reuse, and
-blocked deletions using the [add interface reference] and
-[remove interface reference].
+[router delete reference]. Route tests check replacement, atomic validation,
+and blocked interface removal. Interface tests cover both attachment
+selectors, port identity, allocation reuse, and blocked deletions using the
+[add interface reference] and [remove interface reference].
 
 [Neutron filtering reference]: https://docs.openstack.org/api-ref/network/v2/#filtering-and-column-selection
 [Neutron list reference]: https://docs.openstack.org/api-ref/network/v2/#list-networks
@@ -232,6 +255,8 @@ blocked deletions using the [add interface reference] and
 [add interface reference]: https://docs.openstack.org/api-ref/network/v2/#add-interface-to-router
 [remove interface reference]: https://docs.openstack.org/api-ref/network/v2/#remove-interface-from-router
 [Neutron router initialization]: https://github.com/openstack/neutron/blob/master/neutron/db/l3_db.py#L218-L256
+[Neutron route attribute definition]: https://github.com/openstack/neutron-lib/blob/master/neutron_lib/api/definitions/extraroute.py#L33-L40
+[Neutron extra route validation]: https://github.com/openstack/neutron/blob/master/neutron/db/extraroute_db.py#L76-L155
 [Neutron interface creation]: https://github.com/openstack/neutron/blob/master/neutron/db/l3_db.py#L838-L898
 [Neutron port validation]: https://github.com/openstack/neutron/blob/master/neutron/db/l3_db.py#L700-L769
 [Neutron attachment by port]: https://github.com/openstack/neutron/blob/master/neutron/db/l3_db.py#L797-L804

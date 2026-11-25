@@ -1,10 +1,13 @@
 package network
 
 import (
+	"encoding/json"
 	"errors"
+	"net/netip"
 	"unicode/utf8"
 
 	app "github.com/JSYoo5B/sandstack/internal/app/network"
+	domain "github.com/JSYoo5B/sandstack/internal/domain/network"
 )
 
 const maxRouterDescriptionLength = 255
@@ -41,6 +44,15 @@ func parseRouterFields(data []byte, changes *app.RouterUpdate, ownership *reques
 			target = &changes.Description
 		case "admin_state_up":
 			target = &changes.AdminStateUp
+		case "routes":
+			if ownership != nil {
+				return errInvalidRouterRequest
+			}
+			changes.Routes, err = parseRouterRoutes(value)
+			if err != nil {
+				return err
+			}
+			continue
 		case "project_id":
 			if ownership == nil {
 				return errInvalidRouterRequest
@@ -65,4 +77,33 @@ func parseRouterFields(data []byte, changes *app.RouterUpdate, ownership *reques
 		return errors.New("router description may contain up to 255 characters")
 	}
 	return nil
+}
+
+var errInvalidRouterRouteRequest = errors.New("routes must be an array of IPv4 destination CIDRs and next-hop addresses")
+
+func parseRouterRoutes(data json.RawMessage) ([]domain.RouterRoute, error) {
+	var entries []json.RawMessage
+	if err := json.Unmarshal(data, &entries); err != nil {
+		return nil, errInvalidRouterRouteRequest
+	}
+	// Neutron normalizes a null route list to an explicit empty replacement.
+	routes := make([]domain.RouterRoute, 0, len(entries))
+	for _, entry := range entries {
+		fields, err := readUniqueObject(entry)
+		var destination, nextHop string
+		if err != nil || len(fields) != 2 || !decodeCreateField(fields["destination"], &destination) ||
+			!decodeCreateField(fields["nexthop"], &nextHop) {
+			return nil, errInvalidRouterRouteRequest
+		}
+		prefix, err := netip.ParsePrefix(destination)
+		if err != nil || !prefix.Addr().Is4() || prefix != prefix.Masked() || prefix.Addr().IsLoopback() {
+			return nil, errInvalidRouterRouteRequest
+		}
+		address, err := netip.ParseAddr(nextHop)
+		if err != nil || !address.Is4() {
+			return nil, errInvalidRouterRouteRequest
+		}
+		routes = append(routes, domain.RouterRoute{Destination: prefix, NextHop: address})
+	}
+	return routes, nil
 }

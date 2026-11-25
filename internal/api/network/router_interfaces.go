@@ -118,6 +118,8 @@ func writeRouterInterfaceError(w http.ResponseWriter, routerID, portID, subnetID
 	case errors.Is(err, app.ErrRouterInterfaceSubnetMismatch):
 		writeError(w, http.StatusBadRequest, "SubnetMismatchForPort",
 			fmt.Sprintf("Port %s does not belong to subnet %s.", portID, subnetID))
+	case errors.Is(err, app.ErrRouterInterfaceInUseByRoute):
+		writeError(w, http.StatusConflict, "RouterInterfaceInUseByRoute", "Remove the routes using the interface before detaching it.")
 	case errors.Is(err, app.ErrPortInUse):
 		writeError(w, http.StatusConflict, "PortInUse", fmt.Sprintf("Port %s is already in use.", portID))
 	case errors.Is(err, app.ErrRouterGatewayInUse):

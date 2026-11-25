@@ -56,6 +56,9 @@ func (s *Service) RemoveRouterInterfaceByPort(projectID, routerID, portID, subne
 	if subnetID != "" && subnetID != port.SubnetID {
 		return domain.Port{}, ErrRouterInterfaceSubnetMismatch
 	}
+	if s.routerRoutesUseSubnet(routerID, port.SubnetID) {
+		return domain.Port{}, ErrRouterInterfaceInUseByRoute
+	}
 	delete(s.ports, portID)
 	return port, nil
 }

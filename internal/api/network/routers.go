@@ -12,16 +12,21 @@ import (
 )
 
 type routerBody struct {
-	ID                  string     `json:"id"`
-	Name                string     `json:"name"`
-	Description         string     `json:"description"`
-	ProjectID           string     `json:"project_id"`
-	TenantID            string     `json:"tenant_id"`
-	AdminStateUp        bool       `json:"admin_state_up"`
-	Status              string     `json:"status"`
-	ExternalGatewayInfo *struct{}  `json:"external_gateway_info"`
-	GatewayPortID       *string    `json:"gw_port_id"`
-	Routes              []struct{} `json:"routes"`
+	ID                  string            `json:"id"`
+	Name                string            `json:"name"`
+	Description         string            `json:"description"`
+	ProjectID           string            `json:"project_id"`
+	TenantID            string            `json:"tenant_id"`
+	AdminStateUp        bool              `json:"admin_state_up"`
+	Status              string            `json:"status"`
+	ExternalGatewayInfo *struct{}         `json:"external_gateway_info"`
+	GatewayPortID       *string           `json:"gw_port_id"`
+	Routes              []routerRouteBody `json:"routes"`
+}
+
+type routerRouteBody struct {
+	Destination string `json:"destination"`
+	NextHop     string `json:"nexthop"`
 }
 
 type routerResponse struct {
@@ -29,6 +34,10 @@ type routerResponse struct {
 }
 
 func describeRouter(router domain.Router) routerBody {
+	routes := make([]routerRouteBody, len(router.Routes))
+	for i, route := range router.Routes {
+		routes[i] = routerRouteBody{Destination: route.Destination.String(), NextHop: route.NextHop.String()}
+	}
 	return routerBody{
 		ID:           router.ID,
 		Name:         router.Name,
@@ -37,7 +46,7 @@ func describeRouter(router domain.Router) routerBody {
 		TenantID:     router.ProjectID,
 		AdminStateUp: router.AdminStateUp,
 		Status:       "ACTIVE",
-		Routes:       []struct{}{},
+		Routes:       routes,
 	}
 }
 
@@ -122,6 +131,10 @@ func writeRouterError(w http.ResponseWriter, routerID string, err error) {
 	}
 	if errors.Is(err, app.ErrRouterInUse) {
 		writeError(w, http.StatusConflict, "RouterInUse", "Remove the router interfaces before deleting the router.")
+		return
+	}
+	if errors.Is(err, app.ErrInvalidRouterRoutes) {
+		writeError(w, http.StatusBadRequest, "InvalidRoutes", err.Error())
 		return
 	}
 	writeError(w, http.StatusInternalServerError, "HTTPInternalServerError", "Unable to process the router request.")

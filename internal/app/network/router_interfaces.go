@@ -57,6 +57,9 @@ func (s *Service) RemoveRouterInterface(projectID, routerID, subnetID string) (d
 	for id, port := range s.ports {
 		if port.DeviceOwner == domain.DeviceOwnerRouterInterface &&
 			port.DeviceID == routerID && port.SubnetID == subnetID {
+			if s.routerRoutesUseSubnet(routerID, subnetID) {
+				return domain.Port{}, ErrRouterInterfaceInUseByRoute
+			}
 			delete(s.ports, id)
 			return port, nil
 		}
