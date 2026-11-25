@@ -117,6 +117,10 @@ func (h handler) serverCore(r *http.Request, server appcompute.ServerDetail, pat
 	serverPath := projectPath + "/servers/" + server.ID
 	bookmark := computeRoot + projectPath
 	status := server.Status()
+	metadata := server.Metadata
+	if metadata == nil {
+		metadata = map[string]string{}
+	}
 	body := serverCore{
 		ID:        server.ID,
 		Name:      server.Name,
@@ -141,7 +145,7 @@ func (h handler) serverCore(r *http.Request, server appcompute.ServerDetail, pat
 				Rel: "bookmark", Href: h.endpointURL(r, bookmark+"/images/"+server.ImageID),
 			}},
 		},
-		Metadata:  map[string]string{},
+		Metadata:  metadata,
 		Addresses: map[string]any{},
 	}
 	if status == domaincompute.StatusError {

@@ -20,6 +20,7 @@ type Server struct {
 	UpdatedAt time.Time
 	Stopped   bool
 	Fault     *Fault
+	Metadata  map[string]string
 }
 
 func (s Server) Status() Status {

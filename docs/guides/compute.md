@@ -47,6 +47,28 @@ attached volumes. The update preserves the power state, faults, and
 attachments. It returns live state even while a detail snapshot or one-shot
 detail outage is set. See the [Nova update response].
 
+## Read and replace server metadata
+
+Use `servers.Metadata` and `servers.ResetMetadata` in Gophercloud v2.15.0.
+These send `GET` and `PUT` to `/servers/{server_id}/metadata`. Both return
+`200` with a `metadata` object. Use `servers.MetadataOpts{}` to clear all
+keys. A nil map is sent as JSON `null` and returns `400`. See the [Nova
+metadata reference], [Nova metadata schema], and [Gophercloud metadata
+operations].
+
+Keys contain 1 to 255 ASCII letters, digits, spaces, or `-_.:`. Values are
+strings of up to 255 characters, including empty strings. SandStack uses
+Nova's default limit of 128 entries per server. Exceeding it returns
+`403` and preserves the existing map. See the [Nova metadata quota].
+
+Read metadata in any fixture state. Replace it while the server is
+`ACTIVE` or `SHUTOFF`. A replacement while the server reports an injected
+`ERROR` returns `409`. Use the detailed list or ordinary detail to read
+the same metadata fields. A stale detail snapshot keeps the earlier map.
+The metadata endpoint operates on live state and leaves a scheduled
+detail failure pending. SandStack updates the server timestamp when the
+map changes. See the [Nova metadata state checks].
+
 ## Stop and start a server
 
 Use the fixture server ID with `servers.Stop` and `servers.Start` in
@@ -200,6 +222,8 @@ The rename tests compare the Nova v2.1 update response with SDK detail and
 list reads and check that a pending detail outage still fires.
 The name filter test uses Gophercloud to find the renamed fixture and
 checks the intersection with the status filter.
+The metadata tests use the SDK to exercise replacement and clearing.
+Raw HTTP checks cover the metadata envelope, invalid requests, and quota.
 The raw HTTP checks use the [Compute list reference],
 [Compute detail reference], [Compute fault guide], and [Nova fault response]
 for the OpenStack response shapes.
@@ -216,6 +240,11 @@ for the OpenStack response shapes.
 [Nova name validation]: https://github.com/openstack/nova/blob/master/nova/api/validation/parameter_types.py#L73-L87
 [Gophercloud update options]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/compute/v2/servers/requests.go#L639-L681
 [Nova update response]: https://github.com/openstack/nova/blob/master/nova/api/openstack/compute/servers.py#L955-L994
+[Nova metadata reference]: https://docs.openstack.org/api-ref/compute/#server-metadata-servers-metadata
+[Nova metadata schema]: https://github.com/openstack/nova/blob/master/nova/api/openstack/compute/schemas/server_metadata.py#L42-L49
+[Nova metadata state checks]: https://github.com/openstack/nova/blob/master/nova/compute/api.py#L5091-L5122
+[Nova metadata quota]: https://docs.openstack.org/nova/latest/configuration/config.html#quota.metadata_items
+[Gophercloud metadata operations]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/compute/v2/servers/requests.go#L886-L930
 [Nova reboot reference]: https://docs.openstack.org/api-ref/compute/#reboot-server-reboot-action
 [Nova reboot schema]: https://github.com/openstack/nova/blob/master/nova/api/openstack/compute/schemas/servers.py#L495-L512
 [Nova reboot state checks]: https://github.com/openstack/nova/blob/master/nova/compute/vm_states.py#L62-L67

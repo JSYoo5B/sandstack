@@ -2,6 +2,7 @@ package compute
 
 import (
 	"errors"
+	"maps"
 	"slices"
 	"sync"
 	"sync/atomic"
@@ -147,6 +148,7 @@ func (s *Service) liveDetail() ServerDetail {
 }
 
 func cloneServer(server domain.Server) domain.Server {
+	server.Metadata = maps.Clone(server.Metadata)
 	if server.Fault != nil {
 		fault := *server.Fault
 		server.Fault = &fault
