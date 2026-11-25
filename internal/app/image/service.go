@@ -1,8 +1,6 @@
 package image
 
 import (
-	"crypto/md5"
-	"encoding/hex"
 	"errors"
 	"slices"
 	"sync"
@@ -23,8 +21,9 @@ type Service struct {
 	seed                domain.Image
 	images              map[string]domain.Image
 	deletedIDs          map[string]struct{}
+	payloads            map[string]string
 	now                 func() time.Time
-	data                string
+	seedData            string
 	newID               func() string
 	downloadUnavailable bool
 }
@@ -36,11 +35,9 @@ func New(seed domain.Image, now func() time.Time, data string, newID func() stri
 	seed.Size = int64(len(data))
 	seed.Checksum = ""
 	if data != "" {
-		// Glance v2.0 uses MD5 for its legacy checksum field.
-		digest := md5.Sum([]byte(data))
-		seed.Checksum = hex.EncodeToString(digest[:])
+		seed.Checksum = payloadChecksum(data)
 	}
-	service := &Service{seed: seed, now: now, data: data, newID: newID}
+	service := &Service{seed: seed, now: now, seedData: data, newID: newID}
 	service.Reset()
 	return service
 }
@@ -94,6 +91,7 @@ func (s *Service) Delete(projectID, imageID string) error {
 		return ErrImageNotFound
 	}
 	delete(s.images, imageID)
+	delete(s.payloads, imageID)
 	if imageID == s.seed.ID {
 		s.downloadUnavailable = false
 	} else {
@@ -122,14 +120,11 @@ func (s *Service) Download(projectID, imageID string) (data string, checksum str
 	if err != nil {
 		return "", "", err
 	}
-	if image.ID != s.seed.ID {
-		return "", "", nil
-	}
-	if s.downloadUnavailable {
+	if image.ID == s.seed.ID && s.downloadUnavailable {
 		s.downloadUnavailable = false
 		return "", "", ErrDownloadUnavailable
 	}
-	return s.data, image.Checksum, nil
+	return s.payloads[imageID], image.Checksum, nil
 }
 
 // checkDownload validates the current image with the lock held.
@@ -180,6 +175,7 @@ func (s *Service) Reset() {
 	defer s.mu.Unlock()
 
 	s.images = map[string]domain.Image{s.seed.ID: s.seed}
+	s.payloads = map[string]string{s.seed.ID: s.seedData}
 	s.deletedIDs = make(map[string]struct{})
 	s.downloadUnavailable = false
 }

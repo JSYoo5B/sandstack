@@ -30,6 +30,25 @@ The fixture's create operation accepts the name, private visibility, and
 the optional formats. A public request returns `403`; unsupported
 fields and invalid values return `400`.
 
+### Upload a queued image file
+
+Create a queued image with `ContainerFormat: "bare"` and
+`DiskFormat: "qcow2"`, then pass its ID and a reader to
+`imagedata.Upload`. It sends `PUT /images/{image_id}/file` with
+`Content-Type: application/octet-stream`. The response has an empty
+`204` body after the image becomes `active`. Read its size and MD5
+checksum through `images.Get` and retrieve the original bytes with
+`imagedata.Download`. See the [Glance upload reference], [Glance upload
+tests], and [Gophercloud image upload].
+
+The server accepts up to 16 MiB per upload, including chunked bodies.
+A missing or wrong media type returns `415`, missing formats return
+`400`, and an upload to an active image returns `409`. A payload above
+the limit returns `413`. A rejected upload leaves the image and existing
+bytes intact. An uploaded empty file becomes active with size zero and the
+MD5 of an empty payload. Its full download returns `200` with zero bytes.
+See the [Glance filesystem store].
+
 ### Delete an image
 
 Use `images.Delete` on an image owned by the fixture project. It sends
@@ -246,14 +265,19 @@ The transient download test checks `503`, a byte-identical SDK retry,
 and a ranged retry over HTTP.
 The creation tests check the location and queued metadata over HTTP and
 read the new record through SDK detail and paginated list requests.
+The upload tests check size, checksum, and complete and ranged reads.
 
 [Glance discovery reference]: https://docs.openstack.org/api-ref/image/versions/index.html
 [Glance image reference]: https://docs.openstack.org/api-ref/image/v2/#show-image
 [Glance create reference]: https://docs.openstack.org/api-ref/image/v2/#create-image
 [Glance delete reference]: https://docs.openstack.org/api-ref/image/v2/#delete-image
+[Glance upload reference]: https://docs.openstack.org/api-ref/image/v2/#upload-binary-image-data
+[Glance upload tests]: https://github.com/openstack/glance/blob/12.0.0/glance/tests/functional/v2/test_images.py#L447-L497
+[Glance filesystem store]: https://github.com/openstack/glance_store/blob/0.13.0/glance_store/_drivers/filesystem.py#L592-L638
 [Glance v2.0 image defaults]: https://github.com/openstack/glance/blob/12.0.0/glance/domain/__init__.py#L71-L93
 [Gophercloud image create options]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/image/v2/images/requests.go#L145-L218
 [Gophercloud image delete]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/image/v2/images/requests.go#L221-L226
+[Gophercloud image upload]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/image/v2/imagedata/requests.go#L10-L18
 [Glance image schema reference]: https://docs.openstack.org/api-ref/image/v2/#show-image-schema
 [Glance collection schema reference]: https://docs.openstack.org/api-ref/image/v2/#show-images-schema
 [Glance schema builders]: https://github.com/openstack/glance/blob/master/glance/api/v2/images.py#L1963-L2008

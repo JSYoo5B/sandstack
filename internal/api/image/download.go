@@ -37,6 +37,12 @@ func (h handler) downloadImage(w http.ResponseWriter, r *http.Request, projectID
 		writeDownloadError(w, err)
 		return
 	}
+	if selection != nil && len(data) != size {
+		selection, valid = resolveDownloadRange(w, r.Header.Values("Range"), len(data))
+		if !valid {
+			return
+		}
+	}
 	writeImageData(w, data, checksum, selection)
 }
 
@@ -82,7 +88,7 @@ func writeImageData(w http.ResponseWriter, data, checksum string, selection *dow
 		status = http.StatusPartialContent
 		w.Header().Set("Content-Range", fmt.Sprintf("bytes %d-%d/%d", selection.start, selection.end, len(data)))
 		data = data[selection.start : selection.end+1]
-	case len(data) == 0:
+	case len(data) == 0 && checksum == "":
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}

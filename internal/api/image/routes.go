@@ -41,6 +41,7 @@ func Register(
 	router.Patch(resource, h.withProject(h.updateImage))
 	router.Delete(resource, h.withProject(h.deleteImage))
 	router.Get(resource+"/file", h.withProject(h.downloadImage))
+	router.Put(resource+"/file", h.withProject(h.uploadImage))
 }
 
 func (h handler) withProject(next func(http.ResponseWriter, *http.Request, string)) http.HandlerFunc {
