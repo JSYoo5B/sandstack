@@ -7,6 +7,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	app "github.com/JSYoo5B/sandstack/internal/app/volume"
+	domain "github.com/JSYoo5B/sandstack/internal/domain/volume"
 )
 
 type volumeTypeBody struct {
@@ -27,18 +28,22 @@ func (h handler) showVolumeType(w http.ResponseWriter, r *http.Request, projectI
 	case err != nil:
 		writeFault(w, http.StatusInternalServerError, "computeFault", "Unable to read the volume type.")
 	default:
-		body := volumeTypeBody{
-			ID:          volumeType.ID,
-			Name:        volumeType.Name,
-			Description: volumeType.Description,
-			IsPublic:    volumeType.Public,
-			ExtraSpecs:  map[string]string{},
-		}
-		if typeID == volumeType.ID {
-			body.LegacyPublic = &body.IsPublic
-		}
 		writeJSON(w, http.StatusOK, struct {
 			VolumeType volumeTypeBody `json:"volume_type"`
-		}{VolumeType: body})
+		}{VolumeType: describeVolumeType(volumeType, typeID == volumeType.ID)})
 	}
+}
+
+func describeVolumeType(volumeType domain.VolumeType, legacyPublic bool) volumeTypeBody {
+	body := volumeTypeBody{
+		ID:          volumeType.ID,
+		Name:        volumeType.Name,
+		Description: volumeType.Description,
+		IsPublic:    volumeType.Public,
+		ExtraSpecs:  map[string]string{},
+	}
+	if legacyPublic {
+		body.LegacyPublic = &body.IsPublic
+	}
+	return body
 }

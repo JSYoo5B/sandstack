@@ -31,6 +31,7 @@ func Register(
 	endpointURL func(*http.Request, string) string,
 ) {
 	h := handler{service: service, projectForToken: projectForToken, endpointURL: endpointURL}
+	router.Get(Path+"/{projectID}/types", h.withProject(h.listVolumeTypes))
 	router.Get(Path+"/{projectID}/types/{typeID}", h.withProject(withoutQuery(h.showVolumeType)))
 	collection := Path + "/{projectID}/volumes"
 	router.Get(collection+"/detail", h.withProject(h.listVolumes))
