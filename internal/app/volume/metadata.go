@@ -25,6 +25,22 @@ func (s *Service) ReplaceVolumeMetadata(
 	projectID, volumeID string,
 	metadata map[string]string,
 ) (map[string]string, error) {
+	return s.writeVolumeMetadata(projectID, volumeID, metadata, true)
+}
+
+// MergeVolumeMetadata adds or overwrites supplied keys on the scoped volume.
+func (s *Service) MergeVolumeMetadata(
+	projectID, volumeID string,
+	metadata map[string]string,
+) (map[string]string, error) {
+	return s.writeVolumeMetadata(projectID, volumeID, metadata, false)
+}
+
+func (s *Service) writeVolumeMetadata(
+	projectID, volumeID string,
+	metadata map[string]string,
+	replace bool,
+) (map[string]string, error) {
 	if s.seed.ProjectID != projectID {
 		return nil, ErrVolumeNotFound
 	}
@@ -35,7 +51,15 @@ func (s *Service) ReplaceVolumeMetadata(
 		return nil, ErrVolumeNotFound
 	}
 	// Stored metadata maps are immutable, including maps observed by list readers.
-	volume.Metadata = copyMetadata(metadata)
+	switch {
+	case replace:
+		volume.Metadata = copyMetadata(metadata)
+	case len(metadata) == 0:
+		return copyMetadata(volume.Metadata), nil
+	default:
+		volume.Metadata = copyMetadata(volume.Metadata)
+		maps.Copy(volume.Metadata, metadata)
+	}
 	s.volumes[volumeID] = volume
 	return maps.Clone(volume.Metadata), nil
 }

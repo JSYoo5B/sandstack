@@ -14,18 +14,22 @@ func (h handler) showVolumeMetadata(w http.ResponseWriter, r *http.Request, proj
 	writeVolumeMetadata(w, metadata, err)
 }
 
-func (h handler) replaceVolumeMetadata(w http.ResponseWriter, r *http.Request, projectID string) {
-	data, ok := readJSONBody(w, r, "volume metadata")
-	if !ok {
-		return
+func changeVolumeMetadata(
+	change func(string, string, map[string]string) (map[string]string, error),
+) projectHandler {
+	return func(w http.ResponseWriter, r *http.Request, projectID string) {
+		data, ok := readJSONBody(w, r, "volume metadata")
+		if !ok {
+			return
+		}
+		values, err := parseMetadataRequest(data, cinderMetadataKey)
+		if err != nil {
+			writeFault(w, http.StatusBadRequest, "badRequest", err.Error())
+			return
+		}
+		metadata, err := change(projectID, chi.URLParam(r, "volumeID"), values)
+		writeVolumeMetadata(w, metadata, err)
 	}
-	values, err := parseMetadataRequest(data, cinderMetadataKey)
-	if err != nil {
-		writeFault(w, http.StatusBadRequest, "badRequest", err.Error())
-		return
-	}
-	metadata, err := h.service.ReplaceVolumeMetadata(projectID, chi.URLParam(r, "volumeID"), values)
-	writeVolumeMetadata(w, metadata, err)
 }
 
 func writeVolumeMetadata(w http.ResponseWriter, values map[string]string, err error) {

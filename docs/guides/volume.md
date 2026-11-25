@@ -112,6 +112,16 @@ with `ServiceURL("volumes", volumeID, "metadata")`. The updated map also
 appears in `volumes.Get` and the detailed list. Metadata operations leave
 a scheduled [detail failure](#fail-the-next-volume-detail-read) pending.
 
+### Merge volume metadata
+
+Send `POST /volumes/{volume_id}/metadata` with a `metadata` object to
+add keys or change their values. Existing keys omitted from the request
+retain their values. An empty object keeps the map intact. The response
+is `200` with the full merged map. The same validation and state
+preservation rules apply. Use Gophercloud v2.15.0's `ServiceClient.Post`
+with an explicit `200` success code. See the [merge volume metadata
+reference] and [Cinder volume metadata controller].
+
 ## Create a volume from a snapshot
 
 Use the [snapshot guide](volume-snapshots.md) to create an available snapshot.
@@ -254,6 +264,7 @@ The [Cinder snapshot lookup], [Cinder size default], and
 [Gophercloud volume update options]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/blockstorage/v3/volumes/requests.go#L285-L307
 [Cinder volume metadata controller]: https://github.com/openstack/cinder/blob/master/cinder/api/v3/volume_metadata.py
 [Cinder volume metadata schema]: https://github.com/openstack/cinder/blob/master/cinder/api/schemas/volume_metadata.py
+[merge volume metadata reference]: https://docs.openstack.org/api-ref/block-storage/v3/#create-a-volumes-metadata
 [delete volume reference]: https://docs.openstack.org/api-ref/block-storage/v3/#delete-a-volume
 [volume details reference]: https://docs.openstack.org/api-ref/block-storage/v3/#show-a-volume-s-details
 [Cinder WSGI fault mapping]: https://github.com/openstack/cinder/blob/master/cinder/api/openstack/wsgi.py#L1203-L1228
