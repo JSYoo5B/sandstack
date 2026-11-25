@@ -39,7 +39,7 @@ func New(seed domain.Volume, now func() time.Time, newID func() string) *Service
 	if seed.State == "" {
 		seed.State = domain.StateAvailable
 	}
-	service := &Service{seed: seed, now: now, newID: newID}
+	service := &Service{seed: cloneVolume(seed), now: now, newID: newID}
 	service.Reset()
 	return service
 }
@@ -58,7 +58,7 @@ func (s *Service) Get(projectID, volumeID string) (domain.Volume, error) {
 	if _, unavailable := s.unavailableDetails.LoadAndDelete(volumeID); unavailable {
 		return domain.Volume{}, ErrDetailUnavailable
 	}
-	return volume, nil
+	return cloneVolume(volume), nil
 }
 
 // allocateID runs with the service's write lock held.

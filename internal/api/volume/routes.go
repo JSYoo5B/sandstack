@@ -38,6 +38,9 @@ func Register(
 	router.Put(collection+"/{volumeID}", h.withProject(withoutQuery(h.updateVolume)))
 	router.Delete(collection+"/{volumeID}", h.withProject(withoutQuery(h.deleteVolume)))
 	router.Post(collection+"/{volumeID}/action", h.withProject(withoutQuery(h.extendVolume)))
+	volumeMetadata := collection + "/{volumeID}/metadata"
+	router.Get(volumeMetadata, h.withProject(withoutQuery(h.showVolumeMetadata)))
+	router.Put(volumeMetadata, h.withProject(withoutQuery(h.replaceVolumeMetadata)))
 	snapshots := Path + "/{projectID}/snapshots"
 	router.Get(snapshots+"/detail", h.withProject(h.listSnapshots))
 	router.Post(snapshots, h.withProject(withoutQuery(h.createSnapshot)))

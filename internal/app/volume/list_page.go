@@ -59,13 +59,16 @@ func (s *Service) ListPage(projectID string, filter ListFilter, marker *string, 
 	s.mu.RUnlock()
 
 	volumes, next := orderAndLimit(volumes, limit, func(volume domain.Volume) string { return volume.ID })
+	for i, volume := range volumes {
+		volumes[i] = cloneVolume(volume)
+	}
 	return VolumePage{Volumes: volumes, NextMarker: next}, nil
 }
 
 func orderAndLimit[T any](items []T, limit int, id func(T) string) ([]T, string) {
 	slices.SortFunc(items, func(a, b T) int { return strings.Compare(id(a), id(b)) })
 	if limit > 0 && len(items) >= limit {
-		return items[:limit], id(items[limit-1])
+		return items[:limit:limit], id(items[limit-1])
 	}
 	return items, ""
 }

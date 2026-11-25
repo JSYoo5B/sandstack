@@ -68,5 +68,5 @@ func (s *Service) createVolume(name, description string, size int, snapshotID st
 		State:       domain.StateCreating,
 	}
 	s.volumes[id] = volume
-	return volume, nil
+	return cloneVolume(volume), nil
 }

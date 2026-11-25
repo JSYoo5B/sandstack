@@ -1,23 +1,16 @@
 package volume
 
 import (
-	"encoding/json"
 	"errors"
 	"net/http"
 	"regexp"
-	"unicode/utf8"
 
 	"github.com/go-chi/chi/v5"
 
 	app "github.com/JSYoo5B/sandstack/internal/app/volume"
 )
 
-var errSnapshotMetadataRequest = errors.New("expected a metadata object with valid keys and string values")
 var snapshotMetadataKey = regexp.MustCompile(`^[a-zA-Z0-9_.: -]{1,255}$`)
-
-type snapshotMetadataResponse struct {
-	Metadata map[string]string `json:"metadata"`
-}
 
 func (h handler) showSnapshotMetadata(w http.ResponseWriter, r *http.Request, projectID string) {
 	snapshot, err := h.service.GetSnapshot(projectID, chi.URLParam(r, "snapshotID"))
@@ -32,7 +25,7 @@ func changeSnapshotMetadata(
 		if !ok {
 			return
 		}
-		values, err := parseSnapshotMetadata(data)
+		values, err := parseMetadataRequest(data, snapshotMetadataKey)
 		if err != nil {
 			writeFault(w, http.StatusBadRequest, "badRequest", err.Error())
 			return
@@ -49,34 +42,6 @@ func writeSnapshotMetadata(w http.ResponseWriter, values map[string]string, err 
 	case err != nil:
 		writeFault(w, http.StatusInternalServerError, "computeFault", "Unable to access snapshot metadata.")
 	default:
-		writeJSON(w, http.StatusOK, snapshotMetadataResponse{Metadata: values})
+		writeJSON(w, http.StatusOK, metadataResponse{Metadata: values})
 	}
-}
-
-func parseSnapshotMetadata(data []byte) (map[string]string, error) {
-	if !utf8.Valid(data) {
-		return nil, errSnapshotMetadataRequest
-	}
-	envelope, err := readUniqueObject(data)
-	if err != nil || len(envelope) != 1 {
-		return nil, errSnapshotMetadataRequest
-	}
-	return parseSnapshotMetadataValues(envelope["metadata"], snapshotMetadataKey)
-}
-
-func parseSnapshotMetadataValues(data json.RawMessage, keyPattern *regexp.Regexp) (map[string]string, error) {
-	fields, err := readUniqueObject(data)
-	if err != nil {
-		return nil, errSnapshotMetadataRequest
-	}
-	metadata := make(map[string]string, len(fields))
-	for key, raw := range fields {
-		var value *string
-		if !keyPattern.MatchString(key) || json.Unmarshal(raw, &value) != nil ||
-			value == nil || utf8.RuneCountInString(*value) > maxVolumeTextLength {
-			return nil, errSnapshotMetadataRequest
-		}
-		metadata[key] = *value
-	}
-	return metadata, nil
 }

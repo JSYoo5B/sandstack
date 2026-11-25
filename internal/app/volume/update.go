@@ -29,5 +29,5 @@ func (s *Service) Update(projectID, volumeID string, changes TextUpdate) (domain
 		volume.UpdatedAt = s.now().UTC()
 		s.volumes[volumeID] = volume
 	}
-	return volume, nil
+	return cloneVolume(volume), nil
 }

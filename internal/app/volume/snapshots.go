@@ -51,7 +51,7 @@ func (s *Service) CreateSnapshot(
 		Size:        volume.Size,
 		CreatedAt:   s.now().UTC(),
 		State:       domain.StateCreating,
-		Metadata:    copySnapshotMetadata(options.Metadata),
+		Metadata:    copyMetadata(options.Metadata),
 	}
 	s.snapshots[id] = snapshot
 	return cloneSnapshot(snapshot), nil
@@ -126,21 +126,15 @@ func (s *Service) writeSnapshotMetadata(
 	// Stored metadata maps are immutable, including maps observed by list readers.
 	switch {
 	case replace:
-		snapshot.Metadata = copySnapshotMetadata(metadata)
+		snapshot.Metadata = copyMetadata(metadata)
 	case len(metadata) == 0:
 		return maps.Clone(snapshot.Metadata), nil
 	default:
-		snapshot.Metadata = copySnapshotMetadata(snapshot.Metadata)
+		snapshot.Metadata = copyMetadata(snapshot.Metadata)
 		maps.Copy(snapshot.Metadata, metadata)
 	}
 	s.snapshots[snapshotID] = snapshot
 	return maps.Clone(snapshot.Metadata), nil
-}
-
-func copySnapshotMetadata(metadata map[string]string) map[string]string {
-	copied := make(map[string]string, len(metadata))
-	maps.Copy(copied, metadata)
-	return copied
 }
 
 func cloneSnapshot(snapshot domain.Snapshot) domain.Snapshot {

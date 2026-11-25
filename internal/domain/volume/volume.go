@@ -25,6 +25,7 @@ type Volume struct {
 	UpdatedAt   time.Time
 	State       State
 	Attachment  Attachment
+	Metadata    map[string]string
 }
 
 // NullableText distinguishes a stored empty string from an unset field.

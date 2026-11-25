@@ -88,6 +88,25 @@ empty string to write `""` explicitly. The update preserves volume status
 and attachments, including when the volume is `in-use`. See the
 [Gophercloud volume update options].
 
+## Read and replace volume metadata
+
+Use `GET /volumes/{volume_id}/metadata` to read a volume's user metadata.
+Send `PUT` to the same path with a body such as
+`{"metadata":{"team/owner":"storage"}}` to replace the whole map. Send
+`{"metadata":{}}` to clear it. Both operations return `200` with a
+`metadata` object. They use the project token and preserve any volume
+status, attachment, and update timestamp. See the [Cinder volume metadata
+controller] and [Cinder volume metadata schema].
+
+Keys have 1 to 255 characters from ASCII letters, digits, spaces, and
+`-_.:/`. Values are strings of up to 255 characters. An empty string is
+valid. Invalid metadata returns `400` and leaves the previous map intact.
+
+Use Gophercloud v2.15.0's `ServiceClient.Get` and `ServiceClient.Put`
+with `ServiceURL("volumes", volumeID, "metadata")`. The updated map also
+appears in `volumes.Get` and the detailed list. Metadata operations leave
+a scheduled [detail failure](#fail-the-next-volume-detail-read) pending.
+
 ## Create a volume from a snapshot
 
 Use the [snapshot guide](volume-snapshots.md) to create an available snapshot.
@@ -226,6 +245,8 @@ The [Cinder snapshot lookup], [Cinder size default], and
 [Cinder volume update schema]: https://github.com/openstack/cinder/blob/master/cinder/api/schemas/volumes.py#L82-L110
 [Cinder volume update controller]: https://github.com/openstack/cinder/blob/master/cinder/api/v3/volumes.py#L438-L460
 [Gophercloud volume update options]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/blockstorage/v3/volumes/requests.go#L285-L307
+[Cinder volume metadata controller]: https://github.com/openstack/cinder/blob/master/cinder/api/v3/volume_metadata.py
+[Cinder volume metadata schema]: https://github.com/openstack/cinder/blob/master/cinder/api/schemas/volume_metadata.py
 [delete volume reference]: https://docs.openstack.org/api-ref/block-storage/v3/#delete-a-volume
 [volume details reference]: https://docs.openstack.org/api-ref/block-storage/v3/#show-a-volume-s-details
 [Cinder WSGI fault mapping]: https://github.com/openstack/cinder/blob/master/cinder/api/openstack/wsgi.py#L1203-L1228

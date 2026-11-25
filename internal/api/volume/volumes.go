@@ -73,6 +73,10 @@ func (h handler) describeVolume(r *http.Request, volume domain.Volume) volumeBod
 			AttachedAt:   attachment.AttachedAt.UTC().Format(timestampLayout),
 		})
 	}
+	metadata := volume.Metadata
+	if metadata == nil {
+		metadata = map[string]string{}
+	}
 	resourcePath := "/" + volume.ProjectID + "/volumes/" + volume.ID
 	return volumeBody{
 		ID:                volume.ID,
@@ -88,7 +92,7 @@ func (h handler) describeVolume(r *http.Request, volume domain.Volume) volumeBod
 		VolumeType:        volumeType,
 		SnapshotID:        optionalText(volume.SnapshotID),
 		Attachments:       attachments,
-		Metadata:          map[string]string{},
+		Metadata:          metadata,
 		Bootable:          "false",
 		ReplicationStatus: "disabled",
 		Links: []volumeLink{

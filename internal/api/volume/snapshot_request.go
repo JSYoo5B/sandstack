@@ -4,13 +4,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"regexp"
 	"strings"
 	"unicode/utf8"
 )
 
 var errInvalidSnapshotObject = errors.New("expected one snapshot object with valid fields")
-var snapshotCreateMetadataKey = regexp.MustCompile(`^[a-zA-Z0-9_.: /-]{1,255}$`)
 
 type createSnapshotParams struct {
 	volumeID    string
@@ -54,7 +52,7 @@ func parseCreateSnapshot(data []byte) (createSnapshotParams, error) {
 			if bytes.Equal(value, []byte("null")) {
 				continue
 			}
-			params.metadata, err = parseSnapshotMetadataValues(value, snapshotCreateMetadataKey)
+			params.metadata, err = parseMetadataValues(value, cinderMetadataKey)
 			if err != nil {
 				return createSnapshotParams{}, err
 			}
