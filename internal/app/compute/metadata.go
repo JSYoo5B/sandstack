@@ -26,6 +26,19 @@ func (s *Service) GetMetadata(projectID, serverID string) (map[string]string, er
 
 // ReplaceMetadata updates the complete metadata collection of a live server.
 func (s *Service) ReplaceMetadata(projectID, serverID string, values map[string]string) (map[string]string, error) {
+	return s.writeMetadata(projectID, serverID, values, true)
+}
+
+// MergeMetadata updates the supplied keys in the metadata of a live server.
+func (s *Service) MergeMetadata(projectID, serverID string, values map[string]string) (map[string]string, error) {
+	return s.writeMetadata(projectID, serverID, values, false)
+}
+
+func (s *Service) writeMetadata(
+	projectID, serverID string,
+	values map[string]string,
+	replace bool,
+) (map[string]string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.server.ProjectID != projectID || s.server.ID != serverID {
@@ -34,6 +47,11 @@ func (s *Service) ReplaceMetadata(projectID, serverID string, values map[string]
 	status := s.server.Status()
 	if status != domain.StatusActive && status != domain.StatusShutoff {
 		return nil, ErrServerMetadataState
+	}
+	if !replace {
+		merged := copyMetadata(s.server.Metadata)
+		maps.Copy(merged, values)
+		values = merged
 	}
 	if len(values) > maxMetadataItems {
 		return nil, ErrServerMetadataQuota

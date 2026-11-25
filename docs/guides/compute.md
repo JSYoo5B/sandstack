@@ -69,6 +69,16 @@ The metadata endpoint operates on live state and leaves a scheduled
 detail failure pending. SandStack updates the server timestamp when the
 map changes. See the [Nova metadata state checks].
 
+### Merge server metadata
+
+Use `servers.UpdateMetadata` with `servers.MetadataOpts` to add or
+update selected keys. It sends `POST /servers/{server_id}/metadata` and
+returns `200` with the full resulting map. Existing keys omitted from the
+request retain their values. An empty object keeps the current map.
+The same state and validation rules apply, and the quota applies to the
+result after merging. See the [Nova metadata merge reference] and
+[Gophercloud metadata merge operation].
+
 ## Stop and start a server
 
 Use the fixture server ID with `servers.Stop` and `servers.Start` in
@@ -241,10 +251,12 @@ for the OpenStack response shapes.
 [Gophercloud update options]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/compute/v2/servers/requests.go#L639-L681
 [Nova update response]: https://github.com/openstack/nova/blob/master/nova/api/openstack/compute/servers.py#L955-L994
 [Nova metadata reference]: https://docs.openstack.org/api-ref/compute/#server-metadata-servers-metadata
+[Nova metadata merge reference]: https://docs.openstack.org/api-ref/compute/#create-or-update-metadata-items
 [Nova metadata schema]: https://github.com/openstack/nova/blob/master/nova/api/openstack/compute/schemas/server_metadata.py#L42-L49
 [Nova metadata state checks]: https://github.com/openstack/nova/blob/master/nova/compute/api.py#L5091-L5122
 [Nova metadata quota]: https://docs.openstack.org/nova/latest/configuration/config.html#quota.metadata_items
 [Gophercloud metadata operations]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/compute/v2/servers/requests.go#L886-L930
+[Gophercloud metadata merge operation]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/compute/v2/servers/requests.go#L934-L949
 [Nova reboot reference]: https://docs.openstack.org/api-ref/compute/#reboot-server-reboot-action
 [Nova reboot schema]: https://github.com/openstack/nova/blob/master/nova/api/openstack/compute/schemas/servers.py#L495-L512
 [Nova reboot state checks]: https://github.com/openstack/nova/blob/master/nova/compute/vm_states.py#L62-L67

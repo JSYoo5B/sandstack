@@ -40,7 +40,8 @@ func Register(
 	list := h.withProject(h.listServersDetailed)
 	power := h.withProject(h.changeServerPower)
 	showMetadata := h.withProject(h.showServerMetadata)
-	replaceMetadata := h.withProject(h.replaceServerMetadata)
+	replaceMetadata := h.withProject(changeServerMetadata(service.ReplaceMetadata))
+	mergeMetadata := h.withProject(changeServerMetadata(service.MergeMetadata))
 	listAttachments := h.withAttachmentProject(h.listAttachments)
 	createAttachment := h.withAttachmentProject(h.createAttachment)
 	showAttachment := h.withAttachmentProject(h.showAttachment)
@@ -52,6 +53,7 @@ func Register(
 		router.Post(server+"/action", power)
 		router.Get(server+"/metadata", showMetadata)
 		router.Put(server+"/metadata", replaceMetadata)
+		router.Post(server+"/metadata", mergeMetadata)
 		router.Get(prefix+"/servers/detail", list)
 		collection := server + "/os-volume_attachments"
 		router.Get(collection, listAttachments)

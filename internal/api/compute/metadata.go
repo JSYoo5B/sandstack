@@ -24,18 +24,22 @@ func (h handler) showServerMetadata(w http.ResponseWriter, r *http.Request, scop
 	writeServerMetadata(w, values, err)
 }
 
-func (h handler) replaceServerMetadata(w http.ResponseWriter, r *http.Request, scope requestScope) {
-	data, ok := readRequestBody(w, r, "server metadata")
-	if !ok {
-		return
+func changeServerMetadata(
+	change func(string, string, map[string]string) (map[string]string, error),
+) func(http.ResponseWriter, *http.Request, requestScope) {
+	return func(w http.ResponseWriter, r *http.Request, scope requestScope) {
+		data, ok := readRequestBody(w, r, "server metadata")
+		if !ok {
+			return
+		}
+		values, err := parseMetadata(data)
+		if err != nil {
+			writeFault(w, http.StatusBadRequest, "badRequest", err.Error())
+			return
+		}
+		saved, err := change(scope.projectID, chi.URLParam(r, "serverID"), values)
+		writeServerMetadata(w, saved, err)
 	}
-	values, err := parseMetadata(data)
-	if err != nil {
-		writeFault(w, http.StatusBadRequest, "badRequest", err.Error())
-		return
-	}
-	saved, err := h.service.ReplaceMetadata(scope.projectID, chi.URLParam(r, "serverID"), values)
-	writeServerMetadata(w, saved, err)
 }
 
 func writeServerMetadata(w http.ResponseWriter, values map[string]string, err error) {
