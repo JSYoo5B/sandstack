@@ -29,7 +29,7 @@ func TestVolumeCreateAndDeleteWire(t *testing.T) {
 		{"missing size", `{"volume":{"name":"missing"}}`},
 		{"zero size", `{"volume":{"size":0}}`},
 		{"negative size", `{"volume":{"size":-1}}`},
-		{"volume source outside fixture scope", `{"volume":{"size":1,"source_volid":"00000000-0000-0000-0000-000000000000"}}`},
+		{"malformed volume source", `{"volume":{"size":1,"source_volid":"not-a-uuid"}}`},
 	} {
 		t.Run(invalid.name, func(t *testing.T) {
 			status, headers, body := request(t, instance, http.MethodPost, collection, invalid.body, auth)

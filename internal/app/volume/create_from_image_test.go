@@ -43,6 +43,7 @@ func TestImageVolumeProvisioningCapturesSourceAndBecomesBootableOnSuccess(t *tes
 	require.NoError(t, err)
 	assert.Equal(t, domain.StateCreating, provisioning.State)
 	assert.False(t, provisioning.Bootable)
+	assert.False(t, provisioning.ImageMetadataReady)
 	assert.Equal(t, now, provisioning.CreatedAt)
 	assert.Equal(t, domain.ImageSource{
 		ID: image.ID, Name: image.Name, Checksum: image.Checksum, Size: image.Size,
@@ -56,6 +57,7 @@ func TestImageVolumeProvisioningCapturesSourceAndBecomesBootableOnSuccess(t *tes
 	available, err := service.Get(seed.ProjectID, provisioning.ID)
 	require.NoError(t, err)
 	assert.True(t, available.Bootable)
+	assert.True(t, available.ImageMetadataReady)
 	assert.Equal(t, domain.StateAvailable, available.State)
 	assert.Equal(t, now, available.UpdatedAt)
 	assert.Equal(t, provisioning.ImageSource, available.ImageSource)
@@ -69,6 +71,7 @@ func TestImageVolumeProvisioningCapturesSourceAndBecomesBootableOnSuccess(t *tes
 	require.NoError(t, err)
 	assert.Equal(t, domain.StateError, failed.State)
 	assert.False(t, failed.Bootable)
+	assert.False(t, failed.ImageMetadataReady)
 }
 
 func TestImageVolumeProvisioningChecksVisibilityStateAndSize(t *testing.T) {

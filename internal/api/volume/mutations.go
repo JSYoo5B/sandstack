@@ -60,6 +60,10 @@ func (h handler) createVolume(w http.ResponseWriter, r *http.Request, projectID 
 		volume, err = h.service.CreateFromSnapshotWithMetadata(
 			projectID, params.snapshotID, params.name, params.description, params.size, params.metadata,
 		)
+	case params.sourceVolumeID != "":
+		volume, err = h.service.CreateFromVolume(
+			projectID, params.sourceVolumeID, params.name, params.description, params.size, params.metadata,
+		)
 	default:
 		volume, err = h.service.CreateWithMetadata(
 			projectID, params.name, params.description, params.size, params.metadata,
@@ -70,9 +74,13 @@ func (h handler) createVolume(w http.ResponseWriter, r *http.Request, projectID 
 		writeFault(w, http.StatusNotFound, "itemNotFound", "The volume project could not be found.")
 	case errors.Is(err, app.ErrSnapshotNotFound):
 		writeFault(w, http.StatusNotFound, "itemNotFound", "The source snapshot could not be found.")
+	case errors.Is(err, app.ErrVolumeSourceNotFound):
+		writeFault(w, http.StatusNotFound, "itemNotFound", "The source volume could not be found.")
 	case errors.Is(err, app.ErrSnapshotStateConflict):
 		writeFault(w, http.StatusBadRequest, "badRequest", "The source snapshot must be available.")
 	case errors.Is(err, app.ErrVolumeSourceImageUnavailable), errors.Is(err, app.ErrVolumeSourceImageSize):
+		writeFault(w, http.StatusBadRequest, "badRequest", err.Error())
+	case errors.Is(err, app.ErrVolumeSourceState), errors.Is(err, app.ErrVolumeSmallerThanSource):
 		writeFault(w, http.StatusBadRequest, "badRequest", err.Error())
 	case errors.Is(err, app.ErrInvalidVolumeSize), errors.Is(err, app.ErrVolumeSmallerThanSnapshot):
 		writeFault(w, http.StatusBadRequest, "badRequest", err.Error())

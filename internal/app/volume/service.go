@@ -126,7 +126,12 @@ func (s *Service) CompleteCreation(volumeID string) error {
 	}
 	switch volume.State {
 	case domain.StateCreating:
-		volume.Bootable = volume.ImageSource.ID != ""
+		if volume.ImageSource.ID != "" {
+			volume.ImageMetadataReady = true
+			if volume.SourceVolumeID == "" {
+				volume.Bootable = true
+			}
+		}
 		s.updateState(volume, domain.StateAvailable)
 	case domain.StateAvailable:
 		return nil

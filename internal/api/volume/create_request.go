@@ -20,13 +20,14 @@ var (
 )
 
 type createVolumeParams struct {
-	name        string
-	description string
-	snapshotID  string
-	imageID     string
-	volumeType  string
-	size        int
-	metadata    map[string]string
+	name           string
+	description    string
+	snapshotID     string
+	imageID        string
+	sourceVolumeID string
+	volumeType     string
+	size           int
+	metadata       map[string]string
 }
 
 func parseCreateVolume(data []byte) (createVolumeParams, error) {
@@ -45,12 +46,13 @@ func parseCreateVolume(data []byte) (createVolumeParams, error) {
 	var params createVolumeParams
 	var requestedZone *string
 	var requestedSize *int
-	var imageRef, imageID *string
+	var imageRef, imageID, sourceVolumeID *string
 	for field, value := range fields {
 		var target any
 		if bytes.Equal(value, []byte("null")) {
 			if field == "name" || field == "description" || field == "size" ||
-				field == "metadata" || field == "volume_type" || field == "imageRef" || field == "image_id" {
+				field == "metadata" || field == "volume_type" || field == "imageRef" ||
+				field == "image_id" || field == "source_volid" {
 				continue
 			}
 			return createVolumeParams{}, errInvalidVolumeObject
@@ -64,6 +66,8 @@ func parseCreateVolume(data []byte) (createVolumeParams, error) {
 			target = &imageRef
 		case "image_id":
 			target = &imageID
+		case "source_volid":
+			target = &sourceVolumeID
 		case "name":
 			target = &params.name
 		case "description":
@@ -95,17 +99,30 @@ func parseCreateVolume(data []byte) (createVolumeParams, error) {
 		if !resourceUUID.MatchString(*imageRef) {
 			return createVolumeParams{}, errors.New("volume imageRef must be an image UUID")
 		}
-		if params.snapshotID != "" {
-			return createVolumeParams{}, errors.New("volume creation accepts only one source")
-		}
 		params.imageID = *imageRef
 	}
+	if sourceVolumeID != nil {
+		if !resourceUUID.MatchString(*sourceVolumeID) {
+			return createVolumeParams{}, errors.New("volume source_volid must be a UUID")
+		}
+		params.sourceVolumeID = *sourceVolumeID
+	}
+	sourceCount := 0
+	for _, id := range []string{params.snapshotID, params.imageID, params.sourceVolumeID} {
+		if id != "" {
+			sourceCount++
+		}
+	}
+	if sourceCount > 1 {
+		return createVolumeParams{}, errors.New("volume creation accepts only one source")
+	}
+	inheritsSize := params.snapshotID != "" || params.sourceVolumeID != ""
 	if requestedSize != nil {
-		if params.snapshotID != "" && *requestedSize <= 0 {
+		if inheritsSize && *requestedSize <= 0 {
 			return createVolumeParams{}, errors.New("volume size must be positive")
 		}
 		params.size = *requestedSize
-	} else if params.snapshotID == "" {
+	} else if !inheritsSize {
 		if fields["size"] != nil {
 			return createVolumeParams{}, errInvalidVolumeObject
 		}

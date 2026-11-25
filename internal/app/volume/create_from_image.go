@@ -56,5 +56,5 @@ func (s *Service) CreateFromImage(
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.createVolume(name, description, size, "", metadata, source)
+	return s.createVolume(name, description, size, metadata, volumeSource{image: source})
 }

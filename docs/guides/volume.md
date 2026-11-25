@@ -64,12 +64,11 @@ availability zone is `nova`. The request returns `202` with a volume in
 status `creating`. Both reads show that status until the test drives an
 outcome. Set `volumes.CreateOpts.Metadata` to include user metadata in
 the create response, volume detail, and detailed list. A raw request may
-omit `metadata` or set it to `null` for an empty map. The same field is
-available when creating from a snapshot. It follows the
+omit `metadata` or set it to `null` for an empty map. It follows the
 [volume metadata key and value rules](#read-and-replace-volume-metadata).
 See the [Cinder volume create schema] and [Gophercloud volume create options].
-The optional `volume_type` uses the same name or UUID selector for a
-blank or snapshot-sourced volume. See the [Cinder volume type resolution].
+The optional `volume_type` accepts the type name or UUID for each
+creation path. See the [Cinder volume type resolution].
 
 To make the volume available, take the ID from the create response and
 call the SandStack control with the admin token.
@@ -178,6 +177,26 @@ and the originating `snapshot_id`. Use the
 the new volume or simulate a provisioning failure. The new volume keeps
 its `snapshot_id` in either outcome. This scenario models provisioning and
 source metadata.
+
+## Clone an existing volume
+
+Pass an `available` or `in-use` volume from the same project as
+`SourceVolID` in `volumes.CreateOpts`. Gophercloud sends `source_volid`.
+Leave `Size` unset, or send raw `null`, to inherit the source size.
+An explicit size must be at least as large as the source. A missing
+source returns `404`. An unsupported source state, an undersized
+request, or combining source selectors returns `400`. See the [Cinder
+clone validation] and [Gophercloud volume create options].
+
+The `202` response exposes the source ID and inherited bootable flag
+while the clone is `creating`. Complete it through the
+[provisioning control](#create-and-provision-a-volume). The clone uses
+the user metadata from its own request. Glance metadata from a bootable
+source is captured on acceptance and appears on clone detail and list
+after successful provisioning. Source attachments and scheduled detail
+failures stay with the source volume. The clone retains its source ID
+after source deletion. See the [Cinder clone record] and [Cinder clone
+metadata copy].
 
 ## Create and provision a volume snapshot
 
@@ -292,6 +311,9 @@ The [Cinder snapshot lookup], [Cinder size default], and
 [create volume reference]: https://docs.openstack.org/api-ref/block-storage/v3/#create-a-volume
 [Cinder volume create schema]: https://github.com/openstack/cinder/blob/master/cinder/api/schemas/volumes.py#L23-L69
 [Cinder volume type resolution]: https://github.com/openstack/cinder/blob/master/cinder/api/v3/volumes.py#L360-L375
+[Cinder clone validation]: https://github.com/openstack/cinder/blob/10.0.0/cinder/volume/flows/api/create_volume.py#L128-L196
+[Cinder clone record]: https://github.com/openstack/cinder/blob/10.0.0/cinder/volume/flows/api/create_volume.py#L521-L547
+[Cinder clone metadata copy]: https://github.com/openstack/cinder/blob/10.0.0/cinder/volume/flows/manager/create_volume.py#L483-L501
 [Cinder image source validation]: https://github.com/openstack/cinder/blob/10.0.0/cinder/volume/flows/api/create_volume.py#L194-L233
 [Cinder image metadata capture]: https://github.com/openstack/cinder/blob/10.0.0/cinder/volume/flows/manager/create_volume.py#L561-L595
 [Cinder volume image metadata projection]: https://github.com/openstack/cinder/blob/master/cinder/api/contrib/volume_image_metadata.py#L43-L79

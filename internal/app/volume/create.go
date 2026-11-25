@@ -26,7 +26,7 @@ func (s *Service) CreateWithMetadata(
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.createVolume(name, description, size, "", metadata, domain.ImageSource{})
+	return s.createVolume(name, description, size, metadata, volumeSource{})
 }
 
 // CreateFromSnapshot uses the snapshot's size when size is omitted (zero).
@@ -65,33 +65,41 @@ func (s *Service) CreateFromSnapshotWithMetadata(
 	if size < snapshot.Size {
 		return domain.Volume{}, ErrVolumeSmallerThanSnapshot
 	}
-	return s.createVolume(name, description, size, snapshotID, metadata, domain.ImageSource{})
+	return s.createVolume(name, description, size, metadata, volumeSource{snapshotID: snapshotID})
+}
+
+type volumeSource struct {
+	snapshotID string
+	volumeID   string
+	image      domain.ImageSource
+	bootable   bool
 }
 
 // createVolume runs with the service's write lock held.
 func (s *Service) createVolume(
 	name, description string,
 	size int,
-	snapshotID string,
 	metadata map[string]string,
-	imageSource domain.ImageSource,
+	source volumeSource,
 ) (domain.Volume, error) {
 	id, err := s.allocateID()
 	if err != nil {
 		return domain.Volume{}, err
 	}
 	volume := domain.Volume{
-		ID:          id,
-		Name:        domain.NullableText{Value: name, Valid: name != ""},
-		Description: domain.NullableText{Value: description, Valid: description != ""},
-		ProjectID:   s.seed.ProjectID,
-		UserID:      s.seed.UserID,
-		SnapshotID:  snapshotID,
-		Size:        size,
-		CreatedAt:   s.now().UTC(),
-		State:       domain.StateCreating,
-		Metadata:    maps.Clone(metadata),
-		ImageSource: imageSource,
+		ID:             id,
+		Name:           domain.NullableText{Value: name, Valid: name != ""},
+		Description:    domain.NullableText{Value: description, Valid: description != ""},
+		ProjectID:      s.seed.ProjectID,
+		UserID:         s.seed.UserID,
+		SnapshotID:     source.snapshotID,
+		SourceVolumeID: source.volumeID,
+		Size:           size,
+		CreatedAt:      s.now().UTC(),
+		State:          domain.StateCreating,
+		Metadata:       maps.Clone(metadata),
+		ImageSource:    source.image,
+		Bootable:       source.bootable,
 	}
 	s.volumes[id] = volume
 	return cloneVolume(volume), nil

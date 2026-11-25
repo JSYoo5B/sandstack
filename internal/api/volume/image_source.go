@@ -10,7 +10,7 @@ import (
 func (h handler) describeDetailedVolume(r *http.Request, volume domain.Volume) volumeBody {
 	body := h.describeVolume(r, volume)
 	source := volume.ImageSource
-	if !volume.Bootable || source.ID == "" {
+	if !volume.ImageMetadataReady || source.ID == "" {
 		return body
 	}
 	body.ImageMetadata = map[string]string{

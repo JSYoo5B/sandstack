@@ -91,6 +91,7 @@ func (h handler) describeVolume(r *http.Request, volume domain.Volume) volumeBod
 		AvailabilityZone:  app.StandardAvailabilityZone,
 		VolumeType:        app.StandardVolumeTypeName,
 		SnapshotID:        optionalText(volume.SnapshotID),
+		SourceVolumeID:    optionalText(volume.SourceVolumeID),
 		Attachments:       attachments,
 		Metadata:          metadata,
 		Bootable:          strconv.FormatBool(volume.Bootable),
