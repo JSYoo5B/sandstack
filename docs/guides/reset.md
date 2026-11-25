@@ -3,7 +3,7 @@
 Reset returns a running sandbox to its starting fixture state so the next
 test case can use the same endpoint. It invalidates all issued Identity
 tokens and restores the original fixture values and timestamps. It also
-removes networks and subnets created by clients and clears service faults,
+removes networks, subnets, and ports created by clients and clears service faults,
 stale detail snapshots, and the [request journal](requests.md).
 
 ```sh

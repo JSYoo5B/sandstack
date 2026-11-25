@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"regexp"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -14,6 +15,7 @@ const maxResourceNameLength = 255
 
 var errInvalidCreateRequest = errors.New("expected one network object with valid fields")
 var errInvalidObject = errors.New("expected one JSON object without repeated fields")
+var resourceUUIDPattern = regexp.MustCompile(`^[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}$`)
 
 type requestOwnership struct {
 	projectID *string

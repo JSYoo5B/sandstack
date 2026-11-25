@@ -4,7 +4,7 @@ SandStack is a lightweight OpenStack test sandbox with programmable faults.
 It runs as an ephemeral dependency for automated tests of OpenStack clients.
 The current fixture supports Keystone authentication and catalog discovery,
 along with selected Nova, Neutron, Glance, and Cinder reads. Tests can
-create and delete Neutron networks and IPv4 subnets, alter fixture state,
+create and delete Neutron networks, IPv4 subnets, and ports, alter fixture state,
 observe stale reads, and reset the sandbox between cases.
 
 The [emulation decision](docs/decisions/0002-emulate-openstack-apis.md)

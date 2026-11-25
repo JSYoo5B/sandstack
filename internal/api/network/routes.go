@@ -43,6 +43,10 @@ func Register(
 	router.Post(Path+"/subnets", h.withProject(withEmptyQuery(h.createSubnet)))
 	router.Get(Path+"/subnets/{subnetID}", h.withProject(withEmptyQuery(h.showSubnet)))
 	router.Delete(Path+"/subnets/{subnetID}", h.withProject(withEmptyQuery(h.deleteSubnet)))
+	router.Get(Path+"/ports", h.withProject(h.listPorts))
+	router.Post(Path+"/ports", h.withProject(withEmptyQuery(h.createPort)))
+	router.Get(Path+"/ports/{portID}", h.withProject(withEmptyQuery(h.showPort)))
+	router.Delete(Path+"/ports/{portID}", h.withProject(withEmptyQuery(h.deletePort)))
 }
 
 func (h handler) withProject(next projectHandler) http.HandlerFunc {

@@ -17,7 +17,7 @@ resource requests.
 
 Use project-scoped `X-Auth-Token` credentials. All networks are private and
 start with no subnets. [Reset the sandbox](reset.md) to restore the seed and
-remove networks and subnets created by the client.
+remove networks, subnets, and ports created by the client.
 
 ## Create a network
 
@@ -58,8 +58,32 @@ addresses. For `192.0.2.0/24`, the gateway is `192.0.2.1` and the pool is
 this scenario. Overlapping subnets on one network receive `400`.
 
 Network reads include the IDs of their subnets. Deleting a subnet removes
-its ID from the network, and deleting a network also deletes its subnets.
+its ID from the network. Deleting a network with no ports also deletes its subnets.
 The subnet list is unfiltered. A sandbox reset clears created subnets.
+
+## Allocate and release a port address
+
+Use `POST /network/v2.0/ports` with a `port` object containing `network_id`.
+The optional `name` defaults to empty and `admin_state_up` defaults to `true`.
+SandStack assigns a locally administered MAC address. The unbound port
+reports `DOWN` and has empty `device_id` and `device_owner` fields.
+
+With one subnet on the network, omitting `fixed_ips` assigns the first free
+address in its pool. With no subnets, the port has no fixed IP. If the
+network has several subnets, pass one entry such as
+`"fixed_ips":[{"subnet_id":"SUBNET_ID"}]` to select a pool. Pass
+`"fixed_ips":[]` to create a port without an address. An exhausted pool
+returns `409`. The fixture supports one IPv4 allocation per port.
+
+Use `GET /network/v2.0/ports` for the project's port list. An optional
+`network_id` query parameter filters the list, and repeats match any of
+the requested network IDs. Use `GET` or `DELETE` on the path followed by
+the port ID to read or remove the port. The corresponding Gophercloud
+operations are `ports.Create`, `ports.List`, `ports.Get`, and `ports.Delete`.
+
+Deleting the port returns its IP to the pool. Network deletion returns
+`409` while ports remain on it. Subnet deletion returns `409` while a port
+holds an IP from it. Reset clears ports and their allocations.
 
 ## Inject and clear a network outage
 
@@ -77,11 +101,12 @@ or [reset the sandbox](reset.md) to restore all fixtures.
 
 ## Verification
 
-Run `go test ./...` to check discovery, network and subnet lifecycle,
-filtered network lists, the injected outage, and reset through Gophercloud.
+Run `go test ./...` to check discovery, network, subnet, and port lifecycle,
+filtered lists, the injected outage, and reset through Gophercloud.
 The raw HTTP tests use the [Neutron filtering reference], [Neutron list reference],
 [Neutron detail reference], [Neutron create reference], [Neutron delete reference],
-and [subnet create reference].
+[subnet create reference], and [port create reference]. The [Neutron database
+implementation] and [exception types] explain deletion and exhaustion conflicts.
 
 [Neutron filtering reference]: https://docs.openstack.org/api-ref/network/v2/#filtering-and-column-selection
 [Neutron list reference]: https://docs.openstack.org/api-ref/network/v2/#list-networks
@@ -89,3 +114,6 @@ and [subnet create reference].
 [Neutron create reference]: https://docs.openstack.org/api-ref/network/v2/#create-network
 [Neutron delete reference]: https://docs.openstack.org/api-ref/network/v2/#delete-network
 [subnet create reference]: https://docs.openstack.org/api-ref/network/v2/#create-subnet
+[port create reference]: https://docs.openstack.org/api-ref/network/v2/#create-port
+[Neutron database implementation]: https://github.com/openstack/neutron/blob/master/neutron/db/db_base_plugin_v2.py
+[exception types]: https://github.com/openstack/neutron-lib/blob/master/neutron_lib/exceptions/__init__.py

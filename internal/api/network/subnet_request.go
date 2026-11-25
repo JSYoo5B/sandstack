@@ -2,14 +2,10 @@ package network
 
 import (
 	"errors"
-	"regexp"
 	"strings"
 )
 
-var (
-	errInvalidSubnetRequest = errors.New("expected one subnet object with valid fields")
-	networkUUIDPattern      = regexp.MustCompile(`^[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}$`)
-)
+var errInvalidSubnetRequest = errors.New("expected one subnet object with valid fields")
 
 type createSubnetParams struct {
 	networkID  string
@@ -50,7 +46,7 @@ func parseCreateSubnet(data []byte) (createSubnetParams, error) {
 			return createSubnetParams{}, errInvalidSubnetRequest
 		}
 	}
-	if !networkUUIDPattern.MatchString(params.networkID) || params.cidr == "" || fields["ip_version"] == nil {
+	if !resourceUUIDPattern.MatchString(params.networkID) || params.cidr == "" || fields["ip_version"] == nil {
 		return createSubnetParams{}, errors.New("expected a network UUID, CIDR, and IP version")
 	}
 	if !validResourceName(params.name) {

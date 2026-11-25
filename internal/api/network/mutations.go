@@ -72,6 +72,10 @@ func (h handler) deleteNetwork(w http.ResponseWriter, r *http.Request, projectID
 		writeNetworkNotFound(w, networkID)
 		return
 	}
+	if errors.Is(err, app.ErrNetworkInUse) {
+		writeError(w, http.StatusConflict, "NetworkInUse", "The network still has ports allocated to it.")
+		return
+	}
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "HTTPInternalServerError", "Unable to delete the network.")
 		return

@@ -13,6 +13,7 @@ import (
 var (
 	ErrNetworkNotFound     = errors.New("network not found")
 	ErrNetworkIDGeneration = errors.New("network ID generation failed")
+	ErrNetworkInUse        = errors.New("network has attached ports")
 )
 
 const networkIDAttempts = 8
@@ -24,6 +25,7 @@ type Service struct {
 	seed     domain.Network
 	networks map[string]domain.Network
 	subnets  map[string]domain.Subnet
+	ports    map[string]domain.Port
 	newID    func() string
 }
 
@@ -32,7 +34,7 @@ type ListFilter struct {
 	Statuses []string
 }
 
-// New starts a service with one private network and no subnets. The generator
+// New starts a service with one private network. The generator
 // supplies a lowercase UUID for each created resource, or an empty string on failure.
 func New(seed domain.Network, newID func() string) *Service {
 	seed.SubnetIDs = nil
@@ -40,6 +42,7 @@ func New(seed domain.Network, newID func() string) *Service {
 		seed:     seed,
 		networks: map[string]domain.Network{seed.ID: seed},
 		subnets:  make(map[string]domain.Subnet),
+		ports:    make(map[string]domain.Port),
 		newID:    newID,
 	}
 }
@@ -77,7 +80,7 @@ func (s *Service) Create(projectID, name string, adminDown bool) (domain.Network
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	id, err := s.allocateID()
+	id, err := s.allocateID(nil)
 	if err != nil {
 		return domain.Network{}, err
 	}
@@ -86,8 +89,9 @@ func (s *Service) Create(projectID, name string, adminDown bool) (domain.Network
 	return network, nil
 }
 
-// allocateID runs with the write lock held.
-func (s *Service) allocateID() (string, error) {
+// allocateID runs with the write lock held. If supplied, available can reject
+// a candidate that conflicts with a resource attribute derived from its ID.
+func (s *Service) allocateID(available func(string) bool) (string, error) {
 	if s.newID == nil {
 		return "", ErrNetworkIDGeneration
 	}
@@ -98,7 +102,9 @@ func (s *Service) allocateID() (string, error) {
 		}
 		_, networkExists := s.networks[id]
 		_, subnetExists := s.subnets[id]
-		if networkExists || subnetExists || id == s.seed.ID {
+		_, portExists := s.ports[id]
+		if networkExists || subnetExists || portExists || id == s.seed.ID ||
+			(available != nil && !available(id)) {
 			continue
 		}
 		return id, nil
@@ -113,6 +119,11 @@ func (s *Service) Delete(projectID, networkID string) error {
 	network, ok := s.networks[networkID]
 	if !ok || network.ProjectID != projectID {
 		return ErrNetworkNotFound
+	}
+	for _, port := range s.ports {
+		if port.NetworkID == networkID {
+			return ErrNetworkInUse
+		}
 	}
 	for _, subnetID := range network.SubnetIDs {
 		delete(s.subnets, subnetID)
@@ -140,6 +151,7 @@ func (s *Service) Reset() {
 
 	s.networks = map[string]domain.Network{s.seed.ID: s.seed}
 	s.subnets = make(map[string]domain.Subnet)
+	s.ports = make(map[string]domain.Port)
 }
 
 func snapshot(network domain.Network) domain.Network {

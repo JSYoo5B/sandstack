@@ -14,6 +14,7 @@ var (
 	ErrSubnetNotFound = errors.New("subnet not found")
 	ErrSubnetCIDR     = errors.New("subnet requires an IPv4 prefix from /1 through /30")
 	ErrSubnetOverlap  = errors.New("subnet CIDR overlaps another subnet on the network")
+	ErrSubnetInUse    = errors.New("subnet has allocated port addresses")
 )
 
 func (s *Service) CreateSubnet(
@@ -38,7 +39,7 @@ func (s *Service) CreateSubnet(
 		}
 	}
 
-	id, err := s.allocateID()
+	id, err := s.allocateID(nil)
 	if err != nil {
 		return domain.Subnet{}, err
 	}
@@ -102,6 +103,11 @@ func (s *Service) DeleteSubnet(projectID, subnetID string) error {
 	subnet, ok := s.subnets[subnetID]
 	if !ok || subnet.ProjectID != projectID {
 		return ErrSubnetNotFound
+	}
+	for _, port := range s.ports {
+		if port.SubnetID == subnetID {
+			return ErrSubnetInUse
+		}
 	}
 	network := s.networks[subnet.NetworkID]
 	network.SubnetIDs = slices.DeleteFunc(network.SubnetIDs, func(id string) bool { return id == subnetID })

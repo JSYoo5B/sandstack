@@ -131,5 +131,9 @@ func writeSubnetError(w http.ResponseWriter, subnetID string, err error) {
 		writeError(w, http.StatusNotFound, "SubnetNotFound", fmt.Sprintf("Subnet %s could not be found.", subnetID))
 		return
 	}
+	if errors.Is(err, app.ErrSubnetInUse) {
+		writeError(w, http.StatusConflict, "SubnetInUse", "The subnet still has ports allocated to it.")
+		return
+	}
 	writeError(w, http.StatusInternalServerError, "HTTPInternalServerError", "Unable to process the subnet request.")
 }
