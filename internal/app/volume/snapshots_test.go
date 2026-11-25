@@ -83,7 +83,7 @@ func TestFailedSnapshotCanBeDeletedAndResetRestoresEmptyList(t *testing.T) {
 
 	service.Reset()
 	assert.Empty(t, service.ListSnapshots(seed.ProjectID))
-	assert.Equal(t, []domain.Volume{seed}, service.List(seed.ProjectID))
+	assert.Equal(t, []domain.Volume{seed}, service.List(seed.ProjectID, app.ListFilter{}))
 }
 
 func TestConcurrentSnapshotCreateAndSourceDeletePreserveOwnership(t *testing.T) {
@@ -102,12 +102,12 @@ func TestConcurrentSnapshotCreateAndSourceDeletePreserveOwnership(t *testing.T) 
 		if createErr == nil {
 			assert.ErrorIs(t, deleteErr, app.ErrVolumeHasSnapshots)
 			assert.Len(t, service.ListSnapshots(seed.ProjectID), 1)
-			assert.Equal(t, []domain.Volume{seed}, service.List(seed.ProjectID))
+			assert.Equal(t, []domain.Volume{seed}, service.List(seed.ProjectID, app.ListFilter{}))
 		} else {
 			assert.ErrorIs(t, createErr, app.ErrVolumeNotFound)
 			assert.NoError(t, deleteErr)
 			assert.Empty(t, service.ListSnapshots(seed.ProjectID))
-			assert.Empty(t, service.List(seed.ProjectID))
+			assert.Empty(t, service.List(seed.ProjectID, app.ListFilter{}))
 		}
 	}
 }

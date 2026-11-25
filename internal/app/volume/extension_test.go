@@ -26,7 +26,7 @@ func TestExtensionPublishesNewSizeOnlyAfterSuccess(t *testing.T) {
 	for _, size := range []int{-1, 0, seed.Size - 1, seed.Size} {
 		assert.ErrorIs(t, service.StartExtension(seed.ProjectID, seed.ID, size), app.ErrInvalidExtensionSize)
 	}
-	assert.Equal(t, []domain.Volume{seed}, service.List(seed.ProjectID))
+	assert.Equal(t, []domain.Volume{seed}, service.List(seed.ProjectID, app.ListFilter{}))
 
 	now = now.Add(time.Minute)
 	require.NoError(t, service.StartExtension(seed.ProjectID, seed.ID, 8))
@@ -42,7 +42,7 @@ func TestExtensionPublishesNewSizeOnlyAfterSuccess(t *testing.T) {
 	now = now.Add(time.Minute)
 	assert.ErrorIs(t, service.SetFailed(seed.ID, true), app.ErrVolumeStateConflict)
 	require.NoError(t, service.SetFailed(seed.ID, false))
-	assert.Equal(t, []domain.Volume{pending}, service.List(seed.ProjectID))
+	assert.Equal(t, []domain.Volume{pending}, service.List(seed.ProjectID, app.ListFilter{}))
 	require.NoError(t, service.FinishExtension(seed.ID, false))
 	assert.ErrorIs(t, service.FinishExtension(seed.ID, false), app.ErrVolumeStateConflict)
 	finished, err := service.Get(seed.ProjectID, seed.ID)
@@ -77,12 +77,12 @@ func TestExtensionFailureKeepsSizeAndAllowsClearingOrDeletion(t *testing.T) {
 	require.NoError(t, service.StartExtension(seed.ProjectID, seed.ID, 9))
 	require.NoError(t, service.FinishExtension(seed.ID, true))
 	require.NoError(t, service.Delete(seed.ProjectID, seed.ID))
-	assert.Empty(t, service.List(seed.ProjectID))
+	assert.Empty(t, service.List(seed.ProjectID, app.ListFilter{}))
 
 	service.Reset()
 	require.NoError(t, service.StartExtension(seed.ProjectID, seed.ID, 8))
 	service.Reset()
-	assert.Equal(t, []domain.Volume{seed}, service.List(seed.ProjectID))
+	assert.Equal(t, []domain.Volume{seed}, service.List(seed.ProjectID, app.ListFilter{}))
 	assert.ErrorIs(t, service.FinishExtension(seed.ID, false), app.ErrVolumeStateConflict)
 }
 

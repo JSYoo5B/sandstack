@@ -7,8 +7,21 @@ in `RegionOne`. The catalog endpoint is `/volume/v3/{project_id}`.
 
 Use `volumes.List` for `GET /volumes/detail` and `volumes.Get` for
 `GET /volumes/{volume_id}` on that endpoint. Use the project's `X-Auth-Token`.
-The sandbox starts with an unattached `fixture-volume` of 1 GiB. The
-scenario uses baseline Cinder v3 metadata and unfiltered reads.
+The sandbox starts with an unattached `fixture-volume` of 1 GiB and uses
+baseline Cinder v3 metadata.
+
+## Filter the detailed volume list
+
+`GET /volumes/detail` accepts `name` and `status` filters for the token's
+project. Each field matches the current value exactly. When both filters
+are supplied, both must match. Changes to a volume's name or status affect
+subsequent list results. A list with no matches returns `{"volumes":[]}`.
+See the [detailed volume list reference] and [Cinder volume list controller].
+
+In Gophercloud v2.15.0, pass `Name` and `Status` in `volumes.ListOpts` to
+`volumes.List`. Use a raw `?name=` query to match an explicit empty name.
+An omitted filter leaves its field unrestricted. Repeated or unknown query
+keys return `400` on the SandStack detailed list.
 
 ## Create and provision a volume
 
@@ -175,10 +188,14 @@ failed extension. The HTTP tests use the
 [snapshot list reference], and [delete snapshot reference].
 The volume update tests check field omission, explicit clearing, validation,
 and preservation of an existing attachment.
+Detailed list tests exercise Gophercloud filters after volume updates and
+check empty results and invalid queries over HTTP.
 The [Cinder snapshot lookup], [Cinder size default], and
 [Cinder volume creation flow] describe source and size validation.
 
 [create volume reference]: https://docs.openstack.org/api-ref/block-storage/v3/#create-a-volume
+[detailed volume list reference]: https://docs.openstack.org/api-ref/block-storage/v3/#list-accessible-volumes-with-details
+[Cinder volume list controller]: https://github.com/openstack/cinder/blob/master/cinder/api/v3/volumes.py#L142-L180
 [update volume reference]: https://docs.openstack.org/api-ref/block-storage/v3/#update-a-volume
 [Cinder volume update schema]: https://github.com/openstack/cinder/blob/master/cinder/api/schemas/volumes.py#L82-L110
 [Cinder volume update controller]: https://github.com/openstack/cinder/blob/master/cinder/api/v3/volumes.py#L438-L460

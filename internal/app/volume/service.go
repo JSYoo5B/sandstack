@@ -57,15 +57,27 @@ func (s *Service) Get(projectID, volumeID string) (domain.Volume, error) {
 	return volume, nil
 }
 
-// List returns the project's volumes ordered by ID.
-func (s *Service) List(projectID string) []domain.Volume {
+type ListFilter struct {
+	Name   *string
+	Status *domain.State
+}
+
+func (f ListFilter) matches(volume domain.Volume) bool {
+	return (f.Name == nil || (volume.Name.Valid && volume.Name.Value == *f.Name)) &&
+		(f.Status == nil || volume.State == *f.Status)
+}
+
+// List returns the project's matching volumes ordered by ID.
+func (s *Service) List(projectID string, filter ListFilter) []domain.Volume {
 	if s.seed.ProjectID != projectID {
 		return []domain.Volume{}
 	}
 	s.mu.RLock()
 	volumes := make([]domain.Volume, 0, len(s.volumes))
 	for _, volume := range s.volumes {
-		volumes = append(volumes, volume)
+		if filter.matches(volume) {
+			volumes = append(volumes, volume)
+		}
 	}
 	s.mu.RUnlock()
 

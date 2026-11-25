@@ -103,7 +103,7 @@ func TestAttachmentDeviceSelectionAndReset(t *testing.T) {
 	service.Reset()
 	assert.Empty(t, service.ListAttachments(seed.ProjectID, serverID))
 	assert.Empty(t, service.ListAttachments(seed.ProjectID, "another-server"))
-	assert.Equal(t, []domain.Volume{seed}, service.List(seed.ProjectID))
+	assert.Equal(t, []domain.Volume{seed}, service.List(seed.ProjectID, app.ListFilter{}))
 }
 
 func TestAttachmentsRejectExhaustedDeviceSlots(t *testing.T) {

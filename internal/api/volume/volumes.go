@@ -120,7 +120,12 @@ func optionalTimestamp(value time.Time) *string {
 }
 
 func (h handler) listVolumes(w http.ResponseWriter, r *http.Request, projectID string) {
-	volumes := h.service.List(projectID)
+	filter, err := parseVolumeListQuery(r.URL.RawQuery)
+	if err != nil {
+		writeFault(w, http.StatusBadRequest, "badRequest", err.Error())
+		return
+	}
+	volumes := h.service.List(projectID, filter)
 	response := struct {
 		Volumes []volumeBody `json:"volumes"`
 	}{Volumes: make([]volumeBody, len(volumes))}

@@ -37,7 +37,7 @@ func TestCreateFromSnapshotPreservesSizeAndProvenance(t *testing.T) {
 	assert.ErrorIs(t, err, app.ErrInvalidVolumeSize)
 	_, err = service.CreateFromSnapshot(seed.ProjectID, snapshot.ID, "", "", seed.Size-1)
 	assert.ErrorIs(t, err, app.ErrVolumeSmallerThanSnapshot)
-	assert.Equal(t, []domain.Volume{seed}, service.List(seed.ProjectID))
+	assert.Equal(t, []domain.Volume{seed}, service.List(seed.ProjectID, app.ListFilter{}))
 
 	defaultSize, err := service.CreateFromSnapshot(
 		seed.ProjectID, snapshot.ID, "clone", "recovered data", 0,
@@ -63,7 +63,7 @@ func TestCreateFromSnapshotPreservesSizeAndProvenance(t *testing.T) {
 	larger, err := service.CreateFromSnapshot(seed.ProjectID, snapshot.ID, "", "", seed.Size+2)
 	require.NoError(t, err)
 	assert.Equal(t, seed.Size+2, larger.Size)
-	assert.ElementsMatch(t, []domain.Volume{seed, defaultSize, sameSize, larger}, service.List(seed.ProjectID))
+	assert.ElementsMatch(t, []domain.Volume{seed, defaultSize, sameSize, larger}, service.List(seed.ProjectID, app.ListFilter{}))
 	source, err := service.GetSnapshot(seed.ProjectID, snapshot.ID)
 	require.NoError(t, err)
 	snapshot.State = domain.StateAvailable
@@ -90,7 +90,7 @@ func TestCreateFromSnapshotPreservesSizeAndProvenance(t *testing.T) {
 	assert.ErrorIs(t, err, app.ErrSnapshotNotFound)
 
 	service.Reset()
-	assert.Equal(t, []domain.Volume{seed}, service.List(seed.ProjectID))
+	assert.Equal(t, []domain.Volume{seed}, service.List(seed.ProjectID, app.ListFilter{}))
 }
 
 func TestCreateFromSnapshotRejectsFailedSnapshot(t *testing.T) {

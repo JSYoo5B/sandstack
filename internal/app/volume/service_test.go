@@ -15,12 +15,12 @@ func TestVolumeIsVisibleOnlyToOwner(t *testing.T) {
 	seed := domain.Volume{ID: "volume", ProjectID: "owner", State: domain.StateAvailable}
 	service := app.New(seed, time.Now, nil)
 
-	assert.Empty(t, service.List("other-project"))
+	assert.Empty(t, service.List("other-project", app.ListFilter{}))
 	_, err := service.Get("other-project", seed.ID)
 	assert.ErrorIs(t, err, app.ErrVolumeNotFound)
 	_, err = service.Get(seed.ProjectID, "other-volume")
 	assert.ErrorIs(t, err, app.ErrVolumeNotFound)
-	assert.Equal(t, []domain.Volume{seed}, service.List(seed.ProjectID))
+	assert.Equal(t, []domain.Volume{seed}, service.List(seed.ProjectID, app.ListFilter{}))
 }
 
 func TestVolumeFaultTransitionsAndReset(t *testing.T) {
@@ -34,7 +34,7 @@ func TestVolumeFaultTransitionsAndReset(t *testing.T) {
 	service := app.New(seed, func() time.Time { return now }, nil)
 
 	assert.ErrorIs(t, service.SetFailed("other-volume", true), app.ErrVolumeNotFound)
-	assert.Equal(t, []domain.Volume{seed}, service.List(seed.ProjectID))
+	assert.Equal(t, []domain.Volume{seed}, service.List(seed.ProjectID, app.ListFilter{}))
 
 	require.NoError(t, service.SetFailed(seed.ID, true))
 	failed, err := service.Get(seed.ProjectID, seed.ID)
@@ -45,7 +45,7 @@ func TestVolumeFaultTransitionsAndReset(t *testing.T) {
 
 	now = now.Add(time.Minute)
 	require.NoError(t, service.SetFailed(seed.ID, true))
-	assert.Equal(t, []domain.Volume{failed}, service.List(seed.ProjectID))
+	assert.Equal(t, []domain.Volume{failed}, service.List(seed.ProjectID, app.ListFilter{}))
 
 	require.NoError(t, service.SetFailed(seed.ID, false))
 	available, err := service.Get(seed.ProjectID, seed.ID)
@@ -54,5 +54,5 @@ func TestVolumeFaultTransitionsAndReset(t *testing.T) {
 	assert.Equal(t, now.UTC(), available.UpdatedAt)
 
 	service.Reset()
-	assert.Equal(t, []domain.Volume{seed}, service.List(seed.ProjectID))
+	assert.Equal(t, []domain.Volume{seed}, service.List(seed.ProjectID, app.ListFilter{}))
 }

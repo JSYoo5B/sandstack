@@ -42,7 +42,7 @@ func TestCreateCompleteAndDeleteVolume(t *testing.T) {
 		CreatedAt:   start,
 		State:       domain.StateCreating,
 	}, created)
-	assert.Equal(t, []domain.Volume{created, seed}, service.List(seed.ProjectID))
+	assert.Equal(t, []domain.Volume{created, seed}, service.List(seed.ProjectID, app.ListFilter{}))
 	assert.ErrorIs(t, service.Delete("foreign", created.ID), app.ErrVolumeNotFound)
 	assert.ErrorIs(t, service.Delete(seed.ProjectID, created.ID), app.ErrVolumeStateConflict)
 
@@ -59,12 +59,12 @@ func TestCreateCompleteAndDeleteVolume(t *testing.T) {
 	assert.Equal(t, start.Add(time.Minute), available.UpdatedAt)
 	now = now.Add(time.Minute)
 	require.NoError(t, service.CompleteCreation(created.ID))
-	assert.Equal(t, []domain.Volume{available, seed}, service.List(seed.ProjectID))
+	assert.Equal(t, []domain.Volume{available, seed}, service.List(seed.ProjectID, app.ListFilter{}))
 
 	require.NoError(t, service.Delete(seed.ProjectID, created.ID))
 	assert.ErrorIs(t, service.Delete(seed.ProjectID, created.ID), app.ErrVolumeNotFound)
 	assert.ErrorIs(t, service.CompleteCreation(created.ID), app.ErrVolumeNotFound)
-	assert.Equal(t, []domain.Volume{seed}, service.List(seed.ProjectID))
+	assert.Equal(t, []domain.Volume{seed}, service.List(seed.ProjectID, app.ListFilter{}))
 }
 
 func TestCreatingVolumeFaultAndReset(t *testing.T) {
@@ -96,7 +96,7 @@ func TestCreatingVolumeFaultAndReset(t *testing.T) {
 	require.NoError(t, err)
 
 	service.Reset()
-	assert.Equal(t, []domain.Volume{seed}, service.List(seed.ProjectID))
+	assert.Equal(t, []domain.Volume{seed}, service.List(seed.ProjectID, app.ListFilter{}))
 	_, err = service.Get(seed.ProjectID, created.ID)
 	assert.ErrorIs(t, err, app.ErrVolumeNotFound)
 }
@@ -120,12 +120,12 @@ func TestVolumeIDRetriesAndFailurePreserveExistingVolumes(t *testing.T) {
 	assert.Equal(t, createdID, first.ID)
 	_, err = service.Create(seed.ProjectID, "replacement", "", 5)
 	assert.ErrorIs(t, err, app.ErrVolumeIDGeneration)
-	assert.Equal(t, []domain.Volume{first}, service.List(seed.ProjectID))
+	assert.Equal(t, []domain.Volume{first}, service.List(seed.ProjectID, app.ListFilter{}))
 
 	for _, generate := range []func() string{nil, func() string { return "invalid-uuid" }} {
 		service := app.New(seed, time.Now, generate)
 		_, err := service.Create(seed.ProjectID, "invalid", "", 1)
 		assert.ErrorIs(t, err, app.ErrVolumeIDGeneration)
-		assert.Equal(t, []domain.Volume{seed}, service.List(seed.ProjectID))
+		assert.Equal(t, []domain.Volume{seed}, service.List(seed.ProjectID, app.ListFilter{}))
 	}
 }

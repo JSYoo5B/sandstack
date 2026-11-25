@@ -21,6 +21,8 @@ type handler struct {
 	endpointURL     func(*http.Request, string) string
 }
 
+type projectHandler func(http.ResponseWriter, *http.Request, string)
+
 // Register installs the supported project-qualified Block Storage operations.
 func Register(
 	router chi.Router,
@@ -31,19 +33,19 @@ func Register(
 	h := handler{service: service, projectForToken: projectForToken, endpointURL: endpointURL}
 	collection := Path + "/{projectID}/volumes"
 	router.Get(collection+"/detail", h.withProject(h.listVolumes))
-	router.Post(collection, h.withProject(h.createVolume))
-	router.Get(collection+"/{volumeID}", h.withProject(h.showVolume))
-	router.Put(collection+"/{volumeID}", h.withProject(h.updateVolume))
-	router.Delete(collection+"/{volumeID}", h.withProject(h.deleteVolume))
-	router.Post(collection+"/{volumeID}/action", h.withProject(h.extendVolume))
+	router.Post(collection, h.withProject(withoutQuery(h.createVolume)))
+	router.Get(collection+"/{volumeID}", h.withProject(withoutQuery(h.showVolume)))
+	router.Put(collection+"/{volumeID}", h.withProject(withoutQuery(h.updateVolume)))
+	router.Delete(collection+"/{volumeID}", h.withProject(withoutQuery(h.deleteVolume)))
+	router.Post(collection+"/{volumeID}/action", h.withProject(withoutQuery(h.extendVolume)))
 	snapshots := Path + "/{projectID}/snapshots"
-	router.Get(snapshots+"/detail", h.withProject(h.listSnapshots))
-	router.Post(snapshots, h.withProject(h.createSnapshot))
-	router.Get(snapshots+"/{snapshotID}", h.withProject(h.showSnapshot))
-	router.Delete(snapshots+"/{snapshotID}", h.withProject(h.deleteSnapshot))
+	router.Get(snapshots+"/detail", h.withProject(withoutQuery(h.listSnapshots)))
+	router.Post(snapshots, h.withProject(withoutQuery(h.createSnapshot)))
+	router.Get(snapshots+"/{snapshotID}", h.withProject(withoutQuery(h.showSnapshot)))
+	router.Delete(snapshots+"/{snapshotID}", h.withProject(withoutQuery(h.deleteSnapshot)))
 }
 
-func (h handler) withProject(next func(http.ResponseWriter, *http.Request, string)) http.HandlerFunc {
+func (h handler) withProject(next projectHandler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		tokens := r.Header.Values("X-Auth-Token")
 		if len(tokens) != 1 || tokens[0] == "" {
@@ -62,6 +64,12 @@ func (h handler) withProject(next func(http.ResponseWriter, *http.Request, strin
 			writeFault(w, http.StatusBadRequest, "badRequest", "The URL project does not match the token's project.")
 			return
 		}
+		next(w, r, projectID)
+	}
+}
+
+func withoutQuery(next projectHandler) projectHandler {
+	return func(w http.ResponseWriter, r *http.Request, projectID string) {
 		if r.URL.RawQuery != "" {
 			writeFault(w, http.StatusBadRequest, "badRequest", "Block Storage operations require an empty query string.")
 			return
