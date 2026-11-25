@@ -8,6 +8,8 @@ import (
 	"regexp"
 	"strings"
 	"unicode/utf8"
+
+	app "github.com/JSYoo5B/sandstack/internal/app/volume"
 )
 
 const maxVolumeTextLength = 255
@@ -89,7 +91,7 @@ func parseCreateVolume(data []byte) (createVolumeParams, error) {
 		}
 		return createVolumeParams{}, errors.New("volume size is required")
 	}
-	if requestedType != nil && *requestedType != volumeType {
+	if requestedType != nil && *requestedType != app.StandardVolumeTypeName {
 		return createVolumeParams{}, errors.New("this endpoint supports the standard volume type")
 	}
 	if requestedZone != nil && *requestedZone != volumeZone {

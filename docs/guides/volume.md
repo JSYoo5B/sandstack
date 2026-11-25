@@ -10,6 +10,23 @@ Use `volumes.List` for `GET /volumes/detail` and `volumes.Get` for
 The sandbox starts with an unattached `fixture-volume` of 1 GiB and uses
 baseline Cinder v3 metadata.
 
+## Discover the default volume type
+
+Use `volumetypes.Get(ctx, client, "default").Extract()` in Gophercloud
+v2.15.0. It sends `GET /types/default` to the project endpoint and
+returns the public `standard` fixture. Pass the returned ID to
+`volumetypes.Get` for its details, or pass the returned name in
+`volumes.CreateOpts.VolumeType` to create a volume of that type.
+An omitted type selects the same fixture. See the [Cinder default type
+reference] and [Gophercloud volume type lookup].
+
+Both reads return `200` with a `volume_type` object containing the
+ID, name, description, public flag, and an empty `extra_specs` object.
+The UUID detail includes Cinder's legacy public flag for project members.
+An unknown ID returns `404`. See the [Cinder type detail reference] and
+[Cinder volume type access policy]. The [Cinder type response tests]
+cover the public fields and fields controlled by policy.
+
 ## Filter the detailed volume list
 
 `GET /volumes/detail` accepts `name` and `status` filters for the token's
@@ -251,6 +268,11 @@ The [Cinder snapshot lookup], [Cinder size default], and
 [Cinder volume creation flow] describe source and size validation.
 
 [create volume reference]: https://docs.openstack.org/api-ref/block-storage/v3/#create-a-volume
+[Cinder default type reference]: https://docs.openstack.org/api-ref/block-storage/v3/#show-default-volume-type
+[Cinder type detail reference]: https://docs.openstack.org/api-ref/block-storage/v3/#show-volume-type-detail
+[Cinder volume type access policy]: https://github.com/openstack/cinder/blob/master/cinder/policies/volume_access.py#L40-L63
+[Cinder type response tests]: https://github.com/openstack/cinder/blob/134790e4206f4effa503c47965b7d0cc888695a1/cinder/tests/unit/api/v3/test_types_orig.py#L322-L371
+[Gophercloud volume type lookup]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/blockstorage/v3/volumetypes/requests.go#L59-L66
 [Cinder volume create schema]: https://github.com/openstack/cinder/blob/master/cinder/api/schemas/volumes.py#L23-L69
 [Gophercloud volume create options]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/blockstorage/v3/volumes/requests.go#L105-L164
 [detailed volume list reference]: https://docs.openstack.org/api-ref/block-storage/v3/#list-accessible-volumes-with-details
