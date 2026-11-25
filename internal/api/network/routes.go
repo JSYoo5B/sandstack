@@ -35,6 +35,8 @@ func Register(
 	h := handler{service: service, projectForToken: projectForToken, endpointURL: endpointURL}
 	router.Get(CatalogPath, h.listVersions)
 	router.Get(CatalogPath+"/", h.listVersions)
+	router.Get(Path+"/security-groups", h.withProject(h.listSecurityGroups))
+	router.Get(Path+"/security-groups/{groupID}", h.withProject(withEmptyQuery(h.showSecurityGroup)))
 	router.Get(Path+"/networks", h.withProject(h.listNetworks))
 	router.Post(Path+"/networks", h.withProject(withEmptyQuery(h.createNetwork)))
 	router.Get(Path+"/networks/{networkID}", h.withProject(withEmptyQuery(h.showNetwork)))

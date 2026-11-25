@@ -20,6 +20,24 @@ Use project-scoped `X-Auth-Token` credentials. All networks are private and
 start with no subnets. [Reset the sandbox](reset.md) to restore the seed and
 remove networks, subnets, and ports created by the client.
 
+## Discover the default security group
+
+Use `groups.List` with `groups.ListOpts{Name: "default"}` and follow the
+returned ID with `groups.Get` in Gophercloud v2.15.0. The Neutron v2.0
+routes are `GET /security-groups` and
+`GET /security-groups/{security_group_id}` under the same endpoint.
+The project's default group is stateful and contains four rules. Its
+IPv4 and IPv6 ingress rules reference the group's own ID. The two egress
+rules cover the same IP versions with no remote group. The rules have no
+protocol, port range, or remote IP prefix restriction. See the [Neutron
+default group] and [Neutron default rule templates].
+
+List filters accept `id`, `name`, `project_id`, and `tenant_id`.
+Repeated values for the same filter are alternatives. When both project
+aliases are supplied, `project_id` takes precedence. A list with no
+matches returns `200` with an empty `security_groups` array. A missing
+group returns `404` on detail. See the [Gophercloud group operations].
+
 ## Create a network
 
 Send a `network` object with `name` and `admin_state_up` as needed. A name
@@ -145,3 +163,6 @@ how administrative changes and outages affect later reads. See the
 [Neutron pagination reference]: https://docs.openstack.org/api-ref/network/v2/#pagination
 [Neutron network pagination]: https://github.com/openstack/neutron/blob/master/neutron/db/db_base_plugin_v2.py#L590-L603
 [Neutron network marker lookup]: https://github.com/openstack/neutron/blob/master/neutron/db/db_base_plugin_common.py#L250-L255
+[Neutron default group]: https://github.com/openstack/neutron/blob/ba84fbf374cc7f5055eb2ff4ebc34d2a19cbbc3d/neutron/db/securitygroups_db.py#L166-L231
+[Neutron default rule templates]: https://github.com/openstack/neutron/blob/ba84fbf374cc7f5055eb2ff4ebc34d2a19cbbc3d/neutron/db/migration/alembic_migrations/versions/2023.2/expand/c33da356b165_security_group_default_rules.py#L35-L78
+[Gophercloud group operations]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/networking/v2/extensions/security/groups/requests.go
