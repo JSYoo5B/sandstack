@@ -7,3 +7,10 @@ type Network struct {
 	AdminDown bool
 	Down      bool
 }
+
+func (n Network) Status() string {
+	if n.Down || n.AdminDown {
+		return "DOWN"
+	}
+	return "ACTIVE"
+}

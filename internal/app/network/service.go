@@ -26,6 +26,11 @@ type Service struct {
 	newID    func() string
 }
 
+type ListFilter struct {
+	Names    []string
+	Statuses []string
+}
+
 // New starts a service with a private fixture. The generator supplies a
 // lowercase UUID for each created network, or an empty string on failure.
 func New(seed domain.Network, newID func() string) *Service {
@@ -47,14 +52,17 @@ func (s *Service) Get(projectID, networkID string) (domain.Network, error) {
 	return network, nil
 }
 
-// List returns the project's networks ordered by ID.
-func (s *Service) List(projectID string) []domain.Network {
+// List returns the project's matching networks ordered by ID.
+func (s *Service) List(projectID string, filter ListFilter) []domain.Network {
 	networks := []domain.Network{}
 	s.mu.RLock()
 	for _, network := range s.networks {
-		if network.ProjectID == projectID {
-			networks = append(networks, network)
+		if network.ProjectID != projectID ||
+			(len(filter.Names) > 0 && !slices.Contains(filter.Names, network.Name)) ||
+			(len(filter.Statuses) > 0 && !slices.Contains(filter.Statuses, network.Status())) {
+			continue
 		}
+		networks = append(networks, network)
 	}
 	s.mu.RUnlock()
 

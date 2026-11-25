@@ -26,8 +26,8 @@ func TestNetworkLifecycleKeepsProjectsAndOperationalFaultsSeparate(t *testing.T)
 	require.NoError(t, err)
 	assert.True(t, created.AdminDown)
 	assert.False(t, created.Down)
-	assert.Equal(t, []domain.Network{created, seed}, service.List(seed.ProjectID))
-	assert.Equal(t, []domain.Network{other}, service.List(other.ProjectID))
+	assert.Equal(t, []domain.Network{created, seed}, service.List(seed.ProjectID, app.ListFilter{}))
+	assert.Equal(t, []domain.Network{other}, service.List(other.ProjectID, app.ListFilter{}))
 
 	_, err = service.Get(other.ProjectID, created.ID)
 	assert.ErrorIs(t, err, app.ErrNetworkNotFound)
@@ -42,11 +42,11 @@ func TestNetworkLifecycleKeepsProjectsAndOperationalFaultsSeparate(t *testing.T)
 	assert.ErrorIs(t, service.SetDown(created.ID, false), app.ErrNetworkNotFound)
 	assert.ErrorIs(t, service.Delete(seed.ProjectID, created.ID), app.ErrNetworkNotFound)
 	require.NoError(t, service.Delete(seed.ProjectID, seed.ID))
-	assert.Empty(t, service.List(seed.ProjectID))
+	assert.Empty(t, service.List(seed.ProjectID, app.ListFilter{}))
 
 	service.Reset()
-	assert.Equal(t, []domain.Network{seed}, service.List(seed.ProjectID))
-	assert.Empty(t, service.List(other.ProjectID))
+	assert.Equal(t, []domain.Network{seed}, service.List(seed.ProjectID, app.ListFilter{}))
+	assert.Empty(t, service.List(other.ProjectID, app.ListFilter{}))
 }
 
 func TestCreateRetriesReservedSeedIDAfterDeletion(t *testing.T) {
@@ -80,7 +80,7 @@ func TestCreateRejectsCollisionsWithoutOverwriting(t *testing.T) {
 	_, err = service.Create(seed.ProjectID, "replacement", true)
 
 	assert.ErrorIs(t, err, app.ErrNetworkIDGeneration)
-	assert.Equal(t, []domain.Network{seed, first}, service.List(seed.ProjectID))
+	assert.Equal(t, []domain.Network{seed, first}, service.List(seed.ProjectID, app.ListFilter{}))
 }
 
 func TestCreateRejectsInvalidGeneratorOutputs(t *testing.T) {
@@ -95,7 +95,7 @@ func TestCreateRejectsInvalidGeneratorOutputs(t *testing.T) {
 		_, err := service.Create(seed.ProjectID, "created", false)
 
 		assert.ErrorIs(t, err, app.ErrNetworkIDGeneration)
-		assert.Equal(t, []domain.Network{seed}, service.List(seed.ProjectID))
+		assert.Equal(t, []domain.Network{seed}, service.List(seed.ProjectID, app.ListFilter{}))
 	}
 }
 
@@ -113,13 +113,13 @@ func TestConcurrentCreatesProduceUniqueNetworks(t *testing.T) {
 		wait.Go(func() {
 			created, err := service.Create(seed.ProjectID, "created", false)
 			if assert.NoError(t, err) {
-				assert.Contains(t, service.List(seed.ProjectID), created)
+				assert.Contains(t, service.List(seed.ProjectID, app.ListFilter{}), created)
 			}
 		})
 	}
 	wait.Wait()
 
-	assert.Len(t, service.List(seed.ProjectID), attempts+1)
+	assert.Len(t, service.List(seed.ProjectID, app.ListFilter{}), attempts+1)
 }
 
 func fixtureID(id int) string {

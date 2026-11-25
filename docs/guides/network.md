@@ -15,8 +15,7 @@ resource requests.
 | `POST /network/v2.0/networks` | Creates a private network for the token's project and returns `201`. Use `networks.Create` in Gophercloud. |
 | `DELETE /network/v2.0/networks/{network_id}` | Removes a network owned by the token's project and returns `204`. Use `networks.Delete` in Gophercloud. |
 
-Use project-scoped `X-Auth-Token` credentials. Reads are unfiltered.
-SandStack returns `400` for query parameters. All networks are private and
+Use project-scoped `X-Auth-Token` credentials. All networks are private and
 start with no subnets. [Reset the sandbox](reset.md) to restore the seed and
 remove networks created by the client.
 
@@ -27,6 +26,20 @@ may be empty or contain up to 255 printable characters with no surrounding
 whitespace. The administrative state defaults to up. You can also pass
 `shared: false` and set `project_id` or `tenant_id` to the token's project.
 A network created with `admin_state_up: false` reports `DOWN`.
+
+## Find a network by name or status
+
+The list accepts `name` and `status` filters, including both in a single
+request. Matches are exact. For example, `?name=fixture-network&status=DOWN`
+selects that network while it is down. A repeated key selects any of its
+values. For example, `?status=ACTIVE&status=DOWN` selects either status.
+Omit a key to leave that criterion unrestricted. An explicit `name=`
+matches unnamed networks, and `status=` matches no networks. A list
+without matches returns `{"networks":[]}`.
+
+Use `Name` and `Status` in Gophercloud's `networks.ListOpts`. SandStack
+returns `400` for other list query parameters and for query parameters on
+network detail, creation, and deletion.
 
 ## Inject and clear a network outage
 
@@ -44,11 +57,12 @@ or [reset the sandbox](reset.md) to restore all fixtures.
 
 ## Verification
 
-Run `go test ./...` to check endpoint discovery, network creation, list and
+Run `go test ./...` to check endpoint discovery, creation, filtered list and
 detail reads, the injected outage, deletion, and reset through Gophercloud.
-The raw HTTP tests use the [Neutron list reference], [Neutron detail reference],
-[Neutron create reference], and [Neutron delete reference].
+The raw HTTP tests use the [Neutron filtering reference], [Neutron list reference],
+[Neutron detail reference], [Neutron create reference], and [Neutron delete reference].
 
+[Neutron filtering reference]: https://docs.openstack.org/api-ref/network/v2/#filtering-and-column-selection
 [Neutron list reference]: https://docs.openstack.org/api-ref/network/v2/#list-networks
 [Neutron detail reference]: https://docs.openstack.org/api-ref/network/v2/#show-network-details
 [Neutron create reference]: https://docs.openstack.org/api-ref/network/v2/#create-network

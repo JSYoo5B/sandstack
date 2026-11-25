@@ -14,11 +14,11 @@ func TestPrivateNetworkIsVisibleOnlyToOwner(t *testing.T) {
 	seed := domain.Network{ID: "net", Name: "fixture", ProjectID: "owner"}
 	service := app.New(seed, nil)
 
-	assert.Empty(t, service.List("other-project"))
+	assert.Empty(t, service.List("other-project", app.ListFilter{}))
 	_, err := service.Get("other-project", seed.ID)
 	assert.ErrorIs(t, err, app.ErrNetworkNotFound)
 
-	assert.Equal(t, []domain.Network{seed}, service.List(seed.ProjectID))
+	assert.Equal(t, []domain.Network{seed}, service.List(seed.ProjectID, app.ListFilter{}))
 	network, err := service.Get(seed.ProjectID, seed.ID)
 	require.NoError(t, err)
 	assert.Equal(t, seed, network)
@@ -29,7 +29,7 @@ func TestResetRestoresSeededOperationalState(t *testing.T) {
 	service := app.New(seed, nil)
 
 	assert.ErrorIs(t, service.SetDown("other-network", false), app.ErrNetworkNotFound)
-	assert.Equal(t, []domain.Network{seed}, service.List(seed.ProjectID))
+	assert.Equal(t, []domain.Network{seed}, service.List(seed.ProjectID, app.ListFilter{}))
 
 	require.NoError(t, service.SetDown(seed.ID, false))
 	up, err := service.Get(seed.ProjectID, seed.ID)
@@ -38,5 +38,5 @@ func TestResetRestoresSeededOperationalState(t *testing.T) {
 
 	service.Reset()
 
-	assert.Equal(t, []domain.Network{seed}, service.List(seed.ProjectID))
+	assert.Equal(t, []domain.Network{seed}, service.List(seed.ProjectID, app.ListFilter{}))
 }

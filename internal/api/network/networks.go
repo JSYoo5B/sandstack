@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 
 	"github.com/go-chi/chi/v5"
 
@@ -27,24 +28,32 @@ type networkResponse struct {
 }
 
 func describeNetwork(network domain.Network) networkBody {
-	status := "ACTIVE"
-	if network.Down || network.AdminDown {
-		status = "DOWN"
-	}
 	return networkBody{
 		ID:           network.ID,
 		Name:         network.Name,
 		ProjectID:    network.ProjectID,
 		TenantID:     network.ProjectID,
-		Status:       status,
+		Status:       network.Status(),
 		AdminStateUp: !network.AdminDown,
 		Shared:       false,
 		Subnets:      []string{},
 	}
 }
 
-func (h handler) listNetworks(w http.ResponseWriter, _ *http.Request, projectID string) {
-	networks := h.service.List(projectID)
+func (h handler) listNetworks(w http.ResponseWriter, r *http.Request, projectID string) {
+	query, err := url.ParseQuery(r.URL.RawQuery)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "BadRequest", "The network list query is malformed.")
+		return
+	}
+	for field := range query {
+		if field != "name" && field != "status" {
+			writeError(w, http.StatusBadRequest, "BadRequest", "Network lists accept only name and status query parameters.")
+			return
+		}
+	}
+	filter := app.ListFilter{Names: query["name"], Statuses: query["status"]}
+	networks := h.service.List(projectID, filter)
 	response := struct {
 		Networks []networkBody `json:"networks"`
 	}{Networks: make([]networkBody, len(networks))}

@@ -22,6 +22,8 @@ type handler struct {
 	endpointURL     func(*http.Request, string) string
 }
 
+type projectHandler func(http.ResponseWriter, *http.Request, string)
+
 // Register installs the supported Networking operations on the root router.
 func Register(
 	router chi.Router,
@@ -33,12 +35,12 @@ func Register(
 	router.Get(CatalogPath, h.listVersions)
 	router.Get(CatalogPath+"/", h.listVersions)
 	router.Get(Path+"/networks", h.withProject(h.listNetworks))
-	router.Post(Path+"/networks", h.withProject(h.createNetwork))
-	router.Get(Path+"/networks/{networkID}", h.withProject(h.showNetwork))
-	router.Delete(Path+"/networks/{networkID}", h.withProject(h.deleteNetwork))
+	router.Post(Path+"/networks", h.withProject(withEmptyQuery(h.createNetwork)))
+	router.Get(Path+"/networks/{networkID}", h.withProject(withEmptyQuery(h.showNetwork)))
+	router.Delete(Path+"/networks/{networkID}", h.withProject(withEmptyQuery(h.deleteNetwork)))
 }
 
-func (h handler) withProject(next func(http.ResponseWriter, *http.Request, string)) http.HandlerFunc {
+func (h handler) withProject(next projectHandler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		tokens := r.Header.Values("X-Auth-Token")
 		if len(tokens) != 1 || tokens[0] == "" {
@@ -50,6 +52,12 @@ func (h handler) withProject(next func(http.ResponseWriter, *http.Request, strin
 			writeUnauthorized(w)
 			return
 		}
+		next(w, r, projectID)
+	}
+}
+
+func withEmptyQuery(next projectHandler) projectHandler {
+	return func(w http.ResponseWriter, r *http.Request, projectID string) {
 		if r.URL.RawQuery != "" {
 			writeError(w, http.StatusBadRequest, "BadRequest", "Network operations require an empty query string.")
 			return
