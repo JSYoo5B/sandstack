@@ -30,6 +30,7 @@ type Service struct {
 	volumes           map[string]domain.Volume
 	snapshots         map[string]domain.Snapshot
 	attachmentVolumes map[string]string
+	extensions        map[string]int
 }
 
 // New takes a seeded volume and a non-nil clock. The generator supplies
@@ -112,7 +113,8 @@ func (s *Service) Delete(projectID, volumeID string) error {
 			return ErrVolumeHasSnapshots
 		}
 	}
-	if volume.State != domain.StateAvailable && volume.State != domain.StateError {
+	if volume.State != domain.StateAvailable && volume.State != domain.StateError &&
+		volume.State != domain.StateErrorExtending {
 		return ErrVolumeStateConflict
 	}
 	delete(s.volumes, volumeID)
@@ -147,11 +149,11 @@ func (s *Service) SetFailed(volumeID string, failed bool) error {
 		return ErrVolumeNotFound
 	}
 	switch {
-	case failed && volume.State == domain.StateInUse:
+	case failed && (volume.State == domain.StateInUse || volume.State == domain.StateExtending):
 		return ErrVolumeStateConflict
 	case failed && (volume.State == domain.StateCreating || volume.State == domain.StateAvailable):
 		s.updateState(volume, domain.StateError)
-	case !failed && volume.State == domain.StateError:
+	case !failed && (volume.State == domain.StateError || volume.State == domain.StateErrorExtending):
 		s.updateState(volume, domain.StateAvailable)
 	}
 	return nil
@@ -169,6 +171,7 @@ func (s *Service) Reset() {
 	s.volumes = map[string]domain.Volume{s.seed.ID: s.seed}
 	s.snapshots = make(map[string]domain.Snapshot)
 	s.attachmentVolumes = make(map[string]string)
+	s.extensions = make(map[string]int)
 	if s.seed.Attachment.ID != "" {
 		s.attachmentVolumes[s.seed.Attachment.ID] = s.seed.ID
 	}

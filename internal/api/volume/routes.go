@@ -34,6 +34,7 @@ func Register(
 	router.Post(collection, h.withProject(h.createVolume))
 	router.Get(collection+"/{volumeID}", h.withProject(h.showVolume))
 	router.Delete(collection+"/{volumeID}", h.withProject(h.deleteVolume))
+	router.Post(collection+"/{volumeID}/action", h.withProject(h.extendVolume))
 	snapshots := Path + "/{projectID}/snapshots"
 	router.Get(snapshots+"/detail", h.withProject(h.listSnapshots))
 	router.Post(snapshots, h.withProject(h.createSnapshot))

@@ -101,6 +101,7 @@ func registerVolumeControls(router chi.Router, service *appvolume.Service) {
 		}
 	})
 	registerSnapshotControls(router, service)
+	registerVolumeExtensionControls(router, service)
 }
 
 func registerFixtureControl(router chi.Router, path, notFound string, set func(string, bool) error) {

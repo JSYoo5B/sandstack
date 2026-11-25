@@ -12,9 +12,9 @@ import (
 	domain "github.com/JSYoo5B/sandstack/internal/domain/volume"
 )
 
-const maxCreateBody = 64 * 1024
+const maxJSONBody = 64 * 1024
 
-func readCreateBody(w http.ResponseWriter, r *http.Request, resource string) ([]byte, bool) {
+func readJSONBody(w http.ResponseWriter, r *http.Request, resource string) ([]byte, bool) {
 	if contentType := r.Header.Get("Content-Type"); contentType != "" {
 		mediaType, _, err := mime.ParseMediaType(contentType)
 		if err != nil || mediaType != "application/json" {
@@ -22,7 +22,7 @@ func readCreateBody(w http.ResponseWriter, r *http.Request, resource string) ([]
 			return nil, false
 		}
 	}
-	data, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxCreateBody))
+	data, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxJSONBody))
 	if err != nil {
 		var sizeError *http.MaxBytesError
 		if errors.As(err, &sizeError) {
@@ -36,7 +36,7 @@ func readCreateBody(w http.ResponseWriter, r *http.Request, resource string) ([]
 }
 
 func (h handler) createVolume(w http.ResponseWriter, r *http.Request, projectID string) {
-	data, ok := readCreateBody(w, r, "volume")
+	data, ok := readJSONBody(w, r, "volume")
 	if !ok {
 		return
 	}
@@ -82,7 +82,7 @@ func (h handler) deleteVolume(w http.ResponseWriter, r *http.Request, projectID 
 	case errors.Is(err, app.ErrVolumeHasSnapshots):
 		writeFault(w, http.StatusBadRequest, "badRequest", "The volume has snapshots.")
 	case errors.Is(err, app.ErrVolumeStateConflict):
-		writeFault(w, http.StatusBadRequest, "badRequest", "Volume deletion requires an available or error state.")
+		writeFault(w, http.StatusBadRequest, "badRequest", "Volume deletion requires the available, error, or error_extending state.")
 	case err != nil:
 		writeFault(w, http.StatusInternalServerError, "computeFault", "Unable to delete the volume.")
 	default:

@@ -5,10 +5,12 @@ import "time"
 type State string
 
 const (
-	StateAvailable State = "available"
-	StateCreating  State = "creating"
-	StateError     State = "error"
-	StateInUse     State = "in-use"
+	StateAvailable      State = "available"
+	StateCreating       State = "creating"
+	StateError          State = "error"
+	StateInUse          State = "in-use"
+	StateExtending      State = "extending"
+	StateErrorExtending State = "error_extending"
 )
 
 type Volume struct {

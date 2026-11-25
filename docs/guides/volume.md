@@ -31,11 +31,12 @@ The control returns `204` and moves the volume to `available`. Repeating
 it for an available volume keeps its update timestamp. To exercise a
 failed create, inject the volume fault instead to move it to `error`.
 
-Use `volumes.Delete` for `DELETE /volumes/{volume_id}`. A `creating`
-volume models provisioning in progress and receives `400`. Deleting an
-`available` or `error` volume returns `202` with an empty body. The volume
-is absent from subsequent reads. Reset discards created volumes and
-restores the initial fixture.
+Use `volumes.Delete` for `DELETE /volumes/{volume_id}`. Deleting a volume
+in `creating` or `extending` returns `400`. An `available`, `error`, or
+`error_extending` volume can be deleted once its dependent snapshots are
+removed. The response is `202` with an empty body and the volume is absent
+from subsequent reads. Reset discards created volumes and restores the
+initial fixture.
 
 ## Create a volume from a snapshot
 
@@ -99,6 +100,32 @@ volume returns `400` on Cinder delete and `409` when the volume fault control
 tries to set it to `error`. After detach, the volume becomes `available` with
 an empty `attachments` array. See the [volume details reference].
 
+## Extend an available volume
+
+Use `volumes.ExtendSize` with `volumes.ExtendSizeOpts{NewSize: sizeGiB}`.
+The client sends `POST /volumes/{volume_id}/action` with the `os-extend`
+action. Start with an `available` volume and request an integer size in GiB
+larger than its current size. The request returns `202` with an empty body.
+Volume detail and detailed list show `extending` with the original size
+until the test drives an outcome.
+
+Send `PUT` to a SandStack control with the dedicated admin token.
+
+```sh
+volume_url="http://127.0.0.1:8080/_sandstack/volume/volumes/${volume_id}"
+curl --fail -X PUT -H "X-SandStack-Admin-Token: ${SANDSTACK_ADMIN_TOKEN}" "$volume_url/complete-extend"
+```
+
+`complete-extend` makes the requested size visible and returns the volume
+to `available`. Use `fail-extend` to enter `error_extending` and keep the
+original size. Both controls return `204` for a pending extension and `409`
+when there is no pending extension. To retry after a failure, clear it with
+`DELETE` on the [volume fault control](#inject-and-clear-a-volume-fault),
+or [reset the sandbox](reset.md).
+
+The fixture covers offline extension and its metadata transitions. See the
+[extend volume reference] and [Cinder extension completion].
+
 ## Inject and clear a volume fault
 
 Use the volume ID from the detailed list, or the seeded ID in this example.
@@ -111,8 +138,10 @@ curl --fail -X PUT -H "X-SandStack-Admin-Token: ${SANDSTACK_ADMIN_TOKEN}" "$faul
 
 The volume moves from `available` to `error`. Both reads still return
 `200`, preserve its ID and size, and show the updated status. Send `DELETE`
-to the control URL to restore `available`. [Reset the sandbox](reset.md)
-to restore the original values and timestamps.
+to the control URL to restore `available` from `error` or `error_extending`.
+During a pending extension, `PUT` on the fault control returns `409`. Use
+`fail-extend` to make the extension fail.
+[Reset the sandbox](reset.md) to restore the original values and timestamps.
 
 ## Verification
 
@@ -121,7 +150,9 @@ reads, deletion, faults, and reset through Gophercloud. The snapshot tests
 exercise both provisioning outcomes and verify that deleting a dependent
 snapshot releases its source volume for deletion. Volume creation from a
 snapshot is checked for size inheritance, explicit larger sizes, source
-validation, and state transitions. The HTTP tests use the
+validation, and state transitions. The extension tests check `extending`
+with the original size, both completion outcomes, and recovery after a
+failed extension. The HTTP tests use the
 [create volume reference], [delete volume reference],
 [create snapshot reference], [snapshot details reference],
 [snapshot list reference], and [delete snapshot reference].
@@ -135,6 +166,8 @@ The [Cinder snapshot lookup], [Cinder size default], and
 [snapshot details reference]: https://docs.openstack.org/api-ref/block-storage/v3/#show-a-snapshot-s-details
 [snapshot list reference]: https://docs.openstack.org/api-ref/block-storage/v3/#list-snapshots-and-details
 [delete snapshot reference]: https://docs.openstack.org/api-ref/block-storage/v3/#delete-a-snapshot
+[extend volume reference]: https://docs.openstack.org/api-ref/block-storage/v3/#extend-a-volume-size
+[Cinder extension completion]: https://github.com/openstack/cinder/blob/master/cinder/volume/manager.py#L2751-L2784
 [Cinder snapshot lookup]: https://github.com/openstack/cinder/blob/master/cinder/api/v3/volumes.py#L369-L375
 [Cinder size default]: https://github.com/openstack/cinder/blob/master/cinder/api/v3/volumes.py#L408-L414
 [Cinder volume creation flow]: https://github.com/openstack/cinder/blob/master/cinder/volume/flows/api/create_volume.py#L127-L205

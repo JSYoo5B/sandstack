@@ -56,7 +56,7 @@ func describeSnapshotDetail(snapshot domain.Snapshot) snapshotDetailBody {
 }
 
 func (h handler) createSnapshot(w http.ResponseWriter, r *http.Request, projectID string) {
-	data, ok := readCreateBody(w, r, "snapshot")
+	data, ok := readJSONBody(w, r, "snapshot")
 	if !ok {
 		return
 	}
