@@ -14,7 +14,6 @@ import (
 
 const (
 	timestampLayout = "2006-01-02T15:04:05.000000"
-	volumeZone      = "nova"
 )
 
 type volumeResponse struct {
@@ -87,7 +86,7 @@ func (h handler) describeVolume(r *http.Request, volume domain.Volume) volumeBod
 		Status:            string(volume.State),
 		CreatedAt:         volume.CreatedAt.UTC().Format(timestampLayout),
 		UpdatedAt:         optionalTimestamp(volume.UpdatedAt),
-		AvailabilityZone:  volumeZone,
+		AvailabilityZone:  app.StandardAvailabilityZone,
 		VolumeType:        app.StandardVolumeTypeName,
 		SnapshotID:        optionalText(volume.SnapshotID),
 		Attachments:       attachments,

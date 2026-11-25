@@ -8,6 +8,8 @@ import (
 	"regexp"
 	"strings"
 	"unicode/utf8"
+
+	app "github.com/JSYoo5B/sandstack/internal/app/volume"
 )
 
 const maxVolumeTextLength = 255
@@ -94,7 +96,7 @@ func parseCreateVolume(data []byte) (createVolumeParams, error) {
 	if utf8.RuneCountInString(params.volumeType) > maxVolumeTextLength {
 		return createVolumeParams{}, errors.New("volume type may contain up to 255 characters")
 	}
-	if requestedZone != nil && *requestedZone != volumeZone {
+	if requestedZone != nil && *requestedZone != app.StandardAvailabilityZone {
 		return createVolumeParams{}, errors.New("this endpoint supports the nova availability zone")
 	}
 	params.name = strings.TrimSpace(params.name)

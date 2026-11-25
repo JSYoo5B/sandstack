@@ -47,6 +47,18 @@ marker returns `404`. A raw `limit=0` yields an empty array. SandStack
 returns `400` for invalid limits, repeated parameters, and unsupported
 query keys. See the [Cinder collection links].
 
+## Discover the storage availability zone
+
+Use `availabilityzones.List(client).AllPages(ctx)` and
+`availabilityzones.ExtractAvailabilityZones` from Gophercloud's
+Block Storage v3 package. The project endpoint's
+`GET /os-availability-zone` returns `200` with one
+`availabilityZoneInfo` entry. Its `zoneName` is `nova` and its
+`zoneState.available` is `true`. Pass that name in
+`volumes.CreateOpts.AvailabilityZone` to select it explicitly and
+read the same name from the created volume. See the [Cinder zone
+reference], [Cinder zone response], and [Gophercloud zone operations].
+
 ## Filter the detailed volume list
 
 `GET /volumes/detail` accepts `name` and `status` filters for the token's
@@ -297,6 +309,9 @@ The [Cinder snapshot lookup], [Cinder size default], and
 [Cinder type list controller]: https://github.com/openstack/cinder/blob/master/cinder/api/v3/types.py#L69-L118
 [Gophercloud volume type lookup]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/blockstorage/v3/volumetypes/requests.go#L59-L66
 [Gophercloud volume type list options]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/blockstorage/v3/volumetypes/requests.go#L74-L130
+[Cinder zone reference]: https://docs.openstack.org/api-ref/block-storage/v3/#list-availability-zone-information
+[Cinder zone response]: https://github.com/openstack/cinder/blob/134790e4206f4effa503c47965b7d0cc888695a1/cinder/api/views/availability_zones.py#L20-L30
+[Gophercloud zone operations]: https://github.com/gophercloud/gophercloud/tree/v2.15.0/openstack/blockstorage/v3/availabilityzones
 [Cinder volume create schema]: https://github.com/openstack/cinder/blob/master/cinder/api/schemas/volumes.py#L23-L69
 [Cinder volume type resolution]: https://github.com/openstack/cinder/blob/master/cinder/api/v3/volumes.py#L360-L375
 [Gophercloud volume create options]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/blockstorage/v3/volumes/requests.go#L105-L164
