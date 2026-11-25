@@ -13,6 +13,7 @@ import (
 	appimage "github.com/JSYoo5B/sandstack/internal/app/image"
 	appnetwork "github.com/JSYoo5B/sandstack/internal/app/network"
 	"github.com/JSYoo5B/sandstack/internal/app/sandbox"
+	appvolume "github.com/JSYoo5B/sandstack/internal/app/volume"
 )
 
 func registerControlRoutes(
@@ -65,6 +66,10 @@ func registerNetworkControls(router chi.Router, service *appnetwork.Service) {
 
 func registerImageControls(router chi.Router, service *appimage.Service) {
 	registerFixtureControl(router, "/image/images/{resourceID}/deactivated", "Image not found", service.SetDeactivated)
+}
+
+func registerVolumeControls(router chi.Router, service *appvolume.Service) {
+	registerFixtureControl(router, "/volume/volumes/{resourceID}/fault", "Volume not found", service.SetFailed)
 }
 
 func registerFixtureControl(router chi.Router, path, notFound string, set func(string, bool) error) {

@@ -13,15 +13,18 @@ import (
 	apiidentity "github.com/JSYoo5B/sandstack/internal/api/identity"
 	apiimage "github.com/JSYoo5B/sandstack/internal/api/image"
 	apinetwork "github.com/JSYoo5B/sandstack/internal/api/network"
+	apivolume "github.com/JSYoo5B/sandstack/internal/api/volume"
 	appcompute "github.com/JSYoo5B/sandstack/internal/app/compute"
 	appidentity "github.com/JSYoo5B/sandstack/internal/app/identity"
 	appimage "github.com/JSYoo5B/sandstack/internal/app/image"
 	appnetwork "github.com/JSYoo5B/sandstack/internal/app/network"
 	"github.com/JSYoo5B/sandstack/internal/app/sandbox"
+	appvolume "github.com/JSYoo5B/sandstack/internal/app/volume"
 	"github.com/JSYoo5B/sandstack/internal/domain/compute"
 	"github.com/JSYoo5B/sandstack/internal/domain/identity"
 	"github.com/JSYoo5B/sandstack/internal/domain/image"
 	"github.com/JSYoo5B/sandstack/internal/domain/network"
+	"github.com/JSYoo5B/sandstack/internal/domain/volume"
 	memoryidentity "github.com/JSYoo5B/sandstack/internal/store/memory/identity"
 )
 
@@ -72,8 +75,18 @@ func New(config Config) (http.Handler, error) {
 		Name:      "fixture-network",
 		ProjectID: fixture.Project.ID,
 	})
+	volumeService := appvolume.New(volume.Volume{
+		ID:        "7b37635e-be9b-4bfb-bc2e-d163b75921e6",
+		Name:      "fixture-volume",
+		ProjectID: fixture.Project.ID,
+		UserID:    fixture.User.ID,
+		Size:      1,
+		CreatedAt: created,
+		UpdatedAt: created,
+	}, now)
 	state := sandbox.NewState(
-		identityService.InvalidateTokens, computeService.Reset, networkService.Reset, imageService.Reset,
+		identityService.InvalidateTokens,
+		computeService.Reset, networkService.Reset, imageService.Reset, volumeService.Reset,
 	)
 
 	router := chi.NewRouter()
@@ -99,15 +112,23 @@ func New(config Config) (http.Handler, error) {
 		Type:       "image",
 		Name:       "glance",
 		Path:       apiimage.CatalogPath,
+	}, apiidentity.CatalogEntry{
+		ServiceID:  "2913d077918c4299aac9f4bbdbe7d993",
+		EndpointID: "0f336234de5b4d42b7fd18b895c21438",
+		Type:       "block-storage",
+		Name:       "cinder",
+		Path:       apivolume.Path + "/" + fixture.Project.ID,
 	})
 	apicompute.Register(services, computeService, identityService.ProjectForToken, endpointURL)
 	apinetwork.Register(services, networkService, identityService.ProjectForToken, endpointURL)
 	apiimage.Register(services, imageService, identityService.ProjectForToken, endpointURL)
+	apivolume.Register(services, volumeService, identityService.ProjectForToken, endpointURL)
 	registerControlRoutes(router, state, config.AdminToken,
 		func(r chi.Router) { registerIdentityControls(r, identityService) },
 		func(r chi.Router) { registerComputeControls(r, computeService) },
 		func(r chi.Router) { registerNetworkControls(r, networkService) },
 		func(r chi.Router) { registerImageControls(r, imageService) },
+		func(r chi.Router) { registerVolumeControls(r, volumeService) },
 	)
 	return router, nil
 }

@@ -303,10 +303,11 @@ func assertResource(t *testing.T, resource namedResource, name string) {
 func assertCatalog(t *testing.T, entries []catalogService, origin, projectID string) {
 	t.Helper()
 	expectedEndpoints := map[string]string{
-		"identity": origin + identityPath,
-		"compute":  origin + computePath + "/" + projectID,
-		"network":  origin + networkPath,
-		"image":    origin + imagePath,
+		"identity":      origin + identityPath,
+		"compute":       origin + computePath + "/" + projectID,
+		"network":       origin + networkPath,
+		"image":         origin + imagePath,
+		"block-storage": origin + volumePath + "/" + projectID,
 	}
 	require.Len(t, entries, len(expectedEndpoints))
 	for _, entry := range entries {
