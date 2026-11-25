@@ -44,8 +44,10 @@ func Register(
 	router.Get(snapshots+"/{snapshotID}", h.withProject(withoutQuery(h.showSnapshot)))
 	router.Put(snapshots+"/{snapshotID}", h.withProject(withoutQuery(h.updateSnapshot)))
 	router.Delete(snapshots+"/{snapshotID}", h.withProject(withoutQuery(h.deleteSnapshot)))
-	router.Get(snapshots+"/{snapshotID}/metadata", h.withProject(withoutQuery(h.showSnapshotMetadata)))
-	router.Put(snapshots+"/{snapshotID}/metadata", h.withProject(withoutQuery(h.replaceSnapshotMetadata)))
+	metadata := snapshots + "/{snapshotID}/metadata"
+	router.Get(metadata, h.withProject(withoutQuery(h.showSnapshotMetadata)))
+	router.Put(metadata, h.withProject(withoutQuery(changeSnapshotMetadata(service.ReplaceSnapshotMetadata))))
+	router.Post(metadata, h.withProject(withoutQuery(changeSnapshotMetadata(service.MergeSnapshotMetadata))))
 }
 
 func (h handler) withProject(next projectHandler) http.HandlerFunc {

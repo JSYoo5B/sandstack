@@ -24,18 +24,22 @@ func (h handler) showSnapshotMetadata(w http.ResponseWriter, r *http.Request, pr
 	writeSnapshotMetadata(w, snapshot.Metadata, err)
 }
 
-func (h handler) replaceSnapshotMetadata(w http.ResponseWriter, r *http.Request, projectID string) {
-	data, ok := readJSONBody(w, r, "snapshot metadata")
-	if !ok {
-		return
+func changeSnapshotMetadata(
+	change func(string, string, map[string]string) (map[string]string, error),
+) projectHandler {
+	return func(w http.ResponseWriter, r *http.Request, projectID string) {
+		data, ok := readJSONBody(w, r, "snapshot metadata")
+		if !ok {
+			return
+		}
+		values, err := parseSnapshotMetadata(data)
+		if err != nil {
+			writeFault(w, http.StatusBadRequest, "badRequest", err.Error())
+			return
+		}
+		metadata, err := change(projectID, chi.URLParam(r, "snapshotID"), values)
+		writeSnapshotMetadata(w, metadata, err)
 	}
-	values, err := parseSnapshotMetadata(data)
-	if err != nil {
-		writeFault(w, http.StatusBadRequest, "badRequest", err.Error())
-		return
-	}
-	metadata, err := h.service.ReplaceSnapshotMetadata(projectID, chi.URLParam(r, "snapshotID"), values)
-	writeSnapshotMetadata(w, metadata, err)
 }
 
 func writeSnapshotMetadata(w http.ResponseWriter, values map[string]string, err error) {

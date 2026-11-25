@@ -226,7 +226,6 @@ Keys accept 1 to 255 characters from ASCII letters, digits, spaces,
 hyphens, underscores, periods, and colons. Values must be strings of at
 most 255 characters and may be empty. A malformed payload or JSON `null`
 returns `400`.
-This scenario covers the collection read and complete replacement.
 See the [Cinder snapshot metadata schema].
 
 In Gophercloud v2.15.0, pass a nonempty `Metadata` map in
@@ -237,6 +236,31 @@ detailed list responses also include the updated metadata. Replacing the
 metadata preserves snapshot status and `updated_at` in the fixture.
 See the [Gophercloud snapshot
 metadata options].
+
+### Merge snapshot metadata
+
+Send `POST /snapshots/{snapshot_id}/metadata` with a `metadata` object to
+add or overwrite the supplied keys. The `200` response contains the
+complete metadata map. Omitted keys keep their values, including keys
+with slashes set when the snapshot was created. Incoming keys and values
+follow the same validation as `PUT`. An empty object in `metadata` is a
+no-op. The fixture preserves snapshot status and `updated_at`. See the
+[merge snapshot metadata reference], [Cinder snapshot metadata controller],
+and [Cinder snapshot metadata service].
+
+In Gophercloud v2.15.0, use `ServiceClient.Post` with `200` in `OkCodes`.
+The SDK's `snapshots.UpdateMetadata` sends `PUT` for full replacement.
+
+```go
+body := map[string]map[string]string{
+    "metadata": {"environment": "test"},
+}
+var result struct {
+    Metadata map[string]string `json:"metadata"`
+}
+_, err := client.Post(ctx, client.ServiceURL("snapshots", snapshotID, "metadata"),
+    body, &result, &gophercloud.RequestOpts{OkCodes: []int{http.StatusOK}})
+```
 
 ## Read the attachment state
 
@@ -356,8 +380,10 @@ The [Cinder snapshot lookup], [Cinder size default], and
 [Cinder snapshot save implementation]: https://github.com/openstack/cinder/blob/master/cinder/objects/snapshot.py#L175-L202
 [read snapshot metadata reference]: https://docs.openstack.org/api-ref/block-storage/v3/#show-a-snapshot-s-metadata
 [replace snapshot metadata reference]: https://docs.openstack.org/api-ref/block-storage/v3/#update-a-snapshot-s-metadata
+[merge snapshot metadata reference]: https://docs.openstack.org/api-ref/block-storage/v3/#create-a-snapshot-s-metadata
 [Cinder snapshot metadata controller]: https://github.com/openstack/cinder/blob/master/cinder/api/v3/snapshot_metadata.py#L28-L91
 [Cinder snapshot metadata schema]: https://github.com/openstack/cinder/blob/master/cinder/api/schemas/snapshot_metadata.py#L13-L50
+[Cinder snapshot metadata service]: https://github.com/openstack/cinder/blob/master/cinder/volume/api.py#L1279-L1306
 [Gophercloud snapshot metadata options]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/blockstorage/v3/snapshots/requests.go#L177-L208
 [Gophercloud snapshot update options]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/blockstorage/v3/snapshots/requests.go#L149-L170
 [snapshot details reference]: https://docs.openstack.org/api-ref/block-storage/v3/#show-a-snapshot-s-details

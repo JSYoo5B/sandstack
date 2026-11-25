@@ -100,6 +100,19 @@ func (s *Service) UpdateSnapshot(
 
 // ReplaceSnapshotMetadata changes only the metadata on a scoped snapshot.
 func (s *Service) ReplaceSnapshotMetadata(projectID, snapshotID string, metadata map[string]string) (map[string]string, error) {
+	return s.writeSnapshotMetadata(projectID, snapshotID, metadata, true)
+}
+
+// MergeSnapshotMetadata sets supplied keys and preserves the other metadata.
+func (s *Service) MergeSnapshotMetadata(projectID, snapshotID string, metadata map[string]string) (map[string]string, error) {
+	return s.writeSnapshotMetadata(projectID, snapshotID, metadata, false)
+}
+
+func (s *Service) writeSnapshotMetadata(
+	projectID, snapshotID string,
+	metadata map[string]string,
+	replace bool,
+) (map[string]string, error) {
 	if s.seed.ProjectID != projectID {
 		return nil, ErrSnapshotNotFound
 	}
@@ -110,8 +123,16 @@ func (s *Service) ReplaceSnapshotMetadata(projectID, snapshotID string, metadata
 	if !ok {
 		return nil, ErrSnapshotNotFound
 	}
-	// Stored metadata maps are immutable. Create a new map on each replacement.
-	snapshot.Metadata = copySnapshotMetadata(metadata)
+	// Stored metadata maps are immutable, including maps observed by list readers.
+	switch {
+	case replace:
+		snapshot.Metadata = copySnapshotMetadata(metadata)
+	case len(metadata) == 0:
+		return maps.Clone(snapshot.Metadata), nil
+	default:
+		snapshot.Metadata = copySnapshotMetadata(snapshot.Metadata)
+		maps.Copy(snapshot.Metadata, metadata)
+	}
 	s.snapshots[snapshotID] = snapshot
 	return maps.Clone(snapshot.Metadata), nil
 }

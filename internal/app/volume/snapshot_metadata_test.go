@@ -72,3 +72,51 @@ func TestSnapshotMetadataReplacementDetachesMapsAndPreservesSnapshot(t *testing.
 	before.Metadata = map[string]string{}
 	assert.Equal(t, before, current)
 }
+
+func TestSnapshotMetadataMergePreservesConcurrentChanges(t *testing.T) {
+	now := time.Date(2026, time.November, 25, 12, 0, 0, 0, time.UTC)
+	seed := domain.Volume{ID: fixtureID, ProjectID: "project", Size: 5}
+	service := app.New(seed, func() time.Time { return now }, func() string { return createdID })
+	created, err := service.CreateSnapshot(seed.ProjectID, seed.ID, app.SnapshotCreateOptions{
+		Metadata: map[string]string{"team/checkpoint": "initial", "stage": "building"},
+	})
+	require.NoError(t, err)
+	now = now.Add(time.Minute)
+	require.NoError(t, service.FinishSnapshotCreation(created.ID, false))
+	before, err := service.GetSnapshot(seed.ProjectID, created.ID)
+	require.NoError(t, err)
+	now = now.Add(time.Minute)
+
+	start := make(chan struct{})
+	errors := make(chan error, 2)
+	merge := func(metadata map[string]string) {
+		<-start
+		_, err := service.MergeSnapshotMetadata(seed.ProjectID, created.ID, metadata)
+		errors <- err
+	}
+	go merge(map[string]string{"stage": "ready"})
+	go merge(map[string]string{"result": "verified"})
+	close(start)
+	for range 2 {
+		require.NoError(t, <-errors)
+	}
+
+	want := before
+	want.Metadata = map[string]string{"team/checkpoint": "initial", "stage": "ready", "result": "verified"}
+	current, err := service.GetSnapshot(seed.ProjectID, created.ID)
+	require.NoError(t, err)
+	assert.Equal(t, want, current)
+	assert.Equal(t, map[string]string{"team/checkpoint": "initial", "stage": "building"}, before.Metadata)
+
+	unchanged, err := service.MergeSnapshotMetadata(seed.ProjectID, created.ID, map[string]string{})
+	require.NoError(t, err)
+	assert.Equal(t, want.Metadata, unchanged)
+	unchanged["stage"] = "mutated result"
+	current, err = service.GetSnapshot(seed.ProjectID, created.ID)
+	require.NoError(t, err)
+	assert.Equal(t, want, current)
+	_, err = service.MergeSnapshotMetadata("foreign", created.ID, nil)
+	assert.ErrorIs(t, err, app.ErrSnapshotNotFound)
+	_, err = service.MergeSnapshotMetadata(seed.ProjectID, "missing", nil)
+	assert.ErrorIs(t, err, app.ErrSnapshotNotFound)
+}
