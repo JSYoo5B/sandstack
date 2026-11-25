@@ -62,20 +62,37 @@ returns `200` with `ports: []`. Malformed entries and unsupported inner
 keys return `400`, including `ip_address_substr` from Neutron's optional
 `ip-substring-filtering` extension.
 
+### Sort ports by name
+
+The port list defaults to ascending port IDs. Use
+`sort_key=name&sort_dir=asc` or `sort_key=name&sort_dir=desc` to sort by
+name. Ports with the same name stay in ascending ID order in either
+direction. In Gophercloud v2.15.0, set `SortKey: "name"` and `SortDir: "asc"`
+or `SortDir: "desc"` in `ports.ListOpts`. See the [Neutron sorting
+reference] and [Gophercloud port list options].
+
+An empty `sort_key` or `sort_dir` value is treated as omitted. SandStack
+accepts at most one nonempty value for each key. An incomplete pair, an
+unsupported key or direction, or repeated nonempty values return `400`.
+See the [Neutron sort parser].
+
 ### Page through the port list
 
-Use a positive `limit` for forward pagination in ascending port ID
-order. An optional `marker` starts the page after that port ID. The
-marker must identify an existing port in the token's project, even if
-the port falls outside the current filters. An unknown marker returns
-`404`. Omit `limit` or set it to `0` for an unpaged list, which ignores
-the marker. Repeated pagination keys and invalid values return `400`.
-See the [Neutron pagination reference] and [port list reference].
+Use a positive `limit` for forward pagination in the current sort order.
+An optional `marker` starts the page after the identified port. The marker
+must identify an existing port in the token's project, even if the port
+falls outside the current filters. With name sorting, SandStack uses the
+marker port's current name and ID to find its position. An unknown marker
+returns `404`. Omit `limit` or set it to `0` for an unpaged list, which
+ignores the marker. Repeated pagination keys and invalid values return
+`400`. See the [Neutron pagination reference], [Neutron marker query],
+and [port list reference].
 
 When more matches remain, `ports_links` contains an absolute `next` link
 with the last returned port ID as its marker. The link preserves the
-page size and filters, including repeated values. The final page has no
-`next` link. With Gophercloud v2.15.0, set `Limit` and optionally `Marker`
+page size, sort settings, and filters, including repeated values. The
+final page has no `next` link. With Gophercloud v2.15.0, set `Limit` and
+optionally `Marker`
 in `ports.ListOpts`. The pager from `ports.List` follows these links when
 you call `AllPages`. See the [Gophercloud port list options] and
 [Gophercloud port page links].
@@ -146,6 +163,9 @@ exhaustion and resource-in-use errors.
 
 [Neutron filtering reference]: https://docs.openstack.org/api-ref/network/v2/#filtering-and-column-selection
 [Neutron pagination reference]: https://docs.openstack.org/api-ref/network/v2/#pagination
+[Neutron sorting reference]: https://docs.openstack.org/api-ref/network/v2/#sorting
+[Neutron sort parser]: https://github.com/openstack/neutron/blob/master/neutron/api/api_common.py#L205-L236
+[Neutron marker query]: https://github.com/openstack/neutron-lib/blob/master/neutron_lib/db/model_query.py#L300-L316
 [port create reference]: https://docs.openstack.org/api-ref/network/v2/#create-port
 [port list reference]: https://docs.openstack.org/api-ref/network/v2/#list-ports
 [Neutron port filter schema]: https://github.com/openstack/neutron-lib/blob/master/neutron_lib/api/definitions/port.py#L37-L60

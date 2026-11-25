@@ -128,8 +128,15 @@ func (h handler) listPorts(w http.ResponseWriter, r *http.Request, projectID str
 		writeError(w, http.StatusBadRequest, "BadRequest", err.Error())
 		return
 	}
+	order, err := parsePortListOrder(query)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "BadRequest", err.Error())
+		return
+	}
 	marker := query.Get("marker")
-	ports, hasMore, err := h.service.ListPortsPage(projectID, filter, marker, limit)
+	ports, hasMore, err := h.service.ListPortsPage(projectID, filter, app.PortPageOptions{
+		Marker: marker, Limit: limit, Order: order,
+	})
 	if err != nil {
 		writePortError(w, marker, err)
 		return

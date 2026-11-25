@@ -4,7 +4,6 @@ import (
 	"errors"
 	"net/netip"
 	"slices"
-	"strings"
 
 	domain "github.com/JSYoo5B/sandstack/internal/domain/network"
 )
@@ -128,47 +127,60 @@ func (f PortListFilter) matches(port domain.Port) bool {
 
 // ListPorts returns the project's matching ports ordered by ID.
 func (s *Service) ListPorts(projectID string, filter PortListFilter) []domain.Port {
-	ports, _ := s.listPortsAfter(projectID, filter, "")
+	ports, _ := s.listPortsAfter(projectID, filter, "", PortOrderID)
 	return ports
+}
+
+type PortPageOptions struct {
+	Marker string
+	Limit  int
+	Order  PortListOrder
 }
 
 // ListPortsPage returns a forward page and whether more matching ports follow.
 func (s *Service) ListPortsPage(
 	projectID string,
 	filter PortListFilter,
-	marker string,
-	limit int,
+	page PortPageOptions,
 ) ([]domain.Port, bool, error) {
-	if limit <= 0 {
-		return s.ListPorts(projectID, filter), false, nil
+	if page.Limit <= 0 {
+		page.Marker = ""
 	}
-	ports, err := s.listPortsAfter(projectID, filter, marker)
+	ports, err := s.listPortsAfter(projectID, filter, page.Marker, page.Order)
 	if err != nil {
 		return nil, false, err
 	}
-	if len(ports) > limit {
-		return ports[:limit], true, nil
+	if page.Limit > 0 && len(ports) > page.Limit {
+		return ports[:page.Limit], true, nil
 	}
 	return ports, false, nil
 }
 
-func (s *Service) listPortsAfter(projectID string, filter PortListFilter, marker string) ([]domain.Port, error) {
+func (s *Service) listPortsAfter(
+	projectID string,
+	filter PortListFilter,
+	marker string,
+	order PortListOrder,
+) ([]domain.Port, error) {
 	ports := []domain.Port{}
 	s.mu.RLock()
+	var markerPort domain.Port
 	if marker != "" {
 		port, exists := s.ports[marker]
 		if !exists || port.ProjectID != projectID {
 			s.mu.RUnlock()
 			return nil, ErrPortNotFound
 		}
+		markerPort = port
 	}
 	for _, port := range s.ports {
-		if port.ProjectID == projectID && port.ID > marker && filter.matches(port) {
+		if port.ProjectID == projectID &&
+			(marker == "" || order.compare(port, markerPort) > 0) && filter.matches(port) {
 			ports = append(ports, port)
 		}
 	}
 	s.mu.RUnlock()
-	slices.SortFunc(ports, func(a, b domain.Port) int { return strings.Compare(a.ID, b.ID) })
+	slices.SortFunc(ports, order.compare)
 	return ports, nil
 }
 
