@@ -58,6 +58,7 @@ func registerComputeControls(router chi.Router, service *appcompute.Service) {
 	const serverPath = "/compute/servers/{resourceID}"
 	registerFixtureControl(router, serverPath+"/fault", "Server not found", service.SetFault)
 	registerFixtureControl(router, serverPath+"/stale-detail", "Server not found", service.SetStaleDetail)
+	registerFixtureControl(router, serverPath+"/unavailable-detail", "Server not found", service.SetUnavailableDetail)
 }
 
 func registerNetworkControls(router chi.Router, service *appnetwork.Service) {

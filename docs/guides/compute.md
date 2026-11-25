@@ -54,15 +54,36 @@ list shows `ERROR` and the current instance fault. Repeating `PUT` on
 `stale-detail` keeps the original snapshot. Send `DELETE` to `stale-detail`
 to resume live detail reads. The live fault can then be cleared separately.
 
+## Fail the next detail read
+
+Use a one-shot outage to exercise a client's retry after HTTP `503`. Send
+`PUT` to the `unavailable-detail` control for the listed server ID.
+
+```sh
+outage_url="${fault_url%/fault}/unavailable-detail"
+curl --fail -X PUT -H "X-SandStack-Admin-Token: ${SANDSTACK_ADMIN_TOKEN}" "$outage_url"
+```
+
+The next authorized detail request for that server receives `503` with a
+`serviceUnavailable` error. A retry reads the same server state with the
+same token. List requests and rejected detail requests leave the outage
+pending. Repeating `PUT` while the outage is pending keeps one failure
+scheduled. `DELETE` or a [sandbox reset](reset.md) clears it.
+
+Inspect [recent requests](requests.md) to check that the attempted detail
+read received `503` before the same route returned `200`.
+
 ## Verification
 
 Run `go test ./...` to check catalog discovery and the `ACTIVE` → `ERROR` →
 `ACTIVE` sequence through Gophercloud. The stale-detail test also checks
 that list and detail diverge while the snapshot is active and agree after
-it is cleared. The raw HTTP checks cover the list and detail response
-shapes and errors. The [Compute list reference], [Compute detail reference],
-and [Compute fault guide] describe the upstream behavior.
+it is cleared. The transient-outage test verifies one failure followed by
+recovery. The raw HTTP checks use the [Compute list reference],
+[Compute detail reference], [Compute fault guide], and [Nova fault response]
+for the OpenStack response shapes.
 
 [Compute list reference]: https://docs.openstack.org/api-ref/compute/#list-servers-detailed
 [Compute detail reference]: https://docs.openstack.org/api-ref/compute/#show-server-details
 [Compute fault guide]: https://docs.openstack.org/api-guide/compute/faults.html
+[Nova fault response]: https://github.com/openstack/nova/blob/master/nova/api/openstack/wsgi.py

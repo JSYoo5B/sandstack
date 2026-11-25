@@ -3,19 +3,24 @@ package compute
 import (
 	"errors"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	domain "github.com/JSYoo5B/sandstack/internal/domain/compute"
 )
 
-var ErrServerNotFound = errors.New("compute server not found")
+var (
+	ErrServerNotFound    = errors.New("compute server not found")
+	ErrDetailUnavailable = errors.New("compute server detail temporarily unavailable")
+)
 
 type Service struct {
-	mu          sync.RWMutex
-	seed        domain.Server
-	server      domain.Server
-	staleDetail *domain.Server
-	now         func() time.Time
+	mu                sync.RWMutex
+	seed              domain.Server
+	server            domain.Server
+	staleDetail       *domain.Server
+	detailUnavailable atomic.Bool
+	now               func() time.Time
 }
 
 // New takes a seeded server and a non-nil clock.
@@ -34,6 +39,10 @@ func (s *Service) Get(projectID, serverID string) (domain.Server, error) {
 	if s.server.ProjectID != projectID || s.server.ID != serverID {
 		return domain.Server{}, ErrServerNotFound
 	}
+	// The shared lock excludes rearming while concurrent reads try to consume.
+	if s.detailUnavailable.Load() && s.detailUnavailable.Swap(false) {
+		return domain.Server{}, ErrDetailUnavailable
+	}
 	if s.staleDetail != nil {
 		return cloneServer(*s.staleDetail), nil
 	}
@@ -50,13 +59,26 @@ func (s *Service) List(projectID string, status *domain.Status) []domain.Server 
 	return []domain.Server{cloneServer(s.server)}
 }
 
-// Reset restores the startup fixture and discards stale snapshots.
+// Reset restores the startup fixture and clears detail read faults.
 func (s *Service) Reset() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	s.server = cloneServer(s.seed)
 	s.staleDetail = nil
+	s.detailUnavailable.Store(false)
+}
+
+// SetUnavailableDetail arms or cancels one failure for the next matching Get.
+func (s *Service) SetUnavailableDetail(serverID string, enabled bool) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.server.ID != serverID {
+		return ErrServerNotFound
+	}
+	s.detailUnavailable.Store(enabled)
+	return nil
 }
 
 // SetStaleDetail freezes detail reads at the current live state until cleared.

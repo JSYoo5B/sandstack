@@ -60,6 +60,11 @@ type resourceRef struct {
 
 func (h handler) showServer(w http.ResponseWriter, r *http.Request, scope requestScope) {
 	server, err := h.service.Get(scope.projectID, chi.URLParam(r, "serverID"))
+	if errors.Is(err, appcompute.ErrDetailUnavailable) {
+		writeFault(w, http.StatusServiceUnavailable, "serviceUnavailable",
+			"Server details are temporarily unavailable.")
+		return
+	}
 	if errors.Is(err, appcompute.ErrServerNotFound) {
 		writeFault(w, http.StatusNotFound, "itemNotFound", "The server could not be found.")
 		return
