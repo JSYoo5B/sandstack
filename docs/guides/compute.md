@@ -39,7 +39,18 @@ Other query keys, repeated keys, and malformed values return `400`.
 The single-fixture list returns at most one row in one page. See the
 [Nova detailed flavor list] and [Gophercloud flavor list options].
 
+## List server summaries
+
+Use `servers.ListSimple` in Gophercloud v2.15.0 for `GET /servers`.
+Nova v2.1 returns a `servers` array with each server's ID, name, and
+links. The links point to the same resources as the detailed list.
+Use the returned ID with `servers.Get` to read the full server.
+A list with no matches returns `{"servers":[]}`. See the [Nova server
+summary schema] and [Gophercloud basic list].
+
 ## Filter the detailed server list
+
+The same filters apply to basic and detailed lists.
 
 The detailed list supports a single `status` filter. Use `?status=ACTIVE`,
 `?status=ERROR`, or `?status=SHUTOFF` to select a state. Values match
@@ -187,6 +198,8 @@ The raw HTTP checks follow the [Compute list reference] and
 [Compute detail reference] for the OpenStack response shapes.
 
 [Compute list reference]: https://docs.openstack.org/api-ref/compute/#list-servers-detailed
+[Nova server summary schema]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/api/openstack/compute/schemas/servers.py#L768-L788
+[Gophercloud basic list]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/compute/v2/servers/testing/requests_test.go#L45-L60
 [Gophercloud list options]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/compute/v2/servers/requests.go#L42-L55
 [Compute detail reference]: https://docs.openstack.org/api-ref/compute/#show-server-details
 [Nova flavor reference]: https://docs.openstack.org/api-ref/compute/#show-flavor-details

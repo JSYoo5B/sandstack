@@ -109,11 +109,7 @@ func (h handler) serverBody(r *http.Request, server appcompute.ServerDetail, pat
 }
 
 func (h handler) serverCore(r *http.Request, server appcompute.ServerDetail, pathProject string) serverCore {
-	projectPath := ""
-	if pathProject != "" {
-		projectPath = "/" + pathProject
-	}
-	serverPath := projectPath + "/servers/" + server.ID
+	projectPath := computeProjectPath(pathProject)
 	bookmark := computeRoot + projectPath
 	status := server.Status()
 	metadata := server.Metadata
@@ -128,10 +124,7 @@ func (h handler) serverCore(r *http.Request, server appcompute.ServerDetail, pat
 		Created:   server.CreatedAt.UTC(),
 		Updated:   server.UpdatedAt.UTC(),
 		Status:    strings.ToUpper(string(status)),
-		Links: []resourceLink{
-			{Rel: "self", Href: h.endpointURL(r, Path+serverPath)},
-			{Rel: "bookmark", Href: h.endpointURL(r, computeRoot+serverPath)},
-		},
+		Links:     h.serverLinks(r, server.ID, projectPath),
 		Flavor: resourceRef{
 			ID: appcompute.FixtureFlavorID,
 			Links: []resourceLink{{
@@ -155,4 +148,19 @@ func (h handler) serverCore(r *http.Request, server appcompute.ServerDetail, pat
 		}
 	}
 	return body
+}
+
+func computeProjectPath(projectID string) string {
+	if projectID == "" {
+		return ""
+	}
+	return "/" + projectID
+}
+
+func (h handler) serverLinks(r *http.Request, serverID, projectPath string) []resourceLink {
+	resourcePath := projectPath + "/servers/" + serverID
+	return []resourceLink{
+		{Rel: "self", Href: h.endpointURL(r, Path+resourcePath)},
+		{Rel: "bookmark", Href: h.endpointURL(r, computeRoot+resourcePath)},
+	}
 }

@@ -11,14 +11,33 @@ type ListFilter struct {
 	Name   *regexp.Regexp
 }
 
+type ServerSummary struct {
+	ID   string
+	Name string
+}
+
+func (s *Service) ListBasic(projectID string, filter ListFilter) []ServerSummary {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	if !filter.matches(projectID, s.server) {
+		return []ServerSummary{}
+	}
+	return []ServerSummary{{ID: s.server.ID, Name: s.server.Name}}
+}
+
 func (s *Service) List(projectID string, filter ListFilter) []ServerDetail {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	if s.server.ProjectID != projectID ||
-		(filter.Status != nil && s.server.Status() != *filter.Status) ||
-		(filter.Name != nil && !filter.Name.MatchString(s.server.Name)) {
+	if !filter.matches(projectID, s.server) {
 		return []ServerDetail{}
 	}
 	return []ServerDetail{s.liveDetail()}
+}
+
+func (f ListFilter) matches(projectID string, server domain.Server) bool {
+	return server.ProjectID == projectID &&
+		(f.Status == nil || server.Status() == *f.Status) &&
+		(f.Name == nil || f.Name.MatchString(server.Name))
 }
