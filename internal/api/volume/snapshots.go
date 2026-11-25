@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"net/url"
 
 	"github.com/go-chi/chi/v5"
 
@@ -83,12 +84,34 @@ func (h handler) createSnapshot(w http.ResponseWriter, r *http.Request, projectI
 	}
 }
 
-func (h handler) listSnapshots(w http.ResponseWriter, _ *http.Request, projectID string) {
-	snapshots := h.service.ListSnapshots(projectID)
+func (h handler) listSnapshots(w http.ResponseWriter, r *http.Request, projectID string) {
+	query, err := url.ParseQuery(r.URL.RawQuery)
+	if err != nil {
+		writeFault(w, http.StatusBadRequest, "badRequest", "The snapshot list query is malformed.")
+		return
+	}
+	options, err := parseDetailListQuery(query, "snapshot")
+	if err != nil {
+		writeFault(w, http.StatusBadRequest, "badRequest", err.Error())
+		return
+	}
+	page, err := h.service.ListSnapshotsPage(projectID, options.filter, options.marker, options.limit)
+	if errors.Is(err, app.ErrSnapshotNotFound) {
+		writeFault(w, http.StatusNotFound, "itemNotFound", "The marker snapshot could not be found.")
+		return
+	}
+	if err != nil {
+		writeFault(w, http.StatusInternalServerError, "computeFault", "Unable to list snapshots.")
+		return
+	}
 	response := struct {
 		Snapshots []snapshotDetailBody `json:"snapshots"`
-	}{Snapshots: make([]snapshotDetailBody, len(snapshots))}
-	for i, snapshot := range snapshots {
+		Links     []volumeLink         `json:"snapshots_links,omitempty"`
+	}{
+		Snapshots: make([]snapshotDetailBody, len(page.Snapshots)),
+		Links:     h.detailListLinks(r, query, Path+"/"+projectID+"/snapshots/detail", page.NextMarker),
+	}
+	for i, snapshot := range page.Snapshots {
 		response.Snapshots[i] = describeSnapshotDetail(snapshot)
 	}
 	writeJSON(w, http.StatusOK, response)

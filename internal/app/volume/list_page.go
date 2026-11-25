@@ -12,9 +12,9 @@ type ListFilter struct {
 	Status *domain.State
 }
 
-func (f ListFilter) matches(volume domain.Volume) bool {
-	return (f.Name == nil || (volume.Name.Valid && volume.Name.Value == *f.Name)) &&
-		(f.Status == nil || volume.State == *f.Status)
+func (f ListFilter) matches(name domain.NullableText, state domain.State) bool {
+	return (f.Name == nil || (name.Valid && name.Value == *f.Name)) &&
+		(f.Status == nil || state == *f.Status)
 }
 
 type VolumePage struct {
@@ -52,15 +52,20 @@ func (s *Service) ListPage(projectID string, filter ListFilter, marker *string, 
 	}
 	volumes := make([]domain.Volume, 0, len(s.volumes))
 	for _, volume := range s.volumes {
-		if (marker == nil || volume.ID > after) && filter.matches(volume) {
+		if (marker == nil || volume.ID > after) && filter.matches(volume.Name, volume.State) {
 			volumes = append(volumes, volume)
 		}
 	}
 	s.mu.RUnlock()
 
-	slices.SortFunc(volumes, func(a, b domain.Volume) int { return strings.Compare(a.ID, b.ID) })
-	if limit > 0 && len(volumes) >= limit {
-		return VolumePage{Volumes: volumes[:limit], NextMarker: volumes[limit-1].ID}, nil
+	volumes, next := orderAndLimit(volumes, limit, func(volume domain.Volume) string { return volume.ID })
+	return VolumePage{Volumes: volumes, NextMarker: next}, nil
+}
+
+func orderAndLimit[T any](items []T, limit int, id func(T) string) ([]T, string) {
+	slices.SortFunc(items, func(a, b T) int { return strings.Compare(id(a), id(b)) })
+	if limit > 0 && len(items) >= limit {
+		return items[:limit], id(items[limit-1])
 	}
-	return VolumePage{Volumes: volumes}, nil
+	return items, ""
 }

@@ -2,6 +2,7 @@ package volume
 
 import (
 	"errors"
+	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
@@ -10,19 +11,19 @@ import (
 	domain "github.com/JSYoo5B/sandstack/internal/domain/volume"
 )
 
-const maxVolumePageLimit = 1000
+const maxDetailPageLimit = 1000
 
-type volumeListOptions struct {
+type detailListOptions struct {
 	filter app.ListFilter
 	marker *string
 	limit  int
 }
 
-func parseVolumeListQuery(query url.Values) (volumeListOptions, error) {
-	options := volumeListOptions{limit: maxVolumePageLimit}
+func parseDetailListQuery(query url.Values, resource string) (detailListOptions, error) {
+	options := detailListOptions{limit: maxDetailPageLimit}
 	for field, values := range query {
 		if len(values) != 1 {
-			return volumeListOptions{}, errors.New("volume list parameters accept one value each")
+			return detailListOptions{}, errors.New(resource + " list parameters accept one value each")
 		}
 		switch field {
 		case "name":
@@ -35,16 +36,24 @@ func parseVolumeListQuery(query url.Values) (volumeListOptions, error) {
 		case "limit":
 			limit, err := strconv.Atoi(strings.TrimSpace(values[0]))
 			if err != nil || limit < 0 {
-				return volumeListOptions{}, errors.New("the volume list limit must be a nonnegative integer")
+				return detailListOptions{}, errors.New("the " + resource + " list limit must be a nonnegative integer")
 			}
-			options.limit = min(limit, maxVolumePageLimit)
+			options.limit = min(limit, maxDetailPageLimit)
 		case "sort":
 			if values[0] != "id:asc" {
-				return volumeListOptions{}, errors.New("the volume list supports only sort=id:asc")
+				return detailListOptions{}, errors.New("the " + resource + " list supports only sort=id:asc")
 			}
 		default:
-			return volumeListOptions{}, errors.New("the volume list query contains an unsupported parameter")
+			return detailListOptions{}, errors.New("the " + resource + " list query contains an unsupported parameter")
 		}
 	}
 	return options, nil
+}
+
+func (h handler) detailListLinks(r *http.Request, query url.Values, path, nextMarker string) []volumeLink {
+	if nextMarker == "" {
+		return nil
+	}
+	query.Set("marker", nextMarker)
+	return []volumeLink{{Rel: "next", Href: h.endpointURL(r, path) + "?" + query.Encode()}}
 }

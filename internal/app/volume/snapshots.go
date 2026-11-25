@@ -2,8 +2,6 @@ package volume
 
 import (
 	"errors"
-	"slices"
-	"strings"
 	"time"
 
 	domain "github.com/JSYoo5B/sandstack/internal/domain/volume"
@@ -90,17 +88,51 @@ func (s *Service) UpdateSnapshot(
 
 // ListSnapshots returns the project's snapshots ordered by ID.
 func (s *Service) ListSnapshots(projectID string) []domain.Snapshot {
+	page, _ := s.ListSnapshotsPage(projectID, ListFilter{}, nil, -1)
+	return page.Snapshots
+}
+
+type SnapshotPage struct {
+	Snapshots  []domain.Snapshot
+	NextMarker string
+}
+
+// ListSnapshotsPage returns matching snapshots after the marker in ID order.
+// A negative limit is unbounded and a full positive page exposes its last ID.
+func (s *Service) ListSnapshotsPage(
+	projectID string,
+	filter ListFilter,
+	marker *string,
+	limit int,
+) (SnapshotPage, error) {
 	if s.seed.ProjectID != projectID {
-		return []domain.Snapshot{}
+		if marker != nil {
+			return SnapshotPage{}, ErrSnapshotNotFound
+		}
+		return SnapshotPage{Snapshots: []domain.Snapshot{}}, nil
 	}
 	s.mu.RLock()
+	var after string
+	if marker != nil {
+		after = *marker
+		if _, ok := s.snapshots[after]; !ok || after == "" {
+			s.mu.RUnlock()
+			return SnapshotPage{}, ErrSnapshotNotFound
+		}
+	}
+	if limit == 0 {
+		s.mu.RUnlock()
+		return SnapshotPage{Snapshots: []domain.Snapshot{}}, nil
+	}
 	snapshots := make([]domain.Snapshot, 0, len(s.snapshots))
 	for _, snapshot := range s.snapshots {
-		snapshots = append(snapshots, snapshot)
+		if (marker == nil || snapshot.ID > after) && filter.matches(snapshot.Name, snapshot.State) {
+			snapshots = append(snapshots, snapshot)
+		}
 	}
 	s.mu.RUnlock()
-	slices.SortFunc(snapshots, func(a, b domain.Snapshot) int { return strings.Compare(a.ID, b.ID) })
-	return snapshots
+	snapshots, next := orderAndLimit(snapshots, limit, func(snapshot domain.Snapshot) string { return snapshot.ID })
+	return SnapshotPage{Snapshots: snapshots, NextMarker: next}, nil
 }
 
 func (s *Service) DeleteSnapshot(projectID, snapshotID string) error {

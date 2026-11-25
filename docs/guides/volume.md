@@ -113,9 +113,9 @@ a name and description. Omit `force` or set it to `false`. A `202` response
 contains a snapshot in `creating` status with the source volume ID and size.
 Use `snapshots.Get` for `GET /snapshots/{snapshot_id}` and
 `snapshots.ListDetail` for `GET /snapshots/detail` to observe the outcome.
-The detailed list is unfiltered. Both reads include the owning project ID
-and build progress. Progress is `100%` after successful completion and
-`0%` while pending or after a fixture failure.
+Both reads include the owning project ID and build progress. Progress is
+`100%` after successful completion and `0%` while pending or after a
+fixture failure.
 
 Take the snapshot ID from the create response and send `PUT` to one of the
 SandStack controls with the dedicated admin token.
@@ -139,6 +139,31 @@ seeded volume.
 
 This scenario models the snapshot lifecycle in metadata. Use an available
 snapshot to [create a new volume](#create-a-volume-from-a-snapshot).
+
+## Filter and page through the detailed snapshot list
+
+`GET /snapshots/detail` lists snapshots in the token's project. Filter by
+`name`, `status`, or both. The supplied fields must match the current
+snapshot values exactly, so renames and provisioning outcomes affect the
+next request. A raw `name=` matches a stored empty name. A list with no
+matches returns `{"snapshots":[]}`. See the [snapshot list reference],
+[Cinder snapshot list controller], and [Cinder snapshot list query].
+
+Snapshots appear in ascending ID order, which you can request explicitly
+with `sort=id:asc`. Use `limit` and `marker` to page forward. The marker
+can identify any snapshot visible in the current project, including one
+outside the current filters. An unknown or inaccessible marker returns
+`404`. The default and maximum page size are 1,000. A raw `limit=0` returns
+an empty page. See the [Cinder pagination parameters].
+
+A nonempty page that fills its limit contains a `next` link in
+`snapshots_links`, even if the page holds the final matching snapshot.
+The link uses the last snapshot ID as the marker and preserves the page
+size, filters, and sort. An empty follow-up has no `next` link. In
+Gophercloud v2.15.0, pass `Name`, `Status`, `Limit`, `Marker`, and `Sort` in
+`snapshots.ListOpts` to `snapshots.ListDetail`. Its `AllPages` follows
+the links. See the [Cinder collection links] and [Gophercloud snapshot
+list options].
 
 ## Update a snapshot name or description
 
@@ -275,6 +300,9 @@ The [Cinder snapshot lookup], [Cinder size default], and
 [Gophercloud snapshot update options]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/blockstorage/v3/snapshots/requests.go#L149-L170
 [snapshot details reference]: https://docs.openstack.org/api-ref/block-storage/v3/#show-a-snapshot-s-details
 [snapshot list reference]: https://docs.openstack.org/api-ref/block-storage/v3/#list-snapshots-and-details
+[Cinder snapshot list controller]: https://github.com/openstack/cinder/blob/master/cinder/api/v3/snapshots.py#L111-L152
+[Cinder snapshot list query]: https://github.com/openstack/cinder/blob/master/cinder/db/api.py#L3724-L3771
+[Gophercloud snapshot list options]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/blockstorage/v3/snapshots/requests.go#L72-L130
 [delete snapshot reference]: https://docs.openstack.org/api-ref/block-storage/v3/#delete-a-snapshot
 [extend volume reference]: https://docs.openstack.org/api-ref/block-storage/v3/#extend-a-volume-size
 [Cinder extension completion]: https://github.com/openstack/cinder/blob/master/cinder/volume/manager.py#L2751-L2784

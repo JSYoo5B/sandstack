@@ -126,7 +126,7 @@ func (h handler) listVolumes(w http.ResponseWriter, r *http.Request, projectID s
 		writeFault(w, http.StatusBadRequest, "badRequest", "The volume list query is malformed.")
 		return
 	}
-	options, err := parseVolumeListQuery(query)
+	options, err := parseDetailListQuery(query, "volume")
 	if err != nil {
 		writeFault(w, http.StatusBadRequest, "badRequest", err.Error())
 		return
@@ -143,14 +143,12 @@ func (h handler) listVolumes(w http.ResponseWriter, r *http.Request, projectID s
 	response := struct {
 		Volumes []volumeBody `json:"volumes"`
 		Links   []volumeLink `json:"volumes_links,omitempty"`
-	}{Volumes: make([]volumeBody, len(page.Volumes))}
+	}{
+		Volumes: make([]volumeBody, len(page.Volumes)),
+		Links:   h.detailListLinks(r, query, Path+"/"+projectID+"/volumes/detail", page.NextMarker),
+	}
 	for i, volume := range page.Volumes {
 		response.Volumes[i] = h.describeVolume(r, volume)
-	}
-	if page.NextMarker != "" {
-		query.Set("marker", page.NextMarker)
-		href := h.endpointURL(r, Path+"/"+projectID+"/volumes/detail") + "?" + query.Encode()
-		response.Links = []volumeLink{{Rel: "next", Href: href}}
 	}
 	writeJSON(w, http.StatusOK, response)
 }
