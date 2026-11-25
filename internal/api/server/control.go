@@ -67,7 +67,9 @@ func registerNetworkControls(router chi.Router, service *appnetwork.Service) {
 }
 
 func registerImageControls(router chi.Router, service *appimage.Service) {
-	registerFixtureControl(router, "/image/images/{resourceID}/deactivated", "Image not found", service.SetDeactivated)
+	const imagePath = "/image/images/{resourceID}"
+	registerFixtureControl(router, imagePath+"/deactivated", "Image not found", service.SetDeactivated)
+	registerFixtureControl(router, imagePath+"/unavailable-download", "Image not found", service.SetUnavailableDownload)
 }
 
 func registerVolumeControls(router chi.Router, service *appvolume.Service) {

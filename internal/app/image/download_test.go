@@ -1,6 +1,7 @@
 package image_test
 
 import (
+	"errors"
 	"testing"
 	"time"
 
@@ -63,4 +64,61 @@ func TestDownloadWithNoDataReturnsEmptyBodyAndChecksum(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, data)
 	assert.Empty(t, checksum)
+}
+
+func TestConcurrentDownloadsConsumeOnlyOneFailure(t *testing.T) {
+	const data = "fixture image bytes"
+	seed := domain.Image{ID: "image", ProjectID: "owner"}
+	service := app.New(seed, time.Now, data)
+	assert.ErrorIs(t, service.SetUnavailableDownload("missing", true), app.ErrImageNotFound)
+	require.NoError(t, service.SetUnavailableDownload(seed.ID, true))
+	require.NoError(t, service.SetUnavailableDownload(seed.ID, true))
+	size, err := service.CheckDownload(seed.ProjectID, seed.ID)
+	require.NoError(t, err)
+	assert.Equal(t, len(data), size)
+	_, _, err = service.Download("foreign", seed.ID)
+	assert.ErrorIs(t, err, app.ErrImageNotFound)
+	require.NoError(t, service.SetDeactivated(seed.ID, true))
+	_, err = service.CheckDownload(seed.ProjectID, seed.ID)
+	assert.ErrorIs(t, err, app.ErrImageDeactivated)
+	_, _, err = service.Download(seed.ProjectID, seed.ID)
+	assert.ErrorIs(t, err, app.ErrImageDeactivated)
+	require.NoError(t, service.SetDeactivated(seed.ID, false))
+
+	const attempts = 16
+	type result struct {
+		data string
+		err  error
+	}
+	start := make(chan struct{})
+	results := make(chan result, attempts)
+	for range attempts {
+		go func() {
+			<-start
+			downloaded, _, err := service.Download(seed.ProjectID, seed.ID)
+			results <- result{data: downloaded, err: err}
+		}()
+	}
+	close(start)
+	failures := 0
+	for range attempts {
+		response := <-results
+		if errors.Is(response.err, app.ErrDownloadUnavailable) {
+			failures++
+			assert.Empty(t, response.data)
+			continue
+		}
+		assert.NoError(t, response.err)
+		assert.Equal(t, data, response.data)
+	}
+	assert.Equal(t, 1, failures)
+
+	require.NoError(t, service.SetUnavailableDownload(seed.ID, true))
+	require.NoError(t, service.SetUnavailableDownload(seed.ID, false))
+	_, _, err = service.Download(seed.ProjectID, seed.ID)
+	assert.NoError(t, err)
+	require.NoError(t, service.SetUnavailableDownload(seed.ID, true))
+	service.Reset()
+	_, _, err = service.Download(seed.ProjectID, seed.ID)
+	assert.NoError(t, err)
 }

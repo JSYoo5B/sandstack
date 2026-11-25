@@ -156,6 +156,24 @@ Send `DELETE` to the control URL to reactivate the image and download the
 original bytes again. [Reset the sandbox](reset.md) also restores the
 original image and requires a fresh token. See the [Glance download policy].
 
+## Fail the next image download
+
+Send `PUT` to
+`/_sandstack/image/images/{image_id}/unavailable-download` with
+`X-SandStack-Admin-Token`. The control returns `204`. The next valid
+download of the active image returns `503`. This also applies to a
+valid byte-range request. Glance returns `503` when its image store is
+temporarily unavailable. SandStack sends a text error without image data,
+an image checksum, or a content range. See the [Glance store error
+handling].
+
+Retry the same download to read the original bytes and checksum. Image
+metadata and timestamps remain stable. Metadata requests, unauthorized
+requests, downloads of a missing or deactivated image, and invalid
+download requests leave the failure pending. Repeating `PUT` schedules
+one failure. Send `DELETE` to cancel it. A [sandbox reset](reset.md)
+also clears it.
+
 ## Verification
 
 Run `go test ./...` to follow the Nova image reference through real
@@ -173,6 +191,8 @@ The tag tests check replacement, clearing, validation, and matching all
 requested tags in the image list.
 Schema tests resolve the links from detail and list responses and check
 the fixture response types against the returned schemas.
+The transient download test checks `503`, a byte-identical SDK retry,
+and a ranged retry over HTTP.
 
 [Glance discovery reference]: https://docs.openstack.org/api-ref/image/versions/index.html
 [Glance image reference]: https://docs.openstack.org/api-ref/image/v2/#show-image
@@ -196,4 +216,5 @@ the fixture response types against the returned schemas.
 [Glance download policy]: https://github.com/openstack/glance/blob/master/glance/api/v2/image_data.py#L442-L459
 [Glance range parser]: https://github.com/openstack/glance/blob/master/glance/common/wsgi.py#L292-L314
 [Glance download serializer]: https://github.com/openstack/glance/blob/master/glance/api/v2/image_data.py#L569-L651
+[Glance store error handling]: https://github.com/openstack/glance/blob/stable/2025.1/glance/api/v2/image_data.py#L491-L525
 [HTTP range semantics]: https://www.rfc-editor.org/rfc/rfc9110.html#name-content-range
