@@ -84,13 +84,15 @@ func New(config Config) (http.Handler, error) {
 		CreatedAt: created,
 		UpdatedAt: created,
 	}, now)
+	journal := sandbox.NewRequestJournal(128)
 	state := sandbox.NewState(
 		identityService.InvalidateTokens,
 		computeService.Reset, networkService.Reset, imageService.Reset, volumeService.Reset,
+		journal.Reset,
 	)
 
 	router := chi.NewRouter()
-	services := router.With(guardSandboxState(state))
+	services := router.With(guardSandboxState(state), recordServiceRequests(journal))
 	endpointURL := func(r *http.Request, path string) string {
 		return resolveEndpointURL(publicURL, r, path)
 	}
@@ -129,6 +131,7 @@ func New(config Config) (http.Handler, error) {
 		func(r chi.Router) { registerNetworkControls(r, networkService) },
 		func(r chi.Router) { registerImageControls(r, imageService) },
 		func(r chi.Router) { registerVolumeControls(r, volumeService) },
+		func(r chi.Router) { registerRequestJournal(r, journal) },
 	)
 	return router, nil
 }

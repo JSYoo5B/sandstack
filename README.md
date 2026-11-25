@@ -30,8 +30,9 @@ reads. The [Networking guide](docs/guides/network.md) covers Neutron network
 reads and operational downtime. The [Image guide](docs/guides/image.md)
 covers Glance metadata and image deactivation. The
 [Block Storage guide](docs/guides/volume.md) covers Cinder volume errors.
-[Reset the sandbox](docs/guides/reset.md) between test cases to restore
-fixtures and invalidate issued tokens.
+[Inspect recent requests](docs/guides/requests.md) to verify what a client
+attempted. [Reset the sandbox](docs/guides/reset.md) between test cases to
+restore fixtures and invalidate issued tokens.
 
 See the [decision index](docs/decisions/README.md) for architecture and
 [Contributing](CONTRIBUTING.md) for development guidance.
