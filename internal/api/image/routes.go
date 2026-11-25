@@ -39,6 +39,7 @@ func Register(
 	resource := Path + "/images/{imageID}"
 	router.Get(resource, h.withProject(h.showImage))
 	router.Patch(resource, h.withProject(h.updateImage))
+	router.Delete(resource, h.withProject(h.deleteImage))
 	router.Get(resource+"/file", h.withProject(h.downloadImage))
 }
 

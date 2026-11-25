@@ -57,7 +57,9 @@ func (s *Service) allocateID() (string, error) {
 		if !imageIDPattern.MatchString(id) {
 			return "", ErrImageIDGeneration
 		}
-		if _, exists := s.images[id]; !exists {
+		_, exists := s.images[id]
+		_, deleted := s.deletedIDs[id]
+		if id != s.seed.ID && !exists && !deleted {
 			return id, nil
 		}
 	}

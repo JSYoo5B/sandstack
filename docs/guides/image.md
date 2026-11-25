@@ -30,6 +30,20 @@ The fixture's create operation accepts the name, private visibility, and
 the optional formats. A public request returns `403`; unsupported
 fields and invalid values return `400`.
 
+### Delete an image
+
+Use `images.Delete` on an image owned by the fixture project. It sends
+`DELETE /images/{image_id}` and receives `204` with an empty body. The
+image disappears from the list, and subsequent detail, download, or
+delete requests for its ID return `404`. A list request with that ID as
+its marker returns `400`. See the [Glance delete reference] and
+[Gophercloud image delete].
+
+Deleting the startup image also removes its stored bytes from the
+download path and clears its pending download failure. The Nova server
+keeps the same image ID. A [sandbox reset](reset.md) restores the startup
+image and its file and removes all client-created images.
+
 ## List and filter images
 
 Use `GET /image/v2/images` with the fixture project's token to list its
@@ -236,8 +250,10 @@ read the new record through SDK detail and paginated list requests.
 [Glance discovery reference]: https://docs.openstack.org/api-ref/image/versions/index.html
 [Glance image reference]: https://docs.openstack.org/api-ref/image/v2/#show-image
 [Glance create reference]: https://docs.openstack.org/api-ref/image/v2/#create-image
+[Glance delete reference]: https://docs.openstack.org/api-ref/image/v2/#delete-image
 [Glance v2.0 image defaults]: https://github.com/openstack/glance/blob/12.0.0/glance/domain/__init__.py#L71-L93
 [Gophercloud image create options]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/image/v2/images/requests.go#L145-L218
+[Gophercloud image delete]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/image/v2/images/requests.go#L221-L226
 [Glance image schema reference]: https://docs.openstack.org/api-ref/image/v2/#show-image-schema
 [Glance collection schema reference]: https://docs.openstack.org/api-ref/image/v2/#show-images-schema
 [Glance schema builders]: https://github.com/openstack/glance/blob/master/glance/api/v2/images.py#L1963-L2008

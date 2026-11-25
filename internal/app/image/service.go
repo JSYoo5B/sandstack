@@ -22,6 +22,7 @@ type Service struct {
 	mu                  sync.RWMutex
 	seed                domain.Image
 	images              map[string]domain.Image
+	deletedIDs          map[string]struct{}
 	now                 func() time.Time
 	data                string
 	newID               func() string
@@ -83,6 +84,24 @@ func (s *Service) Update(projectID, imageID string, changes ImageUpdate) (domain
 	return snapshot(current), nil
 }
 
+// Delete removes an owned image and keeps its ID reserved until reset.
+func (s *Service) Delete(projectID, imageID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	image, ok := s.images[imageID]
+	if !ok || projectID != image.ProjectID {
+		return ErrImageNotFound
+	}
+	delete(s.images, imageID)
+	if imageID == s.seed.ID {
+		s.downloadUnavailable = false
+	} else {
+		s.deletedIDs[imageID] = struct{}{}
+	}
+	return nil
+}
+
 // CheckDownload returns the resource length without consuming a download fault.
 func (s *Service) CheckDownload(projectID, imageID string) (int, error) {
 	s.mu.RLock()
@@ -130,7 +149,7 @@ func (s *Service) SetUnavailableDownload(imageID string, enabled bool) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if imageID != s.seed.ID {
+	if _, ok := s.images[imageID]; imageID != s.seed.ID || !ok {
 		return ErrImageNotFound
 	}
 	s.downloadUnavailable = enabled
@@ -142,10 +161,10 @@ func (s *Service) SetDeactivated(imageID string, deactivated bool) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if imageID != s.seed.ID {
+	image, ok := s.images[imageID]
+	if imageID != s.seed.ID || !ok {
 		return ErrImageNotFound
 	}
-	image := s.images[imageID]
 	if image.Deactivated == deactivated {
 		return nil
 	}
@@ -161,6 +180,7 @@ func (s *Service) Reset() {
 	defer s.mu.Unlock()
 
 	s.images = map[string]domain.Image{s.seed.ID: s.seed}
+	s.deletedIDs = make(map[string]struct{})
 	s.downloadUnavailable = false
 }
 
