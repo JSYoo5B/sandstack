@@ -9,12 +9,14 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	appcompute "github.com/JSYoo5B/sandstack/internal/app/compute"
+	domaincompute "github.com/JSYoo5B/sandstack/internal/domain/compute"
 )
 
 const (
 	computeRoot   = "/compute"
 	fixtureFlavor = "1"
 	powerRunning  = 1
+	powerShutdown = 4
 	powerCrashed  = 6
 )
 
@@ -88,7 +90,7 @@ func (h handler) serverBody(r *http.Request, server appcompute.ServerDetail, pat
 	}
 	serverPath := projectPath + "/servers/" + server.ID
 	bookmark := computeRoot + projectPath
-	status := string(server.Status())
+	status := server.Status()
 	volumes := make([]attachedVolume, len(server.AttachedVolumeIDs))
 	for i, volumeID := range server.AttachedVolumeIDs {
 		volumes[i] = attachedVolume{ID: volumeID}
@@ -100,8 +102,8 @@ func (h handler) serverBody(r *http.Request, server appcompute.ServerDetail, pat
 		UserID:     server.UserID,
 		Created:    server.CreatedAt.UTC(),
 		Updated:    server.UpdatedAt.UTC(),
-		Status:     strings.ToUpper(status),
-		VMState:    status,
+		Status:     strings.ToUpper(string(status)),
+		VMState:    string(status),
 		PowerState: powerRunning,
 		Links: []resourceLink{
 			{Rel: "self", Href: h.endpointURL(r, Path+serverPath)},
@@ -123,7 +125,11 @@ func (h handler) serverBody(r *http.Request, server appcompute.ServerDetail, pat
 		Addresses: map[string]any{},
 		Volumes:   volumes,
 	}
-	if server.Fault != nil {
+	switch status {
+	case domaincompute.StatusShutoff:
+		body.VMState = "stopped"
+		body.PowerState = powerShutdown
+	case domaincompute.StatusError:
 		body.PowerState = powerCrashed
 		body.Fault = &instanceFault{
 			Code:    server.Fault.Code,

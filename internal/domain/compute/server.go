@@ -5,8 +5,9 @@ import "time"
 type Status string
 
 const (
-	StatusActive Status = "active"
-	StatusError  Status = "error"
+	StatusActive  Status = "active"
+	StatusError   Status = "error"
+	StatusShutoff Status = "shutoff"
 )
 
 type Server struct {
@@ -17,12 +18,16 @@ type Server struct {
 	ImageID   string
 	CreatedAt time.Time
 	UpdatedAt time.Time
+	Stopped   bool
 	Fault     *Fault
 }
 
 func (s Server) Status() Status {
 	if s.Fault != nil {
 		return StatusError
+	}
+	if s.Stopped {
+		return StatusShutoff
 	}
 	return StatusActive
 }

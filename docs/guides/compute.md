@@ -14,11 +14,31 @@ responses use baseline Nova v2.1 fields for server identity, ownership,
 timestamps, and state. The image ID refers to the [Glance fixture](image.md).
 The flavor reference is a fixture value.
 
-The detailed list supports a single `status` filter. Use `?status=ACTIVE`
-or `?status=ERROR` to select a state. Values match without regard to case.
+The detailed list supports a single `status` filter. Use `?status=ACTIVE`,
+`?status=ERROR`, or `?status=SHUTOFF` to select a state. Values match
+without regard to case.
 Omit `status` to list all fixture servers. An empty, nonmatching, or unknown
 value produces an empty `servers` array, as in Nova v2.1. SandStack returns
 `400` for other list parameters or a repeated `status` parameter.
+
+## Stop and start a server
+
+Use the fixture server ID with `servers.Stop` and `servers.Start` in
+Gophercloud v2.15.0. Both send `POST /servers/{server_id}/action` under
+the same project-scoped Compute endpoint. Send `{"os-stop":null}` to
+stop or `{"os-start":null}` to start. A successful action returns `202`
+with an empty body. See the [Nova stop reference], [Nova start reference],
+and [Gophercloud server actions].
+
+Stop changes `ACTIVE` or `ERROR` to `SHUTOFF` and clears the current
+instance fault. Live reads report `OS-EXT-STS:vm_state` as `stopped` and
+`OS-EXT-STS:power_state` as `4`. Start changes `SHUTOFF` to `ACTIVE`.
+Repeating either action or calling it in an unsupported state returns
+`409`. SandStack completes each accepted transition before it responds.
+Check the new state on the same server through detail or the detailed
+list. Both actions preserve existing Cinder volume attachments. The stale
+detail snapshot and the next-detail-read outage controls still apply to
+subsequent detail reads.
 
 ## Attach and detach a Cinder volume
 
@@ -62,8 +82,9 @@ curl --fail -X PUT -H "X-SandStack-Admin-Token: ${SANDSTACK_ADMIN_TOKEN}" "$faul
 The control returns `204`. The server detail and the `ERROR` list now show
 an instance fault with code `500`, a message, and its creation time. The
 `ACTIVE` list is empty. Repeating the control preserves the current fault.
-Send `DELETE` to the same URL to return the fixture to `ACTIVE` and remove
-the fault.
+Send `DELETE` to the same URL to remove the fault and reveal the current
+power state. Injecting and clearing an instance fault on a stopped server
+shows `ERROR` and then `SHUTOFF`.
 
 ## Make a detail read stale
 
@@ -120,6 +141,10 @@ recovery. The attachment tests check both Nova and Cinder through the SDK
 and verify the status codes and response fields directly over HTTP. They
 also check the attached volume IDs in server detail and detailed list
 through attach, detach, and stale snapshot recovery.
+The power cycle tests exercise stop and start through Gophercloud and
+check the stopped server state, unchanged attachments, and wrong-state
+conflicts. The [Nova stop reference] and [Nova start reference] describe
+the request bodies and response status codes.
 The raw HTTP checks use the [Compute list reference],
 [Compute detail reference], [Compute fault guide], and [Nova fault response]
 for the OpenStack response shapes.
@@ -128,5 +153,8 @@ for the OpenStack response shapes.
 [Compute detail reference]: https://docs.openstack.org/api-ref/compute/#show-server-details
 [Compute fault guide]: https://docs.openstack.org/api-guide/compute/faults.html
 [Nova fault response]: https://github.com/openstack/nova/blob/master/nova/api/openstack/wsgi.py
+[Nova stop reference]: https://docs.openstack.org/api-ref/compute/#stop-server-os-stop-action
+[Nova start reference]: https://docs.openstack.org/api-ref/compute/#start-server-os-start-action
+[Gophercloud server actions]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/compute/v2/servers/requests.go#L1379-L1391
 [Nova volume attachment reference]: https://docs.openstack.org/api-ref/compute/#attach-a-volume-to-an-instance
 [Nova attachment representation]: https://github.com/openstack/nova/blob/master/nova/api/openstack/compute/views/servers.py#L709-L727

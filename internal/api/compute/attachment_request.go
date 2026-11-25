@@ -1,10 +1,8 @@
 package compute
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
-	"io"
 	"regexp"
 	"strings"
 	"unicode/utf8"
@@ -22,11 +20,11 @@ func parseAttachmentRequest(data []byte) (attachmentRequest, error) {
 	if !utf8.Valid(data) {
 		return attachmentRequest{}, errAttachmentRequest
 	}
-	envelope, err := readAttachmentObject(data)
+	envelope, err := readUniqueObject(data)
 	if err != nil || len(envelope) != 1 {
 		return attachmentRequest{}, errAttachmentRequest
 	}
-	fields, err := readAttachmentObject(envelope["volumeAttachment"])
+	fields, err := readUniqueObject(envelope["volumeAttachment"])
 	if err != nil {
 		return attachmentRequest{}, errAttachmentRequest
 	}
@@ -50,34 +48,4 @@ func parseAttachmentRequest(data []byte) (attachmentRequest, error) {
 	}
 	request.volumeID = strings.ToLower(request.volumeID)
 	return request, nil
-}
-
-// Check both object levels for repeated JSON fields.
-func readAttachmentObject(data []byte) (map[string]json.RawMessage, error) {
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	start, err := decoder.Token()
-	if err != nil || start != json.Delim('{') {
-		return nil, errAttachmentRequest
-	}
-	fields := make(map[string]json.RawMessage)
-	for decoder.More() {
-		token, err := decoder.Token()
-		key, ok := token.(string)
-		if err != nil || !ok || fields[key] != nil {
-			return nil, errAttachmentRequest
-		}
-		var value json.RawMessage
-		if err := decoder.Decode(&value); err != nil {
-			return nil, errAttachmentRequest
-		}
-		fields[key] = value
-	}
-	end, err := decoder.Token()
-	if err != nil || end != json.Delim('}') {
-		return nil, errAttachmentRequest
-	}
-	if _, err := decoder.Token(); err != io.EOF {
-		return nil, errAttachmentRequest
-	}
-	return fields, nil
 }

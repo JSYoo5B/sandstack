@@ -3,7 +3,6 @@ package compute
 import (
 	"errors"
 	"io"
-	"mime"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -12,8 +11,6 @@ import (
 	appvolume "github.com/JSYoo5B/sandstack/internal/app/volume"
 	domainvolume "github.com/JSYoo5B/sandstack/internal/domain/volume"
 )
-
-const maxAttachmentBody = 64 * 1024
 
 type attachmentBody struct {
 	ID       string `json:"id"`
@@ -46,21 +43,8 @@ func (h handler) withAttachmentProject(next func(http.ResponseWriter, *http.Requ
 }
 
 func (h handler) createAttachment(w http.ResponseWriter, r *http.Request, scope requestScope) {
-	if contentType := r.Header.Get("Content-Type"); contentType != "" {
-		mediaType, _, err := mime.ParseMediaType(contentType)
-		if err != nil || mediaType != "application/json" {
-			writeFault(w, http.StatusUnsupportedMediaType, "badMediaType", "Expected an application/json request.")
-			return
-		}
-	}
-	data, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxAttachmentBody))
-	if err != nil {
-		var sizeError *http.MaxBytesError
-		if errors.As(err, &sizeError) {
-			writeFault(w, http.StatusRequestEntityTooLarge, "overLimit", "The attachment request is too large.")
-			return
-		}
-		writeFault(w, http.StatusBadRequest, "badRequest", "Unable to read the attachment request.")
+	data, ok := readRequestBody(w, r, "attachment")
+	if !ok {
 		return
 	}
 	request, err := parseAttachmentRequest(data)
