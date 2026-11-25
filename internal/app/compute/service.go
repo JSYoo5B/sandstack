@@ -2,11 +2,13 @@ package compute
 
 import (
 	"errors"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	domain "github.com/JSYoo5B/sandstack/internal/domain/compute"
+	volumedomain "github.com/JSYoo5B/sandstack/internal/domain/volume"
 )
 
 var (
@@ -18,45 +20,60 @@ type Service struct {
 	mu                sync.RWMutex
 	seed              domain.Server
 	server            domain.Server
-	staleDetail       *domain.Server
+	staleDetail       *ServerDetail
 	detailUnavailable atomic.Bool
 	now               func() time.Time
+	attachments       attachmentLookup
 }
 
-// New takes a seeded server and a non-nil clock.
-func New(server domain.Server, now func() time.Time) *Service {
+type attachmentLookup interface {
+	ListAttachments(projectID, serverID string) []volumedomain.Attachment
+}
+
+// ServerDetail is the server and the volume IDs visible at the time of the read.
+type ServerDetail struct {
+	domain.Server
+	AttachedVolumeIDs []string
+}
+
+// New takes a seeded server, a non-nil clock, and an optional attachment lookup.
+func New(server domain.Server, now func() time.Time, attachments attachmentLookup) *Service {
 	return &Service{
-		seed:   cloneServer(server),
-		server: cloneServer(server),
-		now:    now,
+		seed:        cloneServer(server),
+		server:      cloneServer(server),
+		now:         now,
+		attachments: attachments,
 	}
 }
 
-func (s *Service) Get(projectID, serverID string) (domain.Server, error) {
+func (s *Service) Get(projectID, serverID string) (ServerDetail, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
 	if s.server.ProjectID != projectID || s.server.ID != serverID {
-		return domain.Server{}, ErrServerNotFound
+		return ServerDetail{}, ErrServerNotFound
 	}
 	// The shared lock excludes rearming while concurrent reads try to consume.
 	if s.detailUnavailable.Load() && s.detailUnavailable.Swap(false) {
-		return domain.Server{}, ErrDetailUnavailable
+		return ServerDetail{}, ErrDetailUnavailable
 	}
 	if s.staleDetail != nil {
-		return cloneServer(*s.staleDetail), nil
+		detail := *s.staleDetail
+		detail.Server = cloneServer(detail.Server)
+		detail.AttachedVolumeIDs = slices.Clone(detail.AttachedVolumeIDs)
+		return detail, nil
 	}
-	return cloneServer(s.server), nil
+	return s.liveDetail(), nil
 }
 
-func (s *Service) List(projectID string, status *domain.Status) []domain.Server {
+func (s *Service) List(projectID string, status *domain.Status) []ServerDetail {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
 	if s.server.ProjectID != projectID || (status != nil && s.server.Status() != *status) {
-		return []domain.Server{}
+		return []ServerDetail{}
 	}
-	return []domain.Server{cloneServer(s.server)}
+	return []ServerDetail{s.liveDetail()}
 }
 
 // Reset restores the startup fixture and clears detail read faults.
@@ -95,7 +112,7 @@ func (s *Service) SetStaleDetail(serverID string, enabled bool) error {
 		return nil
 	}
 	if s.staleDetail == nil {
-		snapshot := cloneServer(s.server)
+		snapshot := s.liveDetail()
 		s.staleDetail = &snapshot
 	}
 	return nil
@@ -126,6 +143,17 @@ func (s *Service) SetFault(serverID string, enabled bool) error {
 	}
 	s.server.UpdatedAt = updatedAt
 	return nil
+}
+
+// liveDetail reads attachments with the compute lock already held.
+func (s *Service) liveDetail() ServerDetail {
+	detail := ServerDetail{Server: cloneServer(s.server)}
+	if s.attachments != nil {
+		for _, attachment := range s.attachments.ListAttachments(s.server.ProjectID, s.server.ID) {
+			detail.AttachedVolumeIDs = append(detail.AttachedVolumeIDs, attachment.VolumeID)
+		}
+	}
+	return detail
 }
 
 func cloneServer(server domain.Server) domain.Server {

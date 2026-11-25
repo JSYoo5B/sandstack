@@ -21,7 +21,7 @@ func TestSetFaultTimestampsChangeOnlyOnTransition(t *testing.T) {
 		CreatedAt: start,
 		UpdatedAt: start,
 	}
-	service := app.New(fixture, func() time.Time { return now })
+	service := app.New(fixture, func() time.Time { return now }, nil)
 
 	now = now.Add(time.Minute)
 	require.NoError(t, service.SetFault(fixture.ID, true))
@@ -60,7 +60,7 @@ func TestServerSnapshotsOwnTheirFaultData(t *testing.T) {
 		ProjectID: "project",
 		Fault:     &domain.Fault{Code: 500},
 	}
-	service := app.New(fixture, time.Now)
+	service := app.New(fixture, time.Now, nil)
 
 	fixture.Fault.Code = 499
 	first, err := service.Get(fixture.ProjectID, fixture.ID)
@@ -77,7 +77,7 @@ func TestServerSnapshotsOwnTheirFaultData(t *testing.T) {
 
 func TestGetRequiresSeededServerAndProject(t *testing.T) {
 	fixture := domain.Server{ID: "server", ProjectID: "project"}
-	service := app.New(fixture, time.Now)
+	service := app.New(fixture, time.Now, nil)
 
 	_, err := service.Get("other-project", fixture.ID)
 	assert.ErrorIs(t, err, app.ErrServerNotFound)
@@ -87,7 +87,7 @@ func TestGetRequiresSeededServerAndProject(t *testing.T) {
 
 	server, err := service.Get(fixture.ProjectID, fixture.ID)
 	require.NoError(t, err)
-	assert.Equal(t, fixture, server)
+	assert.Equal(t, fixture, server.Server)
 }
 
 func TestConcurrentFaultChangesAndSnapshots(t *testing.T) {
@@ -102,7 +102,7 @@ func TestConcurrentFaultChangesAndSnapshots(t *testing.T) {
 	service := app.New(fixture, func() time.Time {
 		now = now.Add(time.Second)
 		return now
-	})
+	}, nil)
 
 	var wait sync.WaitGroup
 	for i := range 40 {

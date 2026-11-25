@@ -62,15 +62,6 @@ func New(config Config) (http.Handler, error) {
 		UpdatedAt: created,
 	}
 	imageService := appimage.New(imageFixture, now)
-	computeService := appcompute.New(compute.Server{
-		ID:        "d8ba25c2-8224-4e09-88ef-fab16c654770",
-		Name:      "fixture-server",
-		ProjectID: fixture.Project.ID,
-		UserID:    fixture.User.ID,
-		ImageID:   imageFixture.ID,
-		CreatedAt: created,
-		UpdatedAt: created,
-	}, now)
 	networkService := appnetwork.New(network.Network{
 		ID:        "43d92fea-ce36-4d02-aba4-29806839f902",
 		Name:      "fixture-network",
@@ -85,6 +76,15 @@ func New(config Config) (http.Handler, error) {
 		CreatedAt: created,
 		UpdatedAt: created,
 	}, now, randomUUID)
+	computeService := appcompute.New(compute.Server{
+		ID:        "d8ba25c2-8224-4e09-88ef-fab16c654770",
+		Name:      "fixture-server",
+		ProjectID: fixture.Project.ID,
+		UserID:    fixture.User.ID,
+		ImageID:   imageFixture.ID,
+		CreatedAt: created,
+		UpdatedAt: created,
+	}, now, volumeService)
 	journal := sandbox.NewRequestJournal(128)
 	state := sandbox.NewState(
 		identityService.InvalidateTokens,

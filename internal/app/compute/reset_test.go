@@ -23,7 +23,7 @@ func TestResetRestoresSeedAndClearsStaleDetail(t *testing.T) {
 		UpdatedAt: start,
 		Fault:     &seedFault,
 	}
-	service := app.New(seed, func() time.Time { return start.Add(time.Minute) })
+	service := app.New(seed, func() time.Time { return start.Add(time.Minute) }, nil)
 	expected := seed
 	expectedFault := seedFault
 	expected.Fault = &expectedFault
@@ -35,8 +35,8 @@ func TestResetRestoresSeedAndClearsStaleDetail(t *testing.T) {
 	service.Reset()
 	detail, err := service.Get(seed.ProjectID, seed.ID)
 	require.NoError(t, err)
-	assert.Equal(t, expected, detail)
-	assert.Equal(t, []domain.Server{expected}, service.List(seed.ProjectID, nil))
+	assert.Equal(t, expected, detail.Server)
+	assert.Equal(t, []app.ServerDetail{{Server: expected}}, service.List(seed.ProjectID, nil))
 
 	require.NotNil(t, detail.Fault)
 	detail.Fault.Code = 400
@@ -44,5 +44,5 @@ func TestResetRestoresSeedAndClearsStaleDetail(t *testing.T) {
 	service.Reset()
 	detail, err = service.Get(seed.ProjectID, seed.ID)
 	require.NoError(t, err)
-	assert.Equal(t, expected, detail)
+	assert.Equal(t, expected, detail.Server)
 }

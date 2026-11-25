@@ -13,12 +13,12 @@ import (
 
 func TestListMatchesProjectAndCurrentStatus(t *testing.T) {
 	fixture := domain.Server{ID: "server", ProjectID: "project"}
-	service := app.New(fixture, time.Now)
+	service := app.New(fixture, time.Now, nil)
 	active, faulted := domain.StatusActive, domain.StatusError
 	empty, unknown := domain.Status(""), domain.Status("unsupported")
 
-	assert.Equal(t, []domain.Server{fixture}, service.List(fixture.ProjectID, nil))
-	assert.Equal(t, []domain.Server{fixture}, service.List(fixture.ProjectID, &active))
+	assert.Equal(t, []app.ServerDetail{{Server: fixture}}, service.List(fixture.ProjectID, nil))
+	assert.Equal(t, []app.ServerDetail{{Server: fixture}}, service.List(fixture.ProjectID, &active))
 	assert.Empty(t, service.List(fixture.ProjectID, &faulted))
 	assert.Empty(t, service.List(fixture.ProjectID, &empty))
 	assert.Empty(t, service.List(fixture.ProjectID, &unknown))
@@ -28,8 +28,8 @@ func TestListMatchesProjectAndCurrentStatus(t *testing.T) {
 	require.NoError(t, service.SetFault(fixture.ID, true))
 	expected, err := service.Get(fixture.ProjectID, fixture.ID)
 	require.NoError(t, err)
-	assert.Equal(t, []domain.Server{expected}, service.List(fixture.ProjectID, nil))
-	assert.Equal(t, []domain.Server{expected}, service.List(fixture.ProjectID, &faulted))
+	assert.Equal(t, []app.ServerDetail{expected}, service.List(fixture.ProjectID, nil))
+	assert.Equal(t, []app.ServerDetail{expected}, service.List(fixture.ProjectID, &faulted))
 	assert.Empty(t, service.List(fixture.ProjectID, &active))
 
 	require.NoError(t, service.SetFault(fixture.ID, false))
@@ -46,7 +46,7 @@ func TestListCopiesFaultDataOutsideService(t *testing.T) {
 		ProjectID: "project",
 		Fault:     &domain.Fault{Code: 500},
 	}
-	service := app.New(fixture, time.Now)
+	service := app.New(fixture, time.Now, nil)
 	servers := service.List(fixture.ProjectID, nil)
 	require.Len(t, servers, 1)
 	require.NotNil(t, servers[0].Fault)
@@ -56,5 +56,5 @@ func TestListCopiesFaultDataOutsideService(t *testing.T) {
 	server, err := service.Get(fixture.ProjectID, fixture.ID)
 
 	require.NoError(t, err)
-	assert.Equal(t, fixture, server)
+	assert.Equal(t, fixture, server.Server)
 }

@@ -10,9 +10,9 @@ import (
 var ErrServerAttachmentState = errors.New("volume attachment requires an active server")
 
 type attachmentVolumes interface {
+	attachmentLookup
 	Attach(projectID, serverID, volumeID, device string) (volumedomain.Attachment, error)
 	GetAttachment(projectID, serverID, volumeID string) (volumedomain.Attachment, error)
-	ListAttachments(projectID, serverID string) []volumedomain.Attachment
 	Detach(projectID, serverID, volumeID string) error
 }
 

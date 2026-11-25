@@ -9,6 +9,7 @@ import (
 
 	app "github.com/JSYoo5B/sandstack/internal/app/compute"
 	domain "github.com/JSYoo5B/sandstack/internal/domain/compute"
+	volumedomain "github.com/JSYoo5B/sandstack/internal/domain/volume"
 )
 
 func TestStaleDetailKeepsBaselineWhileListObservesLiveState(t *testing.T) {
@@ -19,7 +20,7 @@ func TestStaleDetailKeepsBaselineWhileListObservesLiveState(t *testing.T) {
 		CreatedAt: start,
 		UpdatedAt: start,
 	}
-	service := app.New(fixture, func() time.Time { return start.Add(time.Minute) })
+	service := app.New(fixture, func() time.Time { return start.Add(time.Minute) }, nil)
 
 	require.NoError(t, service.SetStaleDetail(fixture.ID, true))
 	require.NoError(t, service.SetFault(fixture.ID, true))
@@ -27,7 +28,7 @@ func TestStaleDetailKeepsBaselineWhileListObservesLiveState(t *testing.T) {
 
 	detail, err := service.Get(fixture.ProjectID, fixture.ID)
 	require.NoError(t, err)
-	assert.Equal(t, fixture, detail)
+	assert.Equal(t, fixture, detail.Server)
 	_, err = service.Get("other-project", fixture.ID)
 	assert.ErrorIs(t, err, app.ErrServerNotFound)
 	_, err = service.Get(fixture.ProjectID, "other-server")
@@ -47,29 +48,41 @@ func TestStaleDetailKeepsBaselineWhileListObservesLiveState(t *testing.T) {
 	assert.Equal(t, live[0], detail)
 }
 
-func TestStaleDetailCopiesCapturedFaultData(t *testing.T) {
+func TestStaleDetailCopiesCapturedData(t *testing.T) {
 	fixture := domain.Server{
 		ID:        "server",
 		ProjectID: "project",
 		Fault:     &domain.Fault{Code: 500},
 	}
-	service := app.New(fixture, time.Now)
+	attachments := seededAttachments{{VolumeID: "volume"}}
+	service := app.New(fixture, time.Now, attachments)
 
 	require.NoError(t, service.SetStaleDetail(fixture.ID, true))
 	require.NoError(t, service.SetFault(fixture.ID, false))
 	detail, err := service.Get(fixture.ProjectID, fixture.ID)
 	require.NoError(t, err)
 	require.NotNil(t, detail.Fault)
-	assert.Equal(t, fixture, detail)
+	require.Len(t, detail.AttachedVolumeIDs, 1)
+	assert.Equal(t, fixture, detail.Server)
 
 	detail.Fault.Code = 499
+	detail.AttachedVolumeIDs[0] = "changed-by-caller"
+	attachments[0].VolumeID = "changed-at-source"
 	second, err := service.Get(fixture.ProjectID, fixture.ID)
 	require.NoError(t, err)
-	assert.Equal(t, fixture, second)
+	assert.Equal(t, fixture, second.Server)
+	assert.Equal(t, []string{"volume"}, second.AttachedVolumeIDs)
 
 	require.NoError(t, service.SetStaleDetail(fixture.ID, false))
 	require.NoError(t, service.SetStaleDetail(fixture.ID, true))
 	detail, err = service.Get(fixture.ProjectID, fixture.ID)
 	require.NoError(t, err)
 	assert.Nil(t, detail.Fault)
+	assert.Equal(t, []string{"changed-at-source"}, detail.AttachedVolumeIDs)
+}
+
+type seededAttachments []volumedomain.Attachment
+
+func (attachments seededAttachments) ListAttachments(_, _ string) []volumedomain.Attachment {
+	return attachments
 }

@@ -42,6 +42,12 @@ attachments remain readable and detachable while the server reports `ERROR`.
 Attachment operations leave server detail faults pending. Reset clears the
 attachments. See the [Nova volume attachment reference].
 
+Server detail and detailed-list responses both include
+`os-extended-volumes:volumes_attached`. At Nova v2.1 each item contains only
+`id`, the Cinder volume ID. A server without attachments returns an empty
+array. Gophercloud reads the field as `Server.AttachedVolumes`. See the
+[Nova attachment representation].
+
 ## Inject and clear an instance fault
 
 The server initially reports `ACTIVE`. Send a `PUT` with the SandStack admin
@@ -76,6 +82,12 @@ list shows `ERROR` and the current instance fault. Repeating `PUT` on
 `stale-detail` keeps the original snapshot. Send `DELETE` to `stale-detail`
 to resume live detail reads. The live fault can then be cleared separately.
 
+The snapshot also retains the attached volume IDs. Capture an unattached
+server and then attach a volume to exercise a stale read. The detail still
+shows an empty array, while the detailed list and standalone attachment
+endpoints show the new attachment. Clearing `stale-detail` exposes the
+current attachment IDs in the detail response.
+
 ## Fail the next detail read
 
 Use a one-shot outage to exercise a client's retry after HTTP `503`. Send
@@ -92,6 +104,9 @@ same token. List requests and rejected detail requests leave the outage
 pending. Repeating `PUT` while the outage is pending keeps one failure
 scheduled. `DELETE` or a [sandbox reset](reset.md) clears it.
 
+An active stale-detail snapshot is used on retry after the outage is
+consumed.
+
 Inspect [recent requests](requests.md) to check that the attempted detail
 read received `503` before the same route returned `200`.
 
@@ -102,7 +117,9 @@ Run `go test ./...` to check catalog discovery and the `ACTIVE` → `ERROR` →
 that list and detail diverge while the snapshot is active and agree after
 it is cleared. The transient-outage test verifies one failure followed by
 recovery. The attachment tests check both Nova and Cinder through the SDK
-and verify the status codes and response fields directly over HTTP.
+and verify the status codes and response fields directly over HTTP. They
+also check the attached volume IDs in server detail and detailed list
+through attach, detach, and stale snapshot recovery.
 The raw HTTP checks use the [Compute list reference],
 [Compute detail reference], [Compute fault guide], and [Nova fault response]
 for the OpenStack response shapes.
@@ -112,3 +129,4 @@ for the OpenStack response shapes.
 [Compute fault guide]: https://docs.openstack.org/api-guide/compute/faults.html
 [Nova fault response]: https://github.com/openstack/nova/blob/master/nova/api/openstack/wsgi.py
 [Nova volume attachment reference]: https://docs.openstack.org/api-ref/compute/#attach-a-volume-to-an-instance
+[Nova attachment representation]: https://github.com/openstack/nova/blob/master/nova/api/openstack/compute/views/servers.py#L709-L727

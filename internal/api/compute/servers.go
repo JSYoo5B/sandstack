@@ -9,7 +9,6 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	appcompute "github.com/JSYoo5B/sandstack/internal/app/compute"
-	domaincompute "github.com/JSYoo5B/sandstack/internal/domain/compute"
 )
 
 const (
@@ -40,6 +39,11 @@ type serverBody struct {
 	Image      resourceRef       `json:"image"`
 	Metadata   map[string]string `json:"metadata"`
 	Addresses  map[string]any    `json:"addresses"`
+	Volumes    []attachedVolume  `json:"os-extended-volumes:volumes_attached"`
+}
+
+type attachedVolume struct {
+	ID string `json:"id"`
 }
 
 type instanceFault struct {
@@ -77,7 +81,7 @@ func (h handler) showServer(w http.ResponseWriter, r *http.Request, scope reques
 	writeJSON(w, http.StatusOK, serverResponse{Server: h.serverBody(r, server, scope.pathProject)})
 }
 
-func (h handler) serverBody(r *http.Request, server domaincompute.Server, pathProject string) serverBody {
+func (h handler) serverBody(r *http.Request, server appcompute.ServerDetail, pathProject string) serverBody {
 	projectPath := ""
 	if pathProject != "" {
 		projectPath = "/" + pathProject
@@ -85,6 +89,10 @@ func (h handler) serverBody(r *http.Request, server domaincompute.Server, pathPr
 	serverPath := projectPath + "/servers/" + server.ID
 	bookmark := computeRoot + projectPath
 	status := string(server.Status())
+	volumes := make([]attachedVolume, len(server.AttachedVolumeIDs))
+	for i, volumeID := range server.AttachedVolumeIDs {
+		volumes[i] = attachedVolume{ID: volumeID}
+	}
 	body := serverBody{
 		ID:         server.ID,
 		Name:       server.Name,
@@ -113,6 +121,7 @@ func (h handler) serverBody(r *http.Request, server domaincompute.Server, pathPr
 		},
 		Metadata:  map[string]string{},
 		Addresses: map[string]any{},
+		Volumes:   volumes,
 	}
 	if server.Fault != nil {
 		body.PowerState = powerCrashed

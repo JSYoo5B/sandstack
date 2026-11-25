@@ -15,7 +15,7 @@ import (
 
 func TestUnavailableDetailConsumesOnlyOneMatchingRead(t *testing.T) {
 	seed := domain.Server{ID: "server", ProjectID: "project"}
-	service := app.New(seed, time.Now)
+	service := app.New(seed, time.Now, nil)
 	require.NoError(t, service.SetStaleDetail(seed.ID, true))
 	require.NoError(t, service.SetFault(seed.ID, true))
 	require.NoError(t, service.SetUnavailableDetail(seed.ID, true))
@@ -34,31 +34,31 @@ func TestUnavailableDetailConsumesOnlyOneMatchingRead(t *testing.T) {
 	assert.ErrorIs(t, err, app.ErrDetailUnavailable)
 	stale, err := service.Get(seed.ProjectID, seed.ID)
 	require.NoError(t, err)
-	assert.Equal(t, seed, stale)
+	assert.Equal(t, seed, stale.Server)
 	assert.Equal(t, live, service.List(seed.ProjectID, nil))
 }
 
 func TestUnavailableDetailCanBeCanceledAndReset(t *testing.T) {
 	seed := domain.Server{ID: "server", ProjectID: "project"}
-	service := app.New(seed, time.Now)
+	service := app.New(seed, time.Now, nil)
 	require.NoError(t, service.SetUnavailableDetail(seed.ID, true))
 	require.NoError(t, service.SetUnavailableDetail(seed.ID, false))
 	require.NoError(t, service.SetUnavailableDetail(seed.ID, false))
 
 	detail, err := service.Get(seed.ProjectID, seed.ID)
 	require.NoError(t, err)
-	assert.Equal(t, seed, detail)
+	assert.Equal(t, seed, detail.Server)
 
 	require.NoError(t, service.SetUnavailableDetail(seed.ID, true))
 	service.Reset()
 	detail, err = service.Get(seed.ProjectID, seed.ID)
 	require.NoError(t, err)
-	assert.Equal(t, seed, detail)
+	assert.Equal(t, seed, detail.Server)
 }
 
 func TestConcurrentDetailRequestsConsumeOneOutage(t *testing.T) {
 	seed := domain.Server{ID: "server", ProjectID: "project"}
-	service := app.New(seed, time.Now)
+	service := app.New(seed, time.Now, nil)
 	require.NoError(t, service.SetUnavailableDetail(seed.ID, true))
 
 	const attempts = 20
