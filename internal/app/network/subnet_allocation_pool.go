@@ -20,11 +20,22 @@ func subnetAllocationPools(
 	gateway netip.Addr,
 	requested []domain.AllocationPool,
 ) ([]domain.AllocationPool, error) {
+	if len(requested) == 0 {
+		return defaultAllocationPools(prefix, gateway), nil
+	}
+	pools, err := validateAllocationPools(prefix, requested)
+	if err != nil {
+		return nil, err
+	}
+	if err := validateGatewayOutsidePools(gateway, pools); err != nil {
+		return nil, err
+	}
+	return pools, nil
+}
+
+func validateAllocationPools(prefix netip.Prefix, requested []domain.AllocationPool) ([]domain.AllocationPool, error) {
 	first := prefix.Addr().Next()
 	last := lastUsableAddress(prefix)
-	if len(requested) == 0 {
-		return defaultAllocationPools(prefix, first, last, gateway), nil
-	}
 	for _, pool := range requested {
 		if !pool.Start.Is4() || !pool.End.Is4() || pool.Start.Compare(pool.End) > 0 {
 			return nil, ErrSubnetAllocationPool
@@ -39,9 +50,6 @@ func subnetAllocationPools(
 		if pools[i].Start.Compare(pools[i-1].End) <= 0 {
 			return nil, ErrSubnetAllocationPoolOverlap
 		}
-	}
-	if err := validateGatewayOutsidePools(gateway, pools); err != nil {
-		return nil, err
 	}
 	return pools, nil
 }
@@ -58,7 +66,9 @@ func validateGatewayOutsidePools(gateway netip.Addr, pools []domain.AllocationPo
 	return nil
 }
 
-func defaultAllocationPools(prefix netip.Prefix, first, last, gateway netip.Addr) []domain.AllocationPool {
+func defaultAllocationPools(prefix netip.Prefix, gateway netip.Addr) []domain.AllocationPool {
+	first := prefix.Addr().Next()
+	last := lastUsableAddress(prefix)
 	if !prefix.Contains(gateway) {
 		return []domain.AllocationPool{{Start: first, End: last}}
 	}

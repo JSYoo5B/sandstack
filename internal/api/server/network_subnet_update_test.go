@@ -128,7 +128,6 @@ func TestSubnetMetadataUpdateWire(t *testing.T) {
 		`{"subnet":{"name":"must not change","cidr":"10.67.0.0/24"}}`,
 		fmt.Sprintf(`{"subnet":{"network_id":%q}}`, resources.networkID),
 		`{"subnet":{"ip_version":4}}`,
-		`{"subnet":{"allocation_pools":[]}}`,
 		`{"subnet":{"name":null}}`,
 		`{"subnet":{"enable_dhcp":null}}`,
 		`{"subnet":{"enable_dhcp":"false"}}`,

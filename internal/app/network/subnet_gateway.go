@@ -24,8 +24,8 @@ func subnetGateway(prefix netip.Prefix, requested *netip.Addr) (netip.Addr, erro
 	return gateway, nil
 }
 
-// changeSubnetGateway validates the new gateway with the service write lock held.
-func (s *Service) changeSubnetGateway(subnet domain.Subnet, requested *netip.Addr) (netip.Addr, error) {
+// validateSubnetGatewayChange checks the address and router attachment with the service write lock held.
+func (s *Service) validateSubnetGatewayChange(subnet domain.Subnet, requested *netip.Addr) (netip.Addr, error) {
 	gateway, err := subnetGateway(subnet.CIDR, requested)
 	if err != nil || gateway == subnet.Gateway {
 		return gateway, err
@@ -37,9 +37,6 @@ func (s *Service) changeSubnetGateway(subnet domain.Subnet, requested *netip.Add
 				return netip.Addr{}, ErrSubnetGatewayAttached
 			}
 		}
-	}
-	if err := validateGatewayOutsidePools(gateway, subnet.AllocationPools); err != nil {
-		return netip.Addr{}, err
 	}
 	return gateway, nil
 }

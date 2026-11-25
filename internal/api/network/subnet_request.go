@@ -128,6 +128,12 @@ func parseUpdateSubnet(data []byte) (app.SubnetUpdate, error) {
 				return app.SubnetUpdate{}, err
 			}
 			continue
+		case "allocation_pools":
+			changes.AllocationPools, err = parseSubnetAllocationPools(value)
+			if err != nil {
+				return app.SubnetUpdate{}, err
+			}
+			continue
 		case "dns_nameservers":
 			changes.DNSNameservers, err = parseDNSNameservers(value)
 			if err != nil {

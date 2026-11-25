@@ -112,17 +112,17 @@ for a router interface attached by subnet ID.
 Use `PUT /network/v2.0/subnets/{subnet_id}` with `gateway_ip` in the
 `subnet` object to change the gateway. Use `subnets.UpdateOpts.GatewayIP`
 with `subnets.Update`. A nil pointer omits the field. A pointer to an
-empty string sends JSON `null`, which clears the gateway. The update
-preserves the existing allocation pools and port IPs. A later router
+empty string sends JSON `null`, which clears the gateway. A gateway-only
+update preserves the existing allocation pools and port IPs. A later router
 attachment by subnet ID uses the new gateway when it is within the subnet.
 See the [subnet update reference], [Gophercloud gateway update encoding],
 and [Neutron gateway update].
 
 Changing or clearing a gateway currently assigned to a router interface
 returns `409` with `GatewayIpInUse`. Sending the same gateway succeeds.
-A new gateway within an existing allocation pool returns `409` with
-`GatewayConflictWithAllocationPools`. See the [Neutron gateway validation]
-and [Neutron gateway update].
+A new gateway within a pool that applies after the update returns `409`
+with `GatewayConflictWithAllocationPools`. See the [Neutron gateway
+validation] and [Neutron gateway update].
 
 ### Set IPv4 allocation pools
 
@@ -147,6 +147,21 @@ gaps. An explicit `fixed_ips` request can select a valid, free IPv4
 address in a gap. See the [Neutron IP allocation validation] and
 [Neutron automatic allocation].
 
+To replace the pools, send `allocation_pools` in a subnet `PUT`. Omit the
+field to preserve the existing pools. In Gophercloud v2.15.0, set
+`subnets.UpdateOpts.AllocationPools` to a nonempty slice. To clear the
+pools, send `[]` or `null` in a raw request. The SDK omits an empty slice.
+After clearing, automatic allocation returns `409`. An explicit request
+can still claim a valid, free IPv4 address in the subnet. Existing port
+IPs stay allocated, including those outside the replacement ranges.
+See the [subnet update reference], [Neutron pool replacement], and
+[Neutron pool input conversion].
+
+You can update `gateway_ip` and `allocation_pools` in the same request.
+SandStack checks the resulting gateway against the resulting pools and
+applies both changes together. If validation fails, the subnet retains
+its previous configuration. See the [Neutron gateway update].
+
 ### Filter the subnet list
 
 `GET /network/v2.0/subnets` lists subnets in the token's project. Filter
@@ -166,8 +181,8 @@ include both DHCP states. See the [Gophercloud subnet options].
 ### Update subnet metadata
 
 Send `PUT /network/v2.0/subnets/{subnet_id}` with a `subnet` object to
-update `name`, `enable_dhcp`, `dns_nameservers`, `host_routes`, or
-`gateway_ip` in the token's project. A successful request returns `200`
+update `name`, `enable_dhcp`, `dns_nameservers`, `host_routes`, `gateway_ip`,
+or `allocation_pools` in the token's project. A successful request returns `200`
 with the updated subnet. Omitted fields keep their values. Use an empty
 string to clear the name or `false` to disable the DHCP flag. Pass `Name` and
 `EnableDHCP` pointers in `subnets.UpdateOpts` to `subnets.Update`.
@@ -183,7 +198,7 @@ unchanged. The limit matches the [Neutron DNS nameserver default].
 
 SandStack records the DHCP flag and DNS nameservers as metadata. The
 subnet's existing IPv4 allocations and router attachment remain in place.
-The CIDR and allocation pools are set when the subnet is created.
+The CIDR is set when the subnet is created.
 
 ### Configure IPv4 host routes
 
@@ -516,6 +531,8 @@ blocked deletions using the [add interface reference] and
 [Neutron gateway update]: https://github.com/openstack/neutron/blob/master/neutron/db/db_base_plugin_v2.py#L943-L994
 [Neutron gateway pool generation]: https://github.com/openstack/neutron/blob/master/neutron/ipam/utils.py#L33-L73
 [Neutron allocation pool defaults]: https://github.com/openstack/neutron/blob/master/neutron/ipam/drivers/neutrondb_ipam/driver.py#L56-L77
+[Neutron pool replacement]: https://github.com/openstack/neutron/blob/master/neutron/ipam/drivers/neutrondb_ipam/driver.py#L266-L275
+[Neutron pool input conversion]: https://github.com/openstack/neutron-lib/blob/master/neutron_lib/api/converters.py#L169-L188
 [Neutron allocation pool bounds]: https://github.com/openstack/neutron/blob/master/neutron/db/ipam_backend_mixin.py#L270-L329
 [Neutron allocation pool gateway check]: https://github.com/openstack/neutron/blob/master/neutron/db/ipam_backend_mixin.py#L415-L430
 [Neutron automatic allocation]: https://github.com/openstack/neutron/blob/master/neutron/ipam/drivers/neutrondb_ipam/driver.py#L143-L187

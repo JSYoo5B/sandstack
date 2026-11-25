@@ -98,11 +98,12 @@ func (s *Service) GetSubnet(projectID, subnetID string) (domain.Subnet, error) {
 }
 
 type SubnetUpdate struct {
-	Name           *string
-	EnableDHCP     *bool
-	Gateway        *netip.Addr
-	DNSNameservers []netip.Addr
-	HostRoutes     []domain.SubnetHostRoute
+	Name            *string
+	EnableDHCP      *bool
+	Gateway         *netip.Addr
+	AllocationPools []domain.AllocationPool
+	DNSNameservers  []netip.Addr
+	HostRoutes      []domain.SubnetHostRoute
 }
 
 func (s *Service) UpdateSubnet(projectID, subnetID string, changes SubnetUpdate) (domain.Subnet, error) {
@@ -113,12 +114,25 @@ func (s *Service) UpdateSubnet(projectID, subnetID string, changes SubnetUpdate)
 	if !ok || subnet.ProjectID != projectID {
 		return domain.Subnet{}, ErrSubnetNotFound
 	}
+	originalGateway := subnet.Gateway
 	if changes.Gateway != nil {
-		gateway, err := s.changeSubnetGateway(subnet, changes.Gateway)
+		gateway, err := s.validateSubnetGatewayChange(subnet, changes.Gateway)
 		if err != nil {
 			return domain.Subnet{}, err
 		}
 		subnet.Gateway = gateway
+	}
+	if changes.AllocationPools != nil {
+		pools, err := validateAllocationPools(subnet.CIDR, changes.AllocationPools)
+		if err != nil {
+			return domain.Subnet{}, err
+		}
+		subnet.AllocationPools = pools
+	}
+	if subnet.Gateway != originalGateway || changes.AllocationPools != nil {
+		if err := validateGatewayOutsidePools(subnet.Gateway, subnet.AllocationPools); err != nil {
+			return domain.Subnet{}, err
+		}
 	}
 	if changes.Name != nil {
 		subnet.Name = *changes.Name

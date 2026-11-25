@@ -108,24 +108,15 @@ func (h handler) createSubnet(w http.ResponseWriter, r *http.Request, projectID 
 		HostRoutes:      params.hostRoutes,
 		AllocationPools: params.allocationPools,
 	})
-	switch {
-	case errors.Is(err, app.ErrNetworkNotFound):
-		writeNetworkNotFound(w, params.networkID)
-	case errors.Is(err, app.ErrSubnetCIDR), errors.Is(err, app.ErrSubnetOverlap), errors.Is(err, app.ErrSubnetGateway):
-		writeError(w, http.StatusBadRequest, "InvalidInput", err.Error())
-	case errors.Is(err, app.ErrSubnetAllocationPool):
-		writeError(w, http.StatusBadRequest, "InvalidAllocationPool", err.Error())
-	case errors.Is(err, app.ErrSubnetAllocationPoolBounds):
-		writeError(w, http.StatusBadRequest, "OutOfBoundsAllocationPool", err.Error())
-	case errors.Is(err, app.ErrSubnetAllocationPoolOverlap):
-		writeError(w, http.StatusConflict, "OverlappingAllocationPools", err.Error())
-	case errors.Is(err, app.ErrSubnetAllocationPoolGateway):
-		writeError(w, http.StatusConflict, "GatewayConflictWithAllocationPools", err.Error())
-	case err != nil:
-		writeError(w, http.StatusInternalServerError, "HTTPInternalServerError", "Unable to create the subnet.")
-	default:
-		writeJSON(w, http.StatusCreated, subnetResponse{Subnet: describeSubnet(subnet)})
+	if err != nil {
+		if errors.Is(err, app.ErrNetworkNotFound) {
+			writeNetworkNotFound(w, params.networkID)
+		} else {
+			writeSubnetError(w, "", err)
+		}
+		return
 	}
+	writeJSON(w, http.StatusCreated, subnetResponse{Subnet: describeSubnet(subnet)})
 }
 
 func (h handler) listSubnets(w http.ResponseWriter, r *http.Request, projectID string) {
@@ -212,8 +203,14 @@ func writeSubnetError(w http.ResponseWriter, subnetID string, err error) {
 		writeError(w, http.StatusNotFound, "SubnetNotFound", fmt.Sprintf("Subnet %s could not be found.", subnetID))
 	case errors.Is(err, app.ErrSubnetInUse):
 		writeError(w, http.StatusConflict, "SubnetInUse", "The subnet still has ports allocated to it.")
-	case errors.Is(err, app.ErrSubnetGateway):
+	case errors.Is(err, app.ErrSubnetCIDR), errors.Is(err, app.ErrSubnetOverlap), errors.Is(err, app.ErrSubnetGateway):
 		writeError(w, http.StatusBadRequest, "InvalidInput", err.Error())
+	case errors.Is(err, app.ErrSubnetAllocationPool):
+		writeError(w, http.StatusBadRequest, "InvalidAllocationPool", err.Error())
+	case errors.Is(err, app.ErrSubnetAllocationPoolBounds):
+		writeError(w, http.StatusBadRequest, "OutOfBoundsAllocationPool", err.Error())
+	case errors.Is(err, app.ErrSubnetAllocationPoolOverlap):
+		writeError(w, http.StatusConflict, "OverlappingAllocationPools", err.Error())
 	case errors.Is(err, app.ErrSubnetGatewayAttached):
 		writeError(w, http.StatusConflict, "GatewayIpInUse", err.Error())
 	case errors.Is(err, app.ErrSubnetAllocationPoolGateway):
