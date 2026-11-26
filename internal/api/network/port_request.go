@@ -106,6 +106,13 @@ func parseUpdatePort(data []byte) (app.PortUpdate, error) {
 			target = &changes.Name
 		case "admin_state_up":
 			target = &changes.AdminStateUp
+		case "security_groups":
+			groups, err := parsePortSecurityGroups(value)
+			if err != nil {
+				return app.PortUpdate{}, err
+			}
+			changes.SecurityGroups = groups
+			continue
 		case "fixed_ips":
 			subnetID, address, err := parsePortFixedIP(value)
 			if err != nil {

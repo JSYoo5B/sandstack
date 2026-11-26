@@ -69,6 +69,9 @@ func TestPortSecurityGroupBindingsStayScopedAndDetached(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, []string{custom.ID, groups[0].ID}, attached.SecurityGroups)
 	attached.SecurityGroups[0] = foreign.ID
+	updated, err := service.UpdatePort(projectID, port.ID, app.PortUpdate{SecurityGroups: &[]string{custom.ID}})
+	require.NoError(t, err)
+	assert.Equal(t, []string{custom.ID}, updated.SecurityGroups)
 	assert.ErrorIs(t, service.DeleteSecurityGroup(projectID, custom.ID), app.ErrSecurityGroupInUse)
 	_, err = service.RemoveRouterInterfaceByPort(projectID, router.ID, port.ID, subnet.ID)
 	require.NoError(t, err)
@@ -76,4 +79,60 @@ func TestPortSecurityGroupBindingsStayScopedAndDetached(t *testing.T) {
 	generated, err := service.AddRouterInterface(projectID, router.ID, subnet.ID)
 	require.NoError(t, err)
 	assert.Empty(t, generated.SecurityGroups)
+	_, err = service.UpdatePort(projectID, generated.ID, app.PortUpdate{SecurityGroups: &[]string{foreign.ID}})
+	assert.ErrorIs(t, err, app.ErrPortSecurityRequired)
+	cleared, err := service.UpdatePort(projectID, generated.ID, app.PortUpdate{SecurityGroups: &empty})
+	require.NoError(t, err)
+	assert.Empty(t, cleared.SecurityGroups)
+}
+
+func TestUpdatePortSecurityGroupsCommitsWithOtherChanges(t *testing.T) {
+	seed := domain.Network{ID: fixtureID(0), ProjectID: "owner"}
+	sequence := 0
+	service := app.New(seed, func() string {
+		sequence++
+		return fixtureID(sequence)
+	})
+	custom, err := service.CreateSecurityGroup(seed.ProjectID, "custom", "", true)
+	require.NoError(t, err)
+	_, err = service.CreateSubnet(seed.ProjectID, seed.ID, app.SubnetCreate{
+		CIDR: netip.MustParsePrefix("198.51.100.0/29"), EnableDHCP: true,
+	})
+	require.NoError(t, err)
+	original, err := service.CreatePort(seed.ProjectID, seed.ID, "original", false, nil)
+	require.NoError(t, err)
+	require.Len(t, original.SecurityGroups, 1)
+
+	newName := "renamed"
+	adminUp := false
+	missing := []string{fixtureID(100)}
+	change := app.PortUpdate{
+		Name: &newName, AdminStateUp: &adminUp, FixedIPs: &app.PortFixedIPUpdate{}, SecurityGroups: &missing,
+	}
+	_, err = service.UpdatePort(seed.ProjectID, original.ID, change)
+	assert.ErrorIs(t, err, app.ErrSecurityGroupNotFound)
+	unchanged, err := service.GetPort(seed.ProjectID, original.ID)
+	require.NoError(t, err)
+	assert.Equal(t, original, unchanged)
+
+	selected := []string{custom.ID}
+	change.SecurityGroups = &selected
+	updated, err := service.UpdatePort(seed.ProjectID, original.ID, change)
+	require.NoError(t, err)
+	assert.Equal(t, newName, updated.Name)
+	assert.True(t, updated.AdminDown)
+	assert.False(t, updated.FixedIP.IsValid())
+	assert.Equal(t, selected, updated.SecurityGroups)
+	selected[0], updated.SecurityGroups[0] = missing[0], missing[0]
+
+	preserved, err := service.UpdatePort(seed.ProjectID, original.ID, app.PortUpdate{})
+	require.NoError(t, err)
+	assert.Equal(t, []string{custom.ID}, preserved.SecurityGroups)
+	assert.ErrorIs(t, service.DeleteSecurityGroup(seed.ProjectID, custom.ID), app.ErrSecurityGroupInUse)
+
+	empty := []string{}
+	cleared, err := service.UpdatePort(seed.ProjectID, original.ID, app.PortUpdate{SecurityGroups: &empty})
+	require.NoError(t, err)
+	assert.Empty(t, cleared.SecurityGroups)
+	require.NoError(t, service.DeleteSecurityGroup(seed.ProjectID, custom.ID))
 }

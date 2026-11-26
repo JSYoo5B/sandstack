@@ -18,10 +18,21 @@ pointer to a slice. Port responses include the `security_groups` array.
 An unknown or inaccessible group returns `404 SecurityGroupNotFound`.
 Combining stateful and stateless groups returns `409 SecurityGroupConflict`.
 Deleting a custom group used by a port returns `409 SecurityGroupInUse`.
-Delete the port before deleting its group. A router interface created
-from a subnet has no groups. Attaching a pre-existing port to a router
-preserves its memberships. See the [security group guide](network-security.md)
+Remove the group from its ports before deleting it. A router interface
+created from a subnet has no groups. Attaching a pre-existing port to a
+router preserves its memberships. See the [security group guide](network-security.md)
 and [Neutron port security group binding].
+
+## Change a port's security groups
+
+Use `ports.UpdateOpts.SecurityGroups` to replace the current membership
+list. Omit the field to preserve existing groups during other port changes.
+Pass `[]` or `null` to clear all memberships. Changes to the name, fixed
+address, admin state, and memberships take effect together. A port created
+as a router interface from a subnet rejects a nonempty group list with
+`400 PortSecurityAndIPRequiredForSecurityGroups`. A port subsequently
+adopted by a router keeps its ability to use groups. See the
+[Neutron port security update check].
 
 ## Allocate and release a port address
 
@@ -197,6 +208,7 @@ exhaustion and resource-in-use errors.
 [Neutron marker query]: https://github.com/openstack/neutron-lib/blob/master/neutron_lib/db/model_query.py#L300-L316
 [port create reference]: https://docs.openstack.org/api-ref/network/v2/#create-port
 [Neutron port security group binding]: https://github.com/openstack/neutron/blob/ba84fbf374cc7f5055eb2ff4ebc34d2a19cbbc3d/neutron/db/securitygroups_db.py#L1207-L1302
+[Neutron port security update check]: https://github.com/openstack/neutron/blob/ba84fbf374cc7f5055eb2ff4ebc34d2a19cbbc3d/neutron/plugins/ml2/plugin.py#L1746-L1850
 [port list reference]: https://docs.openstack.org/api-ref/network/v2/#list-ports
 [Neutron port filter schema]: https://github.com/openstack/neutron-lib/blob/master/neutron_lib/api/definitions/port.py#L37-L60
 [Gophercloud port list options]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/networking/v2/ports/requests.go#L24-L47

@@ -46,12 +46,13 @@ func (s *Service) AddRouterInterface(projectID, routerID, subnetID string) (doma
 	}
 
 	return s.createPort(domain.Port{
-		NetworkID:   subnet.NetworkID,
-		ProjectID:   projectID,
-		DeviceID:    routerID,
-		DeviceOwner: domain.DeviceOwnerRouterInterface,
-		SubnetID:    subnetID,
-		FixedIP:     subnet.Gateway,
+		NetworkID:            subnet.NetworkID,
+		ProjectID:            projectID,
+		DeviceID:             routerID,
+		DeviceOwner:          domain.DeviceOwnerRouterInterface,
+		SubnetID:             subnetID,
+		FixedIP:              subnet.Gateway,
+		PortSecurityDisabled: true,
 	}, usedMACs)
 }
 

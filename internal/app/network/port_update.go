@@ -1,15 +1,19 @@
 package network
 
 import (
+	"errors"
 	"net/netip"
 
 	domain "github.com/JSYoo5B/sandstack/internal/domain/network"
 )
 
+var ErrPortSecurityRequired = errors.New("port security is required to assign security groups")
+
 type PortUpdate struct {
-	Name         *string
-	AdminStateUp *bool
-	FixedIPs     *PortFixedIPUpdate
+	Name           *string
+	AdminStateUp   *bool
+	FixedIPs       *PortFixedIPUpdate
+	SecurityGroups *[]string
 }
 
 // PortFixedIPUpdate replaces the port's address. Its zero value clears it.
@@ -36,6 +40,16 @@ func (s *Service) UpdatePort(projectID, portID string, changes PortUpdate) (doma
 		}
 		port.SubnetID = subnetID
 		port.FixedIP = address
+	}
+	if changes.SecurityGroups != nil {
+		if port.PortSecurityDisabled && len(*changes.SecurityGroups) != 0 {
+			return domain.Port{}, ErrPortSecurityRequired
+		}
+		groupIDs, err := s.portSecurityGroups(port.ProjectID, changes.SecurityGroups)
+		if err != nil {
+			return domain.Port{}, err
+		}
+		port.SecurityGroups = groupIDs
 	}
 	if changes.Name != nil {
 		port.Name = *changes.Name

@@ -84,21 +84,32 @@ func (h handler) createPort(w http.ResponseWriter, r *http.Request, projectID st
 		projectID, params.networkID, params.name, !params.adminStateUp,
 		params.subnetID, address, params.securityGroups,
 	)
-	var missingGroup *app.SecurityGroupNotFoundError
 	switch {
 	case errors.Is(err, app.ErrNetworkNotFound):
 		writeNetworkNotFound(w, params.networkID)
-	case errors.As(err, &missingGroup):
-		writeError(w, http.StatusNotFound, "SecurityGroupNotFound", fmt.Sprintf("Security group %s could not be found.", missingGroup.ID))
-	case errors.Is(err, app.ErrSecurityGroupConflict):
-		writeError(w, http.StatusConflict, "SecurityGroupConflict", err.Error())
 	case err != nil:
-		if !writePortAddressError(w, err) {
+		if !writePortFieldError(w, err) {
 			writeError(w, http.StatusInternalServerError, "HTTPInternalServerError", "Unable to create the port.")
 		}
 	default:
 		writeJSON(w, http.StatusCreated, portResponse{Port: describePort(port)})
 	}
+}
+
+func writePortFieldError(w http.ResponseWriter, err error) bool {
+	var missingGroup *app.SecurityGroupNotFoundError
+	switch {
+	case errors.As(err, &missingGroup):
+		message := fmt.Sprintf("Security group %s could not be found.", missingGroup.ID)
+		writeError(w, http.StatusNotFound, "SecurityGroupNotFound", message)
+	case errors.Is(err, app.ErrSecurityGroupConflict):
+		writeError(w, http.StatusConflict, "SecurityGroupConflict", err.Error())
+	case errors.Is(err, app.ErrPortSecurityRequired):
+		writeError(w, http.StatusBadRequest, "PortSecurityAndIPRequiredForSecurityGroups", err.Error())
+	default:
+		return writePortAddressError(w, err)
+	}
+	return true
 }
 
 func writePortAddressError(w http.ResponseWriter, err error) bool {
@@ -186,7 +197,7 @@ func (h handler) updatePort(w http.ResponseWriter, r *http.Request, projectID st
 	portID := chi.URLParam(r, "portID")
 	port, err := h.service.UpdatePort(projectID, portID, changes)
 	if err != nil {
-		if !writePortAddressError(w, err) {
+		if !writePortFieldError(w, err) {
 			writePortError(w, portID, err)
 		}
 		return

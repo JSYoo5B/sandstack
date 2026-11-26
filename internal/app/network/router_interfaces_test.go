@@ -29,14 +29,15 @@ func TestRouterInterfaceOwnsOnlyItsManagedGatewayPort(t *testing.T) {
 	managed, err := service.AddRouterInterface(seed.ProjectID, router.ID, subnet.ID)
 	require.NoError(t, err)
 	assert.Equal(t, domain.Port{
-		ID:          managed.ID,
-		NetworkID:   seed.ID,
-		ProjectID:   seed.ProjectID,
-		MACAddress:  managed.MACAddress,
-		DeviceID:    router.ID,
-		DeviceOwner: domain.DeviceOwnerRouterInterface,
-		SubnetID:    subnet.ID,
-		FixedIP:     subnet.Gateway,
+		ID:                   managed.ID,
+		NetworkID:            seed.ID,
+		ProjectID:            seed.ProjectID,
+		MACAddress:           managed.MACAddress,
+		DeviceID:             router.ID,
+		DeviceOwner:          domain.DeviceOwnerRouterInterface,
+		SubnetID:             subnet.ID,
+		FixedIP:              subnet.Gateway,
+		PortSecurityDisabled: true,
 	}, managed)
 	assert.NotEmpty(t, managed.MACAddress)
 	assert.NotEqual(t, ordinary.MACAddress, managed.MACAddress)
