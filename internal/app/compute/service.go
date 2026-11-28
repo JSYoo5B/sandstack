@@ -27,6 +27,7 @@ type Service struct {
 	attachments       attachmentLookup
 	seedActions       []domain.Action
 	actions           []domain.Action
+	console           []byte
 }
 
 type attachmentLookup interface {
@@ -51,6 +52,7 @@ func New(
 		attachments: attachments,
 		seedActions: slices.Clone(history),
 		actions:     slices.Clone(history),
+		console:     []byte(FixtureConsoleOutput),
 	}
 }
 
@@ -74,13 +76,14 @@ func (s *Service) Get(projectID, serverID string) (ServerDetail, error) {
 	return s.liveDetail(), nil
 }
 
-// Reset restores the startup fixture and history and clears detail read faults.
+// Reset restores the startup fixture, history, and console log and clears detail read faults.
 func (s *Service) Reset() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	s.server = cloneServer(s.seed)
 	s.actions = slices.Clone(s.seedActions)
+	s.console = []byte(FixtureConsoleOutput)
 	s.staleDetail = nil
 	s.detailUnavailable.Store(false)
 }

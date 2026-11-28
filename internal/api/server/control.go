@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"crypto/subtle"
 	"errors"
+	"io"
 	"net/http"
 	"strings"
 
@@ -55,11 +56,36 @@ func registerIdentityControls(router chi.Router, service *appidentity.Service) {
 	})
 }
 
+const maxConsoleOutput = 1 << 20
+
 func registerComputeControls(router chi.Router, service *appcompute.Service) {
 	const serverPath = "/compute/servers/{resourceID}"
 	registerFixtureControl(router, serverPath+"/fault", "Server not found", service.SetFault)
 	registerFixtureControl(router, serverPath+"/stale-detail", "Server not found", service.SetStaleDetail)
 	registerFixtureControl(router, serverPath+"/unavailable-detail", "Server not found", service.SetUnavailableDetail)
+	setConsole := func(w http.ResponseWriter, r *http.Request) {
+		var output []byte
+		if r.Method == http.MethodPut {
+			var err error
+			output, err = io.ReadAll(http.MaxBytesReader(w, r.Body, maxConsoleOutput))
+			var sizeError *http.MaxBytesError
+			if errors.As(err, &sizeError) {
+				http.Error(w, "Console output must be at most 1 MiB", http.StatusRequestEntityTooLarge)
+				return
+			}
+			if err != nil {
+				http.Error(w, "Unable to read console output", http.StatusBadRequest)
+				return
+			}
+		}
+		if err := service.SetConsoleOutput(chi.URLParam(r, "resourceID"), output); err != nil {
+			http.Error(w, "Server not found", http.StatusNotFound)
+			return
+		}
+		noContent(w, r)
+	}
+	router.Put(serverPath+"/console-output", setConsole)
+	router.Delete(serverPath+"/console-output", setConsole)
 }
 
 func registerNetworkControls(router chi.Router, service *appnetwork.Service) {

@@ -11,7 +11,8 @@ import (
 	appcompute "github.com/JSYoo5B/sandstack/internal/app/compute"
 )
 
-const actionFault = "Expected a single os-start, os-stop, reboot, pause, unpause, suspend, resume, lock, or unlock action."
+const actionFault = "Expected a single os-start, os-stop, reboot, pause, unpause, suspend, resume, lock, unlock, " +
+	"or os-getConsoleOutput action."
 
 func (h handler) changeServerPower(w http.ResponseWriter, r *http.Request, scope requestScope) {
 	data, ok := readRequestBody(w, r, "server action")
@@ -21,6 +22,11 @@ func (h handler) changeServerPower(w http.ResponseWriter, r *http.Request, scope
 	actions, err := readUniqueObject(data)
 	if err != nil || !utf8.Valid(data) || len(actions) != 1 {
 		writeFault(w, http.StatusBadRequest, "badRequest", actionFault)
+		return
+	}
+
+	if console, ok := actions["os-getConsoleOutput"]; ok {
+		h.showConsoleOutput(w, r, scope, console)
 		return
 	}
 

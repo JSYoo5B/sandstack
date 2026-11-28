@@ -6,8 +6,8 @@ tokens and restores the original fixture values and timestamps. It also
 removes Nova key pairs, networks, subnets, ports, routers, volumes, and
 volume snapshots created by clients. Reset also clears volume attachments, server locks,
 [server action history](compute-actions.md) except the fixture `create`
-record, service faults, stale detail snapshots, and the
-[request journal](requests.md).
+record, replaced [console output](compute-console.md), service faults,
+stale detail snapshots, and the [request journal](requests.md).
 
 ```sh
 curl --fail -X POST -H "X-SandStack-Admin-Token: ${SANDSTACK_ADMIN_TOKEN}" \

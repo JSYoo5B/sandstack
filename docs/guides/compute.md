@@ -259,6 +259,10 @@ See [Key pairs in the Compute sandbox](compute-keypairs.md).
 
 See [Server action history in the Compute sandbox](compute-actions.md).
 
+## Read console output
+
+See [Console output in the Compute sandbox](compute-console.md).
+
 ## Inject and clear an instance fault
 
 See [Inject and clear an instance fault](compute-faults.md#inject-and-clear-an-instance-fault).
