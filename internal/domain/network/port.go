@@ -1,6 +1,14 @@
 package network
 
-import "net/netip"
+import (
+	"errors"
+	"net/netip"
+)
+
+var (
+	ErrPortIPExhausted        = errors.New("port subnet allocation pool is exhausted")
+	ErrPortIPAlreadyAllocated = errors.New("port address is already allocated on the subnet")
+)
 
 const (
 	DeviceOwnerRouterInterface = "network:router_interface"
@@ -23,6 +31,8 @@ type Port struct {
 	PortSecurityDisabled bool
 	AllowedAddressPairs  []AddressPair
 }
+
+func (p Port) Status() string { return "DOWN" }
 
 type AddressPair struct {
 	IPAddress  string

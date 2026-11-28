@@ -272,6 +272,10 @@ See [Rebuild a server](compute-servers.md#rebuild-a-server).
 
 See [Change a server's security groups](compute-servers.md#change-a-servers-security-groups).
 
+## Attach and detach interfaces
+
+See [Attach and detach interfaces](compute-servers.md#attach-and-detach-interfaces).
+
 ## Resize a server
 
 See [Resize servers in the Compute sandbox](compute-resize.md).

@@ -72,6 +72,10 @@ func Register(
 	listActions := h.withProject(h.listServerActions)
 	showAction := h.withProject(h.showServerAction)
 	listSecurityGroups := h.withProject(h.listServerSecurityGroups)
+	listInterfaces := h.withProject(h.listInterfaces)
+	attachInterface := h.withProject(h.attachInterface)
+	showInterface := h.withProject(h.showInterface)
+	detachInterface := h.withProject(h.detachInterface)
 	for _, prefix := range []string{Path, Path + "/{projectID}"} {
 		server := prefix + "/servers/{serverID}"
 		router.Get(server, show)
@@ -88,6 +92,10 @@ func Register(
 		router.Get(server+"/os-instance-actions", listActions)
 		router.Get(server+"/os-instance-actions/{requestID}", showAction)
 		router.Get(server+"/os-security-groups", listSecurityGroups)
+		router.Get(server+"/os-interface", listInterfaces)
+		router.Post(server+"/os-interface", attachInterface)
+		router.Get(server+"/os-interface/{portID}", showInterface)
+		router.Delete(server+"/os-interface/{portID}", detachInterface)
 		router.Get(prefix+"/servers", listBasic)
 		router.Post(prefix+"/servers", create)
 		router.Get(prefix+"/servers/detail", list)

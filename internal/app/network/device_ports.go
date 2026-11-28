@@ -142,3 +142,7 @@ func (s *Service) SetPortSecurityGroups(projectID, portID string, groupIDs []str
 	groups := slices.Clone(groupIDs)
 	return s.UpdatePort(projectID, portID, PortUpdate{SecurityGroups: &groups})
 }
+
+func (s *Service) DevicePorts(projectID, deviceID string) []domain.Port {
+	return s.ListPorts(projectID, PortListFilter{DeviceIDs: []string{deviceID}})
+}

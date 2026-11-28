@@ -60,9 +60,14 @@ A successful request records one of these actions:
 | [`rebuild`](compute-servers.md#rebuild-a-server) | `rebuild` |
 | [`resize`](compute-resize.md) | `resize` |
 | [`confirmResize` and `revertResize`](compute-resize.md#confirm-or-revert) | `confirmResize` and `revertResize` |
+| [Interface attachment create](compute-servers.md#attach-and-detach-interfaces) | `attach_interface` |
+| [Interface attachment delete](compute-servers.md#attach-and-detach-interfaces) | `detach_interface` |
 
 Nova checks the lock, server state, and volume state before it records an
 action, so a request that returns `400`, `404`, or `409` adds no record.
+Interface attachment is the exception: Nova records `attach_interface`
+after the lock and state checks but before it looks up the port or
+network, so those later rejections keep the record.
 Locking a server that the owner already locked returns `202` without a
 record. Unlock records every accepted request. Rename, metadata writes, and
 [security group changes](compute-servers.md#change-a-servers-security-groups)

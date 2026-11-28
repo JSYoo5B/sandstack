@@ -259,6 +259,7 @@ an image and boot from it, see [Snapshot servers](compute-snapshots.md).
 To change its flavor, see [Resize servers](compute-resize.md). To replace
 its image, see [Rebuild a server](#rebuild-a-server). To change its
 security groups, see [Change a server's security groups](#change-a-servers-security-groups).
+To add or remove ports, see [Attach and detach interfaces](#attach-and-detach-interfaces).
 
 ## Rebuild a server
 
@@ -387,6 +388,90 @@ requirements], [Nova security group exceptions], [Neutron port security
 group attribute], [neutron-lib list validation], [neutron-lib input
 error], and [neutronclient unique match error].
 
+## Attach and detach interfaces
+
+Use `openstack/compute/v2/attachinterfaces` in Gophercloud v2.15.0.
+`attachinterfaces.List` reads `GET /servers/{server_id}/os-interface` and
+`attachinterfaces.Get` reads `GET /servers/{server_id}/os-interface/{port_id}`.
+Both return `200`. The list wraps the entries in `interfaceAttachments` and
+show wraps one entry in `interfaceAttachment`. Each entry has `port_state`,
+`fixed_ips`, `port_id`, `net_id`, and `mac_addr`. `fixed_ips` holds the
+port's `subnet_id` and `ip_address`, or is empty for a port without an
+address. `port_state` is the Neutron port `status`, which SandStack always
+reports as `DOWN`. Nova adds `tag` to the response only from version 2.70,
+so v2.1 omits it. Version 2.1 ignores list and show query parameters. See
+the [Nova interface controller], [Nova interface view], [Nova interface
+response schema], and [Gophercloud interface operations].
+
+The list asks Neutron for the project's ports whose `device_id` is the
+server, in the Neutron port list order. Show reads the port from Neutron
+and returns `404` `Instance {server_id} does not have a port with id {port_id}`
+when the port belongs to another device or to none. A port that Neutron
+cannot find returns `404` `Port id {port_id} could not be found.`
+
+`attachinterfaces.Create` sends `POST /servers/{server_id}/os-interface`
+with `{"interfaceAttachment":{"port_id":"..."}}` or
+`{"interfaceAttachment":{"net_id":"...","fixed_ips":[{"ip_address":"..."}]}}`.
+`net_id` and `port_id` are UUIDs, and `fixed_ips` holds exactly one object
+with an IPv4 or IPv6 `ip_address`. The schema accepts no other field, so
+v2.1 rejects `tag`, which Nova accepts from version 2.49. A body without
+`interfaceAttachment`, or with an empty one, selects the project's only
+network. A successful request returns `200` with the new
+`interfaceAttachment`, the same body as show. See the [Nova interface
+request schema].
+
+With `port_id`, Nova binds the existing unbound port to the server. With
+`net_id`, Nova creates a port on the network with the requested address
+or the next free one, and the project's `default` security group. Nova
+deletes the ports it created when they are detached or the server is
+deleted, and unbinds the ports it was given, as [Delete a
+server](#delete-a-server) describes. [Server detail](#read-the-server)
+lists the port's addresses under its network on the next read. See [Nova
+attach interface], [Nova port validation], [Nova network validation], [Nova
+port creation], and [Nova port deallocation].
+
+`attachinterfaces.Delete` sends `DELETE /servers/{server_id}/os-interface/{port_id}`
+and returns `202` with an empty body. Nova queues the detach for the
+compute service and answers before it runs. SandStack completes attach and
+detach before it responds, so the next read shows the result. The compute
+service fails a detach of a port that is not attached to the server
+without changing it. The API has already returned `202`, so SandStack also
+returns `202` and changes nothing. See [Nova detach interface], [Nova
+detach cast], and [Nova compute detach].
+
+Attach and detach require an unlocked server that is `ACTIVE`, `PAUSED`,
+or `SHUTOFF` with no task in progress. Each records an `attach_interface`
+or `detach_interface` [server action](compute-actions.md) once the lock and
+state checks pass. Nova records the action before it looks up the port or
+network, so a later rejection still leaves the record, and a detach of a
+port that is not attached records one too. See [Nova interface state
+checks].
+
+### Rejected interface requests
+
+Nova checks the request in this order:
+
+| Condition | Status and message |
+| --- | --- |
+| Invalid request body | `400` |
+| Unknown server | `404` |
+| Both `net_id` and `port_id` | `400` `Must not input both network_id and port_id` |
+| `fixed_ips` without `net_id` | `400` `Must input network_id when request IP address` |
+| Locked server | `409` `Instance {server_id} is locked` |
+| Server not `ACTIVE`, `PAUSED`, or `SHUTOFF`, or a task in progress | `409` `Cannot '{action}' instance {server_id} while it is in vm_state {state}`, where `{action}` is `attach_interface` or `detach_interface` |
+| Unknown port | `404` `Port id {port_id} could not be found.` |
+| Port bound to a device | `409` `Port {port_id} is still in use.` |
+| Unknown network | `404` `Network {network_id} could not be found.` |
+| No `net_id` or `port_id` and no project network | `400` `No specific network was requested and none are available for project '{project_id}'.` |
+| No `net_id` or `port_id` and more than one project network | `400` `Multiple possible networks found, use a Network ID to be more specific.` |
+| External network of another project | `403` `It is not allowed to create an interface on external network {network_id}` |
+| Network with port security and no subnet | `400` `Network requires port_security_enabled and subnet associated in order to apply security groups.` |
+| Requested address already allocated | `409` `Fixed IP {address} is already in use.` |
+| No free address on the network | `400` `No fixed IP addresses available for network: {network_id}` |
+
+Detach checks only the server, the lock, and the state. See the [Nova
+interface exceptions] and [Nova invalid state conflict].
+
 ## Delete a server
 
 Use `servers.Delete`, which sends `DELETE /servers/{server_id}`. Nova
@@ -444,6 +529,19 @@ be found.` Schema errors return `400` without Nova's JSON Schema message
 text. Neutron groups shared from other projects are not modeled, so the
 lookup and the list see only the project's groups.
 
+Interface attachments have no `tag` at v2.1. A port of another project
+returns `404` `Port id {port_id} could not be found.` rather than Nova's
+`400` `Port {port_id} not usable for instance {server_id}.`, because the
+project's Neutron view cannot see the port. An address outside the
+network's subnets returns `500` with SandStack's Compute message, as Nova
+reports an unexpected error for it, without Nova's exception class in the
+message. Nova records the result of each interface action in admin-only
+action events, which SandStack does not model, so a detach of a port that
+is not attached leaves no trace beyond its `detach_interface` record.
+Virtual interface records, PCI and accelerator ports, QoS resource
+requests, port binding failures, DNS names, and port quotas are not
+modeled.
+
 ## Verification
 
 Run `go test ./internal/api/server -run 'Boots|ServerCreateAndDelete|BuildControls|BootFromVolume|HeldVolume' -count=1`
@@ -486,6 +584,22 @@ and remote group of the default group's rules. The
 application tests check two ports, the repeated and ordered list, the
 rule port defaults, and that rejected requests leave the ports unchanged,
 against the pinned Nova source.
+
+For interfaces, run `go test ./internal/api/server -run 'ServerInterface' -count=1`
+and `go test ./internal/app/compute -run 'TestServersSuite/.*Interface' -count=1`.
+The Gophercloud test attaches a network with a fixed address and an
+existing port, checks the entries, the Neutron ports, show, list, and the
+three server addresses, then detaches both and checks that the created
+port is gone, the existing port is unbound, and the actions are recorded.
+Raw HTTP checks the list and show fields, the show `404` messages, the
+schema `400` cases before the server lookup, each attach rejection in the
+table and which ones record an action, the `500` for an address outside
+the subnets, the empty body that selects the only network, the `202`
+empty bodies of detach including a port that is not attached, and the
+lock and state conflicts. The application tests
+check port ownership on detach and server deletion, the rejection order,
+the recorded actions, and the stopped server, against the pinned Nova
+source.
 
 [Nova create schema]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/api/openstack/compute/schemas/servers.py#L154-L230
 [Nova create handler]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/api/openstack/compute/servers.py#L700-L923
@@ -554,3 +668,19 @@ against the pinned Nova source.
 [neutron-lib list validation]: https://github.com/openstack/neutron-lib/blob/5.0.0/neutron_lib/api/validators/__init__.py#L194-L209
 [neutron-lib input error]: https://github.com/openstack/neutron-lib/blob/5.0.0/neutron_lib/api/attributes.py#L208-L237
 [neutronclient unique match error]: https://github.com/openstack/python-neutronclient/blob/11.6.0/neutronclient/common/exceptions.py#L258-L260
+[Nova interface controller]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/api/openstack/compute/attach_interfaces.py#L67-L142
+[Nova interface view]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/api/openstack/compute/attach_interfaces.py#L34-L54
+[Nova interface response schema]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/api/openstack/compute/schemas/attach_interfaces.py#L70-L143
+[Gophercloud interface operations]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/compute/v2/attachinterfaces/requests.go
+[Nova interface request schema]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/api/openstack/compute/schemas/attach_interfaces.py#L19-L50
+[Nova attach interface]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/api/openstack/compute/attach_interfaces.py#L144-L214
+[Nova port validation]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/network/neutron.py#L713-L789
+[Nova network validation]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/network/neutron.py#L914-L998
+[Nova port creation]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/network/neutron.py#L472-L561
+[Nova port deallocation]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/network/neutron.py#L1878-L1918
+[Nova detach interface]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/api/openstack/compute/attach_interfaces.py#L216-L243
+[Nova detach cast]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/compute/rpcapi.py#L706-L711
+[Nova compute detach]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/compute/manager.py#L8728-L8744
+[Nova interface exceptions]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/exception.py#L895-L1019
+[Nova interface state checks]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/compute/api.py#L5492-L5552
+[Nova invalid state conflict]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/api/openstack/common.py#L330-L346

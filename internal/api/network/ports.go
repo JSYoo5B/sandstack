@@ -64,7 +64,7 @@ func describePort(port domain.Port) portBody {
 		TenantID:       port.ProjectID,
 		MACAddress:     port.MACAddress,
 		AdminStateUp:   !port.AdminDown,
-		Status:         "DOWN",
+		Status:         port.Status(),
 		DeviceID:       port.DeviceID,
 		DeviceOwner:    port.DeviceOwner,
 		FixedIPs:       fixedIPs,

@@ -60,6 +60,7 @@ type serverNetworks interface {
 	DeletePort(projectID, portID string) error
 	DescribePort(projectID, portID string) (networkdomain.DeviceInterface, error)
 	SetPortSecurityGroups(projectID, portID string, groupIDs []string) (networkdomain.Port, error)
+	DevicePorts(projectID, deviceID string) []networkdomain.Port
 	AddressDevice(projectID, networkID string, address netip.Addr) (string, bool)
 }
 

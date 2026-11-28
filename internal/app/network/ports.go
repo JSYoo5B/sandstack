@@ -12,11 +12,11 @@ var (
 	ErrPortNotFound            = errors.New("port not found")
 	ErrPortSubnetRequired      = errors.New("port requires a subnet selection on a network with multiple subnets")
 	ErrPortInvalidSubnet       = errors.New("port subnet does not belong to the network")
-	ErrPortIPExhausted         = errors.New("port subnet allocation pool is exhausted")
+	ErrPortIPExhausted         = domain.ErrPortIPExhausted
 	ErrServicePortInUse        = errors.New("port is managed by a network service")
 	ErrPortInvalidIPForNetwork = errors.New("port address is not usable on a subnet of the network")
 	ErrPortInvalidIPForSubnet  = errors.New("port address is not usable on the specified subnet")
-	ErrPortIPAlreadyAllocated  = errors.New("port address is already allocated on the subnet")
+	ErrPortIPAlreadyAllocated  = domain.ErrPortIPAlreadyAllocated
 )
 
 func (s *Service) CreatePort(
