@@ -22,6 +22,8 @@ func (h handler) volumeAction(w http.ResponseWriter, r *http.Request, projectID 
 		h.extendVolume(w, projectID, volumeID, actions["os-extend"])
 	case actions["os-set_bootable"] != nil:
 		h.setVolumeBootable(w, projectID, volumeID, actions["os-set_bootable"])
+	case actions["os-retype"] != nil:
+		h.retypeVolume(w, projectID, volumeID, actions["os-retype"])
 	case actions["os-show_image_metadata"] != nil:
 		h.showVolumeImageMetadata(w, projectID, volumeID)
 	default:

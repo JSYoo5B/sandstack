@@ -9,7 +9,6 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	app "github.com/JSYoo5B/sandstack/internal/app/volume"
-	domain "github.com/JSYoo5B/sandstack/internal/domain/volume"
 )
 
 const maxJSONBody = 64 * 1024
@@ -45,31 +44,19 @@ func (h handler) createVolume(w http.ResponseWriter, r *http.Request, projectID 
 		writeFault(w, http.StatusBadRequest, "badRequest", err.Error())
 		return
 	}
-	if err := h.service.ValidateCreateVolumeType(projectID, params.volumeType); err != nil {
+	volume, err := h.service.CreateVolume(projectID, app.CreateRequest{
+		VolumeType:     params.volumeType,
+		ImageID:        params.imageID,
+		SnapshotID:     params.snapshotID,
+		SourceVolumeID: params.sourceVolumeID,
+		Name:           params.name,
+		Description:    params.description,
+		Size:           params.size,
+		Metadata:       params.metadata,
+	})
+	switch {
+	case errors.Is(err, app.ErrVolumeTypeNotFound):
 		writeFault(w, http.StatusNotFound, "itemNotFound", "The volume type could not be found.")
-		return
-	}
-
-	var volume domain.Volume
-	switch {
-	case params.imageID != "":
-		volume, err = h.service.CreateFromImage(
-			projectID, params.imageID, params.name, params.description, params.size, params.metadata,
-		)
-	case params.snapshotID != "":
-		volume, err = h.service.CreateFromSnapshotWithMetadata(
-			projectID, params.snapshotID, params.name, params.description, params.size, params.metadata,
-		)
-	case params.sourceVolumeID != "":
-		volume, err = h.service.CreateFromVolume(
-			projectID, params.sourceVolumeID, params.name, params.description, params.size, params.metadata,
-		)
-	default:
-		volume, err = h.service.CreateWithMetadata(
-			projectID, params.name, params.description, params.size, params.metadata,
-		)
-	}
-	switch {
 	case errors.Is(err, app.ErrVolumeNotFound):
 		writeFault(w, http.StatusNotFound, "itemNotFound", "The volume project could not be found.")
 	case errors.Is(err, app.ErrSnapshotNotFound):

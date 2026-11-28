@@ -10,12 +10,16 @@ and availability zone before [creating a volume](volume.md#create-and-provision-
 Use `volumetypes.Get(ctx, client, "default").Extract()` in Gophercloud
 v2.15.0. It sends `GET /types/default` to the project endpoint and
 returns the public `standard` fixture. Pass the returned ID to
-`volumetypes.Get` for its details. Pass either the name or UUID in
-`volumes.CreateOpts.VolumeType` to create a volume of that type. The
-created volume reports the type name. An omitted type selects the same
-fixture. An explicit empty string or `null` does the same. An unknown
-type selector returns `404`. See the [Cinder default type
-reference] and [Gophercloud volume type lookup].
+`volumetypes.Get` for its details. The sandbox also provides a public
+`performance` type with ID `6f0c2b8e-4d1a-4e7b-9c35-2a8f1d7e5b90`. Pass
+either type's name or UUID in `volumes.CreateOpts.VolumeType` to create
+a volume of that type. The created volume reports the type name. An
+omitted type, an explicit empty string, or `null` selects `standard` for
+blank and image-backed volumes. A volume created from a snapshot or a
+source volume inherits that source's type instead. An unknown type
+selector returns `404`. See the [Cinder default type reference], [Cinder
+type inheritance], and [Gophercloud volume type lookup]. To change the
+type of an existing volume, see [Change a volume type](volume-retype.md).
 
 Both reads return `200` with a `volume_type` object containing the
 ID, name, description, public flag, and an empty `extra_specs` object.
@@ -28,16 +32,17 @@ cover the public fields and fields controlled by policy.
 
 Use `volumetypes.List(client, nil).AllPages(ctx)` and
 `volumetypes.ExtractVolumeTypes` in Gophercloud v2.15.0. The
-`GET /types` response contains the public fixture in a `volume_types`
-array with the same fields as UUID detail. In baseline Cinder v3.0,
-project members see the types available to their project regardless of
+`GET /types` response contains `standard` and then `performance` in a
+`volume_types` array with the same fields as UUID detail. In baseline
+Cinder v3.0, project members see the types available to their project regardless of
 the `is_public` option. `name` and `description` filters have no
 effect on this member request. See the [Cinder type list controller]
 and [Gophercloud volume type list options].
 
 Set `Limit: 1` to exercise pagination. A full page includes a
-`volume_type_links` entry with the fixture ID as the next marker. The
-follow-up page is empty. Use the concrete type ID as `Marker`. An unknown
+`volume_type_links` entry with the last type ID as the next marker. The
+first page returns `standard`, the second returns `performance`, and
+the third is empty. Use a concrete type ID as `Marker`. An unknown
 marker returns `404`. A raw `limit=0` yields an empty array. SandStack
 returns `400` for invalid limits, repeated parameters, and unsupported
 query keys. See the [Cinder collection links].
@@ -64,6 +69,7 @@ pagination, and project scope.
 [Cinder type detail reference]: https://docs.openstack.org/api-ref/block-storage/v3/#show-volume-type-detail
 [Cinder volume type access policy]: https://github.com/openstack/cinder/blob/master/cinder/policies/volume_access.py#L40-L63
 [Cinder type response tests]: https://github.com/openstack/cinder/blob/134790e4206f4effa503c47965b7d0cc888695a1/cinder/tests/unit/api/v3/test_types_orig.py#L322-L371
+[Cinder type inheritance]: https://github.com/openstack/cinder/blob/134790e4206f4effa503c47965b7d0cc888695a1/cinder/volume/flows/api/create_volume.py#L397-L430
 [Cinder type list controller]: https://github.com/openstack/cinder/blob/master/cinder/api/v3/types.py#L69-L118
 [Gophercloud volume type lookup]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/blockstorage/v3/volumetypes/requests.go#L59-L66
 [Gophercloud volume type list options]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/blockstorage/v3/volumetypes/requests.go#L74-L130

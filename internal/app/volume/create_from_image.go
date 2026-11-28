@@ -24,6 +24,14 @@ func (s *Service) CreateFromImage(
 	size int,
 	metadata map[string]string,
 ) (domain.Volume, error) {
+	return s.createFromImage(projectID, "", imageID, name, description, size, metadata)
+}
+
+func (s *Service) createFromImage(
+	projectID, typeID, imageID, name, description string,
+	size int,
+	metadata map[string]string,
+) (domain.Volume, error) {
 	if s.seed.ProjectID != projectID {
 		return domain.Volume{}, ErrVolumeNotFound
 	}
@@ -56,5 +64,5 @@ func (s *Service) CreateFromImage(
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.createVolume(name, description, size, metadata, volumeSource{image: source})
+	return s.createVolume(name, description, size, metadata, volumeSource{image: source, typeID: typeID})
 }

@@ -22,6 +22,7 @@ type Volume struct {
 	SnapshotID          string
 	SourceVolumeID      string
 	Size                int
+	TypeID              string
 	CreatedAt           time.Time
 	UpdatedAt           time.Time
 	State               State

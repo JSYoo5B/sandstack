@@ -13,7 +13,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const fixtureVolumeTypeID = "3190e22a-9606-4cf7-b9bd-4eb5af3dc601"
+const (
+	fixtureVolumeTypeID     = "3190e22a-9606-4cf7-b9bd-4eb5af3dc601"
+	performanceVolumeTypeID = "6f0c2b8e-4d1a-4e7b-9c35-2a8f1d7e5b90"
+)
 
 func TestGophercloudCreatesVolumeWithDiscoveredDefaultType(t *testing.T) {
 	instance := startServer(t, "")

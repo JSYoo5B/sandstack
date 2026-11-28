@@ -19,6 +19,14 @@ func (s *Service) CreateFromVolume(
 	size int,
 	metadata map[string]string,
 ) (domain.Volume, error) {
+	return s.createFromVolume(projectID, "", sourceVolumeID, name, description, size, metadata)
+}
+
+func (s *Service) createFromVolume(
+	projectID, typeID, sourceVolumeID, name, description string,
+	size int,
+	metadata map[string]string,
+) (domain.Volume, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	source, ok := s.volumes[sourceVolumeID]
@@ -37,7 +45,10 @@ func (s *Service) CreateFromVolume(
 	if size < source.Size {
 		return domain.Volume{}, ErrVolumeSmallerThanSource
 	}
-	provenance := volumeSource{volumeID: source.ID, bootable: source.Bootable}
+	if typeID == "" {
+		typeID = source.TypeID
+	}
+	provenance := volumeSource{volumeID: source.ID, bootable: source.Bootable, typeID: typeID}
 	if source.Bootable && source.ImageMetadataReady {
 		provenance.image = source.ImageSource
 	}

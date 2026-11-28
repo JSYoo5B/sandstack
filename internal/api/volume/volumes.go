@@ -89,7 +89,7 @@ func (h handler) describeVolume(r *http.Request, volume domain.Volume) volumeBod
 		CreatedAt:         volume.CreatedAt.UTC().Format(timestampLayout),
 		UpdatedAt:         optionalTimestamp(volume.UpdatedAt),
 		AvailabilityZone:  app.StandardAvailabilityZone,
-		VolumeType:        app.StandardVolumeTypeName,
+		VolumeType:        app.VolumeTypeName(volume.TypeID),
 		SnapshotID:        optionalText(volume.SnapshotID),
 		SourceVolumeID:    optionalText(volume.SourceVolumeID),
 		Attachments:       attachments,

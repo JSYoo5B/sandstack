@@ -68,7 +68,9 @@ omit `metadata` or set it to `null` for an empty map. It follows the
 [volume metadata key and value rules](#read-and-replace-volume-metadata).
 See the [Cinder volume create schema] and [Gophercloud volume create options].
 The optional `volume_type` accepts the type name or UUID for each
-creation path. See the [Cinder volume type resolution].
+creation path. Without it, a volume created from a snapshot or source
+volume inherits that source's type. See the [Cinder volume type
+resolution].
 
 To make the volume available, take the ID from the create response and
 call the SandStack control with the admin token.
@@ -222,6 +224,10 @@ or [reset the sandbox](reset.md).
 
 The fixture covers offline extension and its metadata transitions. See the
 [extend volume reference] and [Cinder extension completion].
+
+## Change the volume type
+
+See [Change a volume type](volume-retype.md).
 
 ## Inject and clear a volume fault
 

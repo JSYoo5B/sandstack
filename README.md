@@ -39,8 +39,9 @@ links to the [fault controls](docs/guides/compute-faults.md),
 network downtime. The [Image guide](docs/guides/image.md) covers Glance
 downloads and image deactivation and links to the
 [member guide](docs/guides/image-members.md). The [Block Storage guide](docs/guides/volume.md)
-covers provisioning, metadata, and errors, with a separate
-[snapshot guide](docs/guides/volume-snapshots.md).
+covers provisioning, metadata, and errors, with separate
+[snapshot](docs/guides/volume-snapshots.md) and
+[retype](docs/guides/volume-retype.md) guides.
 [Inspect recent requests](docs/guides/requests.md) to verify what a client
 attempted. [Reset the sandbox](docs/guides/reset.md) between test cases to
 restore fixtures and invalidate issued tokens.

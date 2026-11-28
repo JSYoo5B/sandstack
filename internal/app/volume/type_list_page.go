@@ -1,29 +1,38 @@
 package volume
 
-import domain "github.com/JSYoo5B/sandstack/internal/domain/volume"
+import (
+	"slices"
+
+	domain "github.com/JSYoo5B/sandstack/internal/domain/volume"
+)
 
 type VolumeTypePage struct {
 	Types      []domain.VolumeType
 	NextMarker string
 }
 
-// ListVolumeTypesPage returns the fixture type unless the page starts after it.
-// Only the concrete type ID can be used as a marker.
+// ListVolumeTypesPage returns the fixture types after the marker in fixture order.
+// Only a concrete type ID can be used as a marker.
 func (s *Service) ListVolumeTypesPage(projectID string, marker *string, limit int) (VolumeTypePage, error) {
-	if marker != nil && *marker != standardVolumeTypeID {
-		return VolumeTypePage{}, ErrVolumeTypeNotFound
-	}
-	volumeType, err := s.GetVolumeType(projectID, standardVolumeTypeID)
-	if err != nil && marker != nil {
-		return VolumeTypePage{}, err
-	}
 	page := VolumeTypePage{Types: []domain.VolumeType{}}
-	if err != nil || marker != nil || limit == 0 {
+	start := 0
+	if marker != nil {
+		index := slices.IndexFunc(fixtureVolumeTypes, func(volumeType domain.VolumeType) bool {
+			return volumeType.ID == *marker
+		})
+		if index < 0 || s.seed.ProjectID != projectID {
+			return VolumeTypePage{}, ErrVolumeTypeNotFound
+		}
+		start = index + 1
+	}
+	if s.seed.ProjectID != projectID || limit == 0 {
 		return page, nil
 	}
-	page.Types = append(page.Types, volumeType)
-	if limit == 1 {
-		page.NextMarker = volumeType.ID
+	remaining := fixtureVolumeTypes[start:]
+	if limit > 0 && len(remaining) >= limit {
+		remaining = remaining[:limit]
+		page.NextMarker = remaining[len(remaining)-1].ID
 	}
+	page.Types = append(page.Types, remaining...)
 	return page, nil
 }
