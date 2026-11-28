@@ -6,7 +6,7 @@ The fixture supports Keystone password and application credential
 authentication, application credential management, and catalog discovery.
 Nova covers server creation and deletion, server reads, power actions,
 locks, action history, console output, metadata, flavor lookup, volume
-attachment, and key pairs. Glance covers image creation, upload, download, deletion, and sharing.
+attachment, key pairs, and server groups. Glance covers image creation, upload, download, deletion, and sharing.
 Lifecycle operations cover Neutron networks, IPv4 subnets, ports, logical
 routers with external gateways, and floating IPs, as well as Cinder volumes,
 snapshots, backups with restore, and volume transfers.
@@ -40,6 +40,7 @@ links to the [server boot guide](docs/guides/compute-servers.md),
 [fault controls](docs/guides/compute-faults.md),
 [metadata guide](docs/guides/compute-metadata.md),
 [key pair guide](docs/guides/compute-keypairs.md),
+[server group guide](docs/guides/compute-server-groups.md),
 [action history guide](docs/guides/compute-actions.md), and
 [console output guide](docs/guides/compute-console.md). The
 [Networking guide](docs/guides/network.md) covers Neutron resources and

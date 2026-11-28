@@ -24,6 +24,8 @@ var unsupportedCreateFields = []string{
 	"config_drive", "accessIPv4", "accessIPv6", "return_reservation_id",
 }
 
+var schedulerHintFields = []string{"os:scheduler_hints", "OS-SCH-HNT:scheduler_hints"}
+
 var supportedCreateFields = []string{
 	"name", "imageRef", "flavorRef", "adminPass", "metadata", "networks", "key_name",
 	"security_groups", "OS-DCF:diskConfig", "user_data", "min_count", "max_count", blockDeviceField,
@@ -79,7 +81,7 @@ func writeCreateError(w http.ResponseWriter, err error) {
 	case errors.Is(err, appcompute.ErrSecurityGroupAmbiguous), errors.Is(err, appcompute.ErrNetworkAmbiguous),
 		errors.Is(err, appcompute.ErrPortInUse):
 		writeFault(w, http.StatusConflict, "conflictingRequest", err.Error())
-	case errors.Is(err, appcompute.ErrServerMetadataQuota):
+	case errors.Is(err, appcompute.ErrServerMetadataQuota), errors.Is(err, appcompute.ErrServerGroupMemberQuota):
 		writeFault(w, http.StatusForbidden, "forbidden", err.Error())
 	case errors.As(err, new(*appcompute.CreateError)):
 		writeFault(w, http.StatusBadRequest, "badRequest", err.Error())
@@ -112,14 +114,14 @@ func parseServerCreate(data []byte) (appcompute.ServerCreate, []json.RawMessage,
 		return appcompute.ServerCreate{}, nil, badCreateRequest("Expected a JSON object with a server object.")
 	}
 	for key := range envelope {
-		switch key {
-		case "server":
-		case "os:scheduler_hints", "OS-SCH-HNT:scheduler_hints":
-			return appcompute.ServerCreate{}, nil, badCreateRequest("Scheduler hints are not supported.")
-		default:
+		if key != "server" && !slices.Contains(schedulerHintFields, key) {
 			return appcompute.ServerCreate{}, nil, badCreateRequest("Additional properties are not allowed ('" + key +
 				"' was unexpected).")
 		}
+	}
+	groupID, err := parseSchedulerHints(envelope)
+	if err != nil {
+		return appcompute.ServerCreate{}, nil, err
 	}
 	fields, err := readUniqueObject(envelope["server"])
 	if err != nil {
@@ -135,7 +137,7 @@ func parseServerCreate(data []byte) (appcompute.ServerCreate, []json.RawMessage,
 		}
 	}
 
-	var spec appcompute.ServerCreate
+	spec := appcompute.ServerCreate{GroupID: groupID}
 	if spec.Name, err = parseNameField(fields, "name", true); err != nil {
 		return appcompute.ServerCreate{}, nil, err
 	}
@@ -418,4 +420,35 @@ func isUUIDLike(value string) bool {
 		}
 	}
 	return true
+}
+
+func parseSchedulerHints(envelope map[string]json.RawMessage) (string, error) {
+	groups := make(map[string]string, len(schedulerHintFields))
+	for _, field := range schedulerHintFields {
+		raw, ok := envelope[field]
+		if !ok {
+			continue
+		}
+		hints, err := readUniqueObject(raw)
+		if err != nil {
+			return "", badCreateRequest("Invalid input for field '" + field + "'.")
+		}
+		for key, value := range hints {
+			if key != "group" {
+				return "", badCreateRequest("The scheduler hint '" + key + "' is not supported.")
+			}
+			if len(value) == 0 || value[0] != '"' {
+				return "", badCreateRequest("The scheduler hint 'group' must be a single server group ID.")
+			}
+			var group string
+			if json.Unmarshal(value, &group) != nil || !isUUIDLike(group) {
+				return "", badCreateRequest("Invalid input for field 'group'.")
+			}
+			groups[field] = group
+		}
+	}
+	if _, ok := envelope[schedulerHintFields[0]]; ok {
+		return groups[schedulerHintFields[0]], nil
+	}
+	return groups[schedulerHintFields[1]], nil
 }

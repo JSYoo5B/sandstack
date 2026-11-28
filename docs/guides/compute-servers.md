@@ -38,6 +38,9 @@ with a `server` object. SandStack accepts these fields:
 | `min_count`, `max_count` | Optional. Only `1` |
 | `block_device_mapping_v2` | Optional. See [Boot from a volume](#boot-from-a-volume) |
 
+Put a server in a [server group](compute-server-groups.md#add-a-server-to-a-group)
+with the top-level `os:scheduler_hints` object.
+
 Unknown fields and the v2.1 schema violations return `400`. A missing or
 empty `imageRef` returns `400` with `Missing imageRef attribute`. See the
 [Nova create schema], [Nova create handler], and [Gophercloud create
@@ -75,6 +78,8 @@ port when it rejects one.
 | Unknown key pair | `400` |
 | More than 128 metadata items | `403` |
 | Image that is not `active`, including a [deactivated image](image.md) | `400` |
+| Unknown server group | `400` |
+| Server group with 10 servers of the same user | `403` |
 
 See the [Nova create errors], [Nova create checks], [Nova network
 checks], and [Nova image status check].
@@ -155,8 +160,9 @@ order and records no server and no volume change:
 
 The boot volume and image lookups run after the flavor check and before
 the security group, network, key pair, and metadata checks. The image
-status and minimum disk checks follow the metadata quota, and the boot
-sequence and volume state checks come last. Nova reports `None` as the
+status and minimum disk checks follow the metadata quota. The boot
+sequence and volume state checks follow the server group lookup and
+precede the server group member quota. Nova reports `None` as the
 image ID because a volume-backed request has no `imageRef`. Nova checks
 the image `min_disk` against `volume_size` and does not check the flavor
 disk for a volume root disk. The last message wraps Cinder's attachment
@@ -499,7 +505,7 @@ fixture server if it was deleted, and stops holding builds.
 
 SandStack does not support the legacy `block_device_mapping`,
 `personality`, `availability_zone`, `config_drive`, `accessIPv4`,
-`accessIPv6`, `return_reservation_id`, scheduler hints, or creating more
+`accessIPv6`, `return_reservation_id`, scheduler hints other than `group`, or creating more
 than one server per request. These fields return `400`. Fields added
 after v2.1, such as `description`, `tags`, or network `tag`, and the
 `auto` and `none` network values also return `400`, as Nova v2.1 does.

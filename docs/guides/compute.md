@@ -284,6 +284,10 @@ See [Resize servers in the Compute sandbox](compute-resize.md).
 
 See [Key pairs in the Compute sandbox](compute-keypairs.md).
 
+## Manage server groups
+
+See [Server groups in the Compute sandbox](compute-server-groups.md).
+
 ## Find a server action by request ID
 
 See [Server action history in the Compute sandbox](compute-actions.md).

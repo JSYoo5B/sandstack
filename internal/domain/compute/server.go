@@ -37,6 +37,7 @@ type Server struct {
 	TaskState      string
 	PendingImageID string
 	Resize         *ResizeOrigin
+	Placed         bool
 }
 
 // ResizeOrigin is the flavor and state a resized server returns to on revert.

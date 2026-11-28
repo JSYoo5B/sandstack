@@ -43,6 +43,10 @@ func (s *Servers) FinishBuild(serverID string, failed bool) error {
 	now := s.compute.now().UTC()
 	server.State = domain.StatusActive
 	server.UpdatedAt = now
+	if groupID, ok := s.compute.memberGroupID(serverID); ok &&
+		s.compute.groupHostTaken(server.ProjectID, groupID, serverID) {
+		failed = true
+	}
 	if failed {
 		server.State = domain.StatusError
 		server.Fault = &domain.Fault{Code: 500, Message: buildFailureMessage, CreatedAt: now}
@@ -58,6 +62,8 @@ func (s *Servers) FinishBuild(serverID string, failed bool) error {
 			Message:   fmt.Sprintf("Build of instance %s aborted: %s", serverID, failure),
 			CreatedAt: now,
 		}
+		return nil
 	}
+	server.Placed = true
 	return nil
 }

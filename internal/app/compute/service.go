@@ -24,6 +24,7 @@ type Service struct {
 	seed        domain.Server
 	seedActions []domain.Action
 	servers     map[string]*serverRecord
+	groups      []*domain.ServerGroup
 	holdBuilds  bool
 	holdImages  bool
 	now         func() time.Time
@@ -73,6 +74,7 @@ func (s *Service) restoreSeed() {
 			console: []byte(FixtureConsoleOutput),
 		},
 	}
+	s.groups = nil
 	s.holdBuilds = false
 	s.holdImages = false
 }

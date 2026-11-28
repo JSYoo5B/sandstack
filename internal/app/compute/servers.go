@@ -89,6 +89,7 @@ type ServerCreate struct {
 	Networks       []NetworkRequest
 	SecurityGroups []string
 	BlockDevices   []BlockDevice
+	GroupID        string
 }
 
 // NetworkRequest selects either an existing port or a network for a new port.
@@ -182,10 +183,16 @@ func (s *Servers) Create(request ActionRequest, spec ServerCreate) (CreatedServe
 	if err := checkBootImage(source); err != nil {
 		return CreatedServer{}, err
 	}
+	if err := s.requestedGroup(projectID, spec.GroupID); err != nil {
+		return CreatedServer{}, err
+	}
 	if len(spec.BlockDevices) > 0 {
 		if err := s.validateBlockDevices(projectID, spec.BlockDevices); err != nil {
 			return CreatedServer{}, err
 		}
+	}
+	if err := s.checkGroupMemberQuota(request, spec.GroupID); err != nil {
+		return CreatedServer{}, err
 	}
 	bootVolume := newBootVolume(spec.BlockDevices)
 	imageMeta := s.bootImageMeta(projectID, spec, source, flavor.DiskGiB)
@@ -197,17 +204,24 @@ func (s *Servers) Create(request ActionRequest, spec ServerCreate) (CreatedServe
 	if err := s.reserveBootVolume(projectID, serverID, bootVolume); err != nil {
 		return CreatedServer{}, err
 	}
-	ports, failure, err := s.allocatePorts(projectID, serverID, plan, groupIDs)
-	if err != nil {
-		if bootVolume != nil && bootVolume.VolumeID != "" {
-			_ = s.volumes.Detach(projectID, serverID, bootVolume.VolumeID)
-		}
-		return CreatedServer{}, err
-	}
 	s.compute.mu.RLock()
 	held := s.compute.holdBuilds
+	unscheduled := !held && s.compute.groupHostTaken(projectID, spec.GroupID, serverID)
 	s.compute.mu.RUnlock()
+	var ports []domain.ServerPort
+	var failure string
+	if !unscheduled {
+		var err error
+		ports, failure, err = s.allocatePorts(projectID, serverID, plan, groupIDs)
+		if err != nil {
+			if bootVolume != nil && bootVolume.VolumeID != "" {
+				_ = s.volumes.Detach(projectID, serverID, bootVolume.VolumeID)
+			}
+			return CreatedServer{}, err
+		}
+	}
 	switch {
+	case unscheduled:
 	case failure != "":
 		s.releaseBootVolume(projectID, serverID, bootVolume)
 	case !held:
@@ -242,6 +256,9 @@ func (s *Servers) Create(request ActionRequest, spec ServerCreate) (CreatedServe
 		ImageMeta:      imageMeta,
 	}
 	switch {
+	case unscheduled:
+		server.State = domain.StatusError
+		server.Fault = &domain.Fault{Code: 500, Message: buildFailureMessage, CreatedAt: now}
 	case failure != "":
 		server.State = domain.StatusError
 		server.Fault = &domain.Fault{
@@ -251,9 +268,12 @@ func (s *Servers) Create(request ActionRequest, spec ServerCreate) (CreatedServe
 		}
 	case held:
 		server.State = domain.StatusBuild
+	default:
+		server.Placed = true
 	}
 	record := &serverRecord{server: server, console: []byte{}}
 	s.compute.servers[serverID] = record
+	s.compute.joinGroup(projectID, spec.GroupID, serverID)
 	s.compute.recordAction(record, request, domain.ActionCreate)
 	return CreatedServer{Server: cloneServer(server), AdminPass: password}, nil
 }
@@ -460,6 +480,7 @@ func (s *Servers) Delete(request ActionRequest, serverID string) error {
 		return ErrServerLocked
 	}
 	delete(s.compute.servers, serverID)
+	s.compute.leaveGroups(serverID)
 	if record.server.PendingImageID != "" {
 		_ = s.images.Delete(projectID, record.server.PendingImageID)
 	}

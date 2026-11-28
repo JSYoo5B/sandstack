@@ -17,6 +17,7 @@ type handler struct {
 	servers         *appcompute.Servers
 	attachments     *appcompute.Attachments
 	keyPairs        *appcompute.KeyPairs
+	serverGroups    *appcompute.ServerGroups
 	projectForToken func(string) (string, error)
 	userForToken    func(string) (string, error)
 	endpointURL     func(*http.Request, string) string
@@ -36,6 +37,7 @@ func Register(
 	servers *appcompute.Servers,
 	attachments *appcompute.Attachments,
 	keyPairs *appcompute.KeyPairs,
+	serverGroups *appcompute.ServerGroups,
 	projectForToken func(string) (string, error),
 	userForToken func(string) (string, error),
 	endpointURL func(*http.Request, string) string,
@@ -44,7 +46,7 @@ func Register(
 	router = router.With(assignRequestIDs(newRequestID))
 	h := handler{
 		service: service, servers: servers, attachments: attachments, keyPairs: keyPairs,
-		projectForToken: projectForToken, userForToken: userForToken, endpointURL: endpointURL,
+		serverGroups: serverGroups, projectForToken: projectForToken, userForToken: userForToken, endpointURL: endpointURL,
 	}
 	show := h.withProject(h.showServer)
 	create := h.withProject(h.createServer)
@@ -69,6 +71,10 @@ func Register(
 	createKeyPair := h.withProject(h.createKeyPair)
 	showKeyPair := h.withProject(h.showKeyPair)
 	deleteKeyPair := h.withProject(h.deleteKeyPair)
+	listServerGroups := h.withProject(h.listServerGroups)
+	createServerGroup := h.withProject(h.createServerGroup)
+	showServerGroup := h.withProject(h.showServerGroup)
+	deleteServerGroup := h.withProject(h.deleteServerGroup)
 	listActions := h.withProject(h.listServerActions)
 	showAction := h.withProject(h.showServerAction)
 	listSecurityGroups := h.withProject(h.listServerSecurityGroups)
@@ -111,6 +117,11 @@ func Register(
 		router.Post(keyPairs, createKeyPair)
 		router.Get(keyPairs+"/{keyPairName}", showKeyPair)
 		router.Delete(keyPairs+"/{keyPairName}", deleteKeyPair)
+		serverGroups := prefix + "/os-server-groups"
+		router.Get(serverGroups, listServerGroups)
+		router.Post(serverGroups, createServerGroup)
+		router.Get(serverGroups+"/{serverGroupID}", showServerGroup)
+		router.Delete(serverGroups+"/{serverGroupID}", deleteServerGroup)
 	}
 }
 

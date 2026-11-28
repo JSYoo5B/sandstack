@@ -157,6 +157,7 @@ func New(config Config) (http.Handler, error) {
 	)
 	apicompute.Register(
 		services, computeService, servers, appcompute.NewAttachments(computeService, volumeService), keyPairs,
+		appcompute.NewServerGroups(computeService, randomUUID),
 		identityService.ProjectForToken, identityService.UserForToken, endpointURL, computeRequestID,
 	)
 	apinetwork.Register(services, networkService, identityService.ProjectForToken, endpointURL)
