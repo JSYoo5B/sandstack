@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	app "github.com/JSYoo5B/sandstack/internal/app/image"
+	domain "github.com/JSYoo5B/sandstack/internal/domain/image"
 )
 
 const (
@@ -15,6 +16,13 @@ const (
 	defaultImagePageLimit = 25
 	maxImagePageLimit     = 1000
 )
+
+var imageMemberStatuses = map[string]bool{
+	domain.MemberPending:  true,
+	domain.MemberAccepted: true,
+	domain.MemberRejected: true,
+	app.MemberStatusAll:   true,
+}
 
 type imageListBody struct {
 	Images []imageBody `json:"images"`
@@ -105,6 +113,18 @@ func parseImageListQuery(query url.Values) (imageListOptions, error) {
 			continue
 		case "marker":
 			options.marker = &value
+			continue
+		case "visibility":
+			if value != app.VisibilityAll && !imageVisibilities[value] {
+				return imageListOptions{}, errors.New("invalid visibility value: " + value)
+			}
+			options.filter.Visibility = &value
+			continue
+		case "member_status":
+			if !imageMemberStatuses[value] {
+				return imageListOptions{}, errors.New("invalid status: " + value)
+			}
+			options.filter.MemberStatus = value
 			continue
 		}
 		if operator, threshold, present := strings.Cut(value, ":"); present {

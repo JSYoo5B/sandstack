@@ -49,6 +49,8 @@ func writeUploadError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, app.ErrImageNotFound):
 		http.Error(w, "Image not found.", http.StatusNotFound)
+	case errors.Is(err, app.ErrImageForbidden):
+		http.Error(w, "You are not permitted to upload data for this image.", http.StatusForbidden)
 	case errors.Is(err, app.ErrImageUploadState):
 		http.Error(w, "Only queued images can receive an upload.", http.StatusConflict)
 	case errors.Is(err, app.ErrImageUploadFormats):

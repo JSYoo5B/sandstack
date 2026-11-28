@@ -10,31 +10,33 @@ Authenticate with the [Identity fixture](identity.md), read the
 The unversioned `/image/` URL returns the v2 discovery document. Use
 `GET /image/v2/images/{image_id}` with `X-Auth-Token` for metadata.
 
-## Create a private queued image
+## Create a queued image
 
-Use `images.Create` in Gophercloud v2.15.0 with a nonempty `Name`.
-It sends `POST /images` with an `application/json` body. SandStack's
-v2.0 fixture defaults to `private`. You can also set `Visibility` to
-`private` explicitly. The optional formats are `bare` and `qcow2`.
-The response is `201` with a `queued` image owned by the authenticated
-project. Its `Location` points to the image metadata. Omitted formats,
-size, virtual size, and checksum are `null`. See the [Glance create
-reference], [Glance v2.0 image defaults], and [Gophercloud image create
-options].
+Use `images.Create` in Gophercloud v2.15.0 with a nonempty `Name` and the
+token of any fixture project. It sends `POST /images` with an
+`application/json` body. The image defaults to `shared` visibility, as in
+Glance. Set `Visibility` to `private`, `shared`, or `community` to choose
+another. The optional formats are `bare` and `qcow2`. The response is
+`201` with a `queued` image owned by the authenticated project. Its
+`Location` points to the image metadata. Omitted formats, size, virtual
+size, and checksum are `null`. See the [Glance create reference],
+[Glance image defaults], and [Gophercloud image create options].
 
 Read the new image through `images.Get` and find it in `images.List`.
 Images that Nova creates from [server snapshots](compute-snapshots.md)
 also carry additional properties, which appear as top-level string fields
 and in Gophercloud's `Image.Properties`. The create operation does not
 accept additional properties.
-Cinder creates private images when it [uploads a
+Cinder creates `shared` images when it [uploads a
 volume](volume-upload-image.md).
 A file request for a queued image returns `204` with an empty body.
 Creating an image leaves the startup fixture and its download controls
 intact. A [sandbox reset](reset.md) removes queued images.
-The fixture's create operation accepts the name, private visibility, the
-optional formats, capacity minimums, and the protection flag. A public
-request returns `403`. Unsupported fields and invalid values return `400`.
+The create operation accepts the name, the visibility, the optional
+formats, capacity minimums, and the protection flag. A `public` request
+returns `403`, because Glance reserves public images for administrators.
+Unsupported fields and invalid values return `400`. See the [Glance
+visibility policies].
 
 Set `images.CreateOpts.MinDisk` in GiB and `MinRAM` in MiB to record the
 image's minimum capacity requirements. Both default to zero and are
@@ -73,10 +75,47 @@ A protected image returns `403` on deletion and remains readable with
 its existing metadata and bytes. Set `NewProtected: false` to allow
 deletion again. See the [Glance protected image error].
 
+## Image visibility across projects
+
+Each image records its owning project and a visibility. A project token
+sees an image when it owns it, when the image is `public` or `community`,
+or when the image is `shared` and the project is a
+[member](image-members.md) in any status. Detail, download, and member
+requests for an image the project cannot see return `404`, and a list
+marker that names it returns `403`. The startup image stays `private` to the
+primary [Identity fixture](identity.md) project, so an [additional
+fixture](identity.md#additional-fixtures) project cannot read it. See the
+[Glance image visibility check].
+
+Only the owner changes an image. Update, delete, and upload requests from
+another project return `403` when that project can see the image and
+`404` otherwise. Any project downloads the data of an image it can see.
+See the [Glance image policy enforcement] and the [Glance image policy
+defaults].
+
+Use `images.UpdateVisibility{Visibility: visibility}` as the only
+operation in `images.UpdateOpts` to change an owned image between
+`private`, `shared`, and `community`. It sends one JSON Patch `replace`
+for `/visibility` and returns `200` with the updated image. A `public`
+value returns `403`, and other values return `400`. Members of an image
+that leaves `shared` lose access until it returns to `shared`. See the
+[Glance visibility policies] and [Gophercloud image visibility update].
+
+The create defaults, visibility, ownership, and list filter behavior
+follow `openstack/glance` commit
+`3db7567fd77bad31d5fb2d484c7b8f6ff64eb8ef`, the latest commit when
+cross-project images were implemented, with the default policies and
+`enforce_new_defaults` enabled.
+
 ## List and filter images
 
-Use `GET /image/v2/images` with the fixture project's token to list its
-images. In Gophercloud v2.15.0, call `images.List` with `images.ListOpts`.
+Use `GET /image/v2/images` with a project token to list the images that
+project can see. By default the list contains the project's own images,
+public images, and `shared` images whose membership the project accepted.
+Another project's `community` images appear only with a visibility
+filter, as described in [Filter by visibility and
+membership](#filter-by-visibility-and-membership). In Gophercloud v2.15.0,
+call `images.List` with `images.ListOpts`.
 Set `Name`, `Status`, or both for exact matching. Both fields must match
 when supplied together. Use a bare value or the `eq:` prefix. For example,
 `?name=fixture-image&status=eq:active` selects the fixture while it is
@@ -99,11 +138,27 @@ malformed quotes, and repeated `id` parameters return `400`. See the
 [Glance ID filters] and [Glance filter operands].
 
 The response includes `images`, a `first` link that preserves the filters,
-including repeated tag values, and a `schema` link. A query with no matches
-returns `images: []`. SandStack accepts one value each for `name` and
-`status`. Repeating either key, using an unsupported query key, or using
-a name or status comparison operator other than `eq:` returns `400`. See the [Glance
-image list serializer].
+including repeated tag values, and a `schema` link. Glance builds its
+links from one value per query key, so SandStack keeps more tag values
+than Glance does. A query with no matches returns `images: []`. SandStack
+accepts one value each for `name`, `status`, `visibility`, and
+`member_status`. Repeating any of these keys, using an unsupported query
+key, or using a name or status comparison operator other than `eq:`
+returns `400`. See the [Glance image list serializer].
+
+### Filter by visibility and membership
+
+Set `images.ListOpts.Visibility` to `public`, `community`, `shared`, or
+`private` to list only images with that visibility, or send
+`visibility=all` to drop the default exclusion of other projects'
+`community` images. `private` lists only the project's own private
+images. Set `images.ListOpts.MemberStatus` to `pending`, `accepted`,
+`rejected`, or `all` to choose which memberships include another
+project's `shared` images. The default is `accepted`. The project's own
+images are listed whatever their memberships. Other values of either
+parameter return `400`. See the [Glance list query validation] and the
+[Glance visibility list query].
+
 
 ### Page through the image list
 
@@ -211,6 +266,9 @@ The creation tests check the location and queued metadata over HTTP and
 read the new record through SDK detail and paginated list requests.
 ID filter tests use several images to check exact and multi-ID selection
 and preservation of the filter across SDK pages.
+Visibility tests check reads, lists, filters, markers, and owner-only
+changes for each visibility and membership status in the application,
+and the cross-project `403` and `404` cases over HTTP.
 
 [Glance discovery reference]: https://docs.openstack.org/api-ref/image/versions/index.html
 [Glance image reference]: https://docs.openstack.org/api-ref/image/v2/#show-image
@@ -218,8 +276,13 @@ and preservation of the filter across SDK pages.
 [Glance delete reference]: https://docs.openstack.org/api-ref/image/v2/#delete-image
 [Glance protection tests]: https://github.com/openstack/glance/blob/12.0.0/glance/tests/functional/v2/test_images.py#L553-L575
 [Glance protected image error]: https://github.com/openstack/glance/blob/12.0.0/glance/common/exception.py#L123-L125
-[Glance v2.0 image defaults]: https://github.com/openstack/glance/blob/12.0.0/glance/domain/__init__.py#L71-L93
-[Glance capacity requirements]: https://github.com/openstack/glance/blob/12.0.0/glance/domain/__init__.py#L212-L237
+[Glance image defaults]: https://github.com/openstack/glance/blob/3db7567fd77bad31d5fb2d484c7b8f6ff64eb8ef/glance/domain/__init__.py#L71-L94
+[Glance image visibility check]: https://github.com/openstack/glance/blob/3db7567fd77bad31d5fb2d484c7b8f6ff64eb8ef/glance/db/utils.py#L44-L74
+[Glance image policy enforcement]: https://github.com/openstack/glance/blob/3db7567fd77bad31d5fb2d484c7b8f6ff64eb8ef/glance/api/v2/policy.py#L139-L222
+[Glance image policy defaults]: https://github.com/openstack/glance/blob/3db7567fd77bad31d5fb2d484c7b8f6ff64eb8ef/glance/policies/base.py#L36-L74
+[Gophercloud image visibility update]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/image/v2/images/requests.go#L279-L291
+[Glance visibility policies]: https://github.com/openstack/glance/blob/3db7567fd77bad31d5fb2d484c7b8f6ff64eb8ef/glance/policies/image.py#L94-L116
+[Glance capacity requirements]: https://github.com/openstack/glance/blob/3db7567fd77bad31d5fb2d484c7b8f6ff64eb8ef/glance/domain/__init__.py#L222-L246
 [Gophercloud image create options]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/image/v2/images/requests.go#L145-L218
 [Gophercloud image delete]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/image/v2/images/requests.go#L221-L226
 [Gophercloud image protection]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/image/v2/images/requests.go#L377-L390
@@ -228,13 +291,15 @@ and preservation of the filter across SDK pages.
 [Glance schema builders]: https://github.com/openstack/glance/blob/master/glance/api/v2/images.py#L1963-L2008
 [Gophercloud image result]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/image/v2/images/results.go#L81-L90
 [Glance list reference]: https://docs.openstack.org/api-ref/image/v2/#list-images
-[Glance image list serializer]: https://github.com/openstack/glance/blob/master/glance/api/v2/images.py#L1697-L1713
+[Glance image list serializer]: https://github.com/openstack/glance/blob/3db7567fd77bad31d5fb2d484c7b8f6ff64eb8ef/glance/api/v2/images.py#L1855-L1871
+[Glance list query validation]: https://github.com/openstack/glance/blob/3db7567fd77bad31d5fb2d484c7b8f6ff64eb8ef/glance/api/v2/images.py#L1582-L1599
+[Glance visibility list query]: https://github.com/openstack/glance/blob/3db7567fd77bad31d5fb2d484c7b8f6ff64eb8ef/glance/db/sqlalchemy/api.py#L588-L625
 [Glance image pagination]: https://github.com/openstack/glance/blob/master/glance/api/v2/images.py#L497-L534
 [Glance marker lookup]: https://github.com/openstack/glance/blob/master/glance/db/sqlalchemy/api.py#L664-L679
-[Glance image list filters]: https://github.com/openstack/glance/blob/master/glance/db/sqlalchemy/api.py#L508-L524
-[Glance tag filters]: https://github.com/openstack/glance/blob/master/glance/db/sqlalchemy/api.py#L470-L476
-[Glance ID filters]: https://github.com/openstack/glance/blob/12.0.0/glance/db/sqlalchemy/api.py#L515-L530
-[Glance filter operands]: https://github.com/openstack/glance/blob/12.0.0/glance/common/utils.py#L594-L659
+[Glance image list filters]: https://github.com/openstack/glance/blob/3db7567fd77bad31d5fb2d484c7b8f6ff64eb8ef/glance/db/sqlalchemy/api.py#L556-L568
+[Glance tag filters]: https://github.com/openstack/glance/blob/3db7567fd77bad31d5fb2d484c7b8f6ff64eb8ef/glance/db/sqlalchemy/api.py#L513-L519
+[Glance ID filters]: https://github.com/openstack/glance/blob/3db7567fd77bad31d5fb2d484c7b8f6ff64eb8ef/glance/db/sqlalchemy/api.py#L556-L568
+[Glance filter operands]: https://github.com/openstack/glance/blob/3db7567fd77bad31d5fb2d484c7b8f6ff64eb8ef/glance/common/utils.py#L749-L822
 [Gophercloud image list options]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/image/v2/images/requests.go#L25-L78
 [Gophercloud image next links]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/image/v2/images/urls.go#L42-L64
 [Glance update reference]: https://docs.openstack.org/api-ref/image/v2/#update-image

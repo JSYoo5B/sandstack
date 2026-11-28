@@ -53,8 +53,7 @@ func (s *Service) createFromImage(
 		return domain.Volume{}, ErrVolumeSourceImageUnavailable
 	}
 	image, err := s.images.Get(creator.projectID, imageID)
-	if err != nil || imageID == "" || image.ID != imageID || image.ProjectID != creator.projectID ||
-		image.Status() != "active" {
+	if err != nil || imageID == "" || image.ID != imageID || image.Status() != "active" {
 		return domain.Volume{}, ErrVolumeSourceImageUnavailable
 	}
 	minimumGiB := image.Size / bytesPerGiB

@@ -41,9 +41,9 @@ func (s *Service) Upload(projectID, imageID, data string) error {
 
 // checkUpload validates the current image with the lock held.
 func (s *Service) checkUpload(projectID, imageID string) (domain.Image, error) {
-	image, ok := s.images[imageID]
-	if !ok || projectID != image.ProjectID {
-		return domain.Image{}, ErrImageNotFound
+	image, err := s.ownedImage(projectID, imageID)
+	if err != nil {
+		return domain.Image{}, err
 	}
 	if !image.Queued || image.Deactivated {
 		return domain.Image{}, ErrImageUploadState

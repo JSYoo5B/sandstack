@@ -21,12 +21,17 @@ type CreateOptions struct {
 	MinDiskGiB      int
 	MinRAMMiB       int
 	Protected       bool
+	Visibility      string
 }
 
 // Create stores a queued image record before image bytes are available.
 func (s *Service) Create(projectID string, options CreateOptions) (domain.Image, error) {
-	if projectID != s.seed.ProjectID {
-		return domain.Image{}, ErrImageNotFound
+	visibility := options.Visibility
+	if visibility == "" {
+		visibility = domain.VisibilityShared
+	}
+	if err := checkVisibility(visibility); err != nil {
+		return domain.Image{}, err
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -39,6 +44,7 @@ func (s *Service) Create(projectID string, options CreateOptions) (domain.Image,
 	image := domain.Image{
 		ID:              id,
 		ProjectID:       projectID,
+		Visibility:      visibility,
 		Name:            options.Name,
 		ContainerFormat: options.ContainerFormat,
 		DiskFormat:      options.DiskFormat,

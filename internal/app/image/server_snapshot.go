@@ -7,9 +7,11 @@ import (
 )
 
 func (s *Service) CreateSnapshot(projectID string, template domain.Image) (domain.Image, error) {
-	if projectID != s.seed.ProjectID {
-		return domain.Image{}, ErrImageNotFound
-	}
+	template.Visibility = domain.VisibilityPrivate
+	return s.createQueued(projectID, template)
+}
+
+func (s *Service) createQueued(projectID string, template domain.Image) (domain.Image, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -21,6 +23,7 @@ func (s *Service) CreateSnapshot(projectID string, template domain.Image) (domai
 	image := domain.Image{
 		ID:              id,
 		ProjectID:       projectID,
+		Visibility:      template.Visibility,
 		Name:            template.Name,
 		ContainerFormat: template.ContainerFormat,
 		DiskFormat:      template.DiskFormat,

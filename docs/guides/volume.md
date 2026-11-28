@@ -30,11 +30,13 @@ the [Cinder project filter], [Cinder volume lookup], [Cinder snapshot
 lookup], [Cinder backup lookup], and [Cinder volume list scope].
 
 A [transfer](volume-transfers.md) moves a volume and its snapshots to
-another project. An additional project cannot create volumes from images
-or upload volumes to images, because the [Image sandbox](image.md) refuses
-image creates for that project. Compute serves servers only to the primary
-project, so only that project boots from or attaches volumes. SandStack
-does not implement Block Storage quotas or limits.
+another project. Any project creates volumes from the Glance images it
+can see, including images other projects share with it, and uploads its
+volumes to images it owns. See [Image visibility across
+projects](image.md#image-visibility-across-projects). Compute serves
+servers only to the primary project, so only that project boots from or
+attaches volumes. SandStack does not implement Block Storage quotas or
+limits.
 
 ## Discover the default volume type
 

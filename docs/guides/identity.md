@@ -57,9 +57,12 @@ Services keep the primary project as the only project with seeded resources:
 - Compute lists no flavors for another project, so it cannot boot servers.
   Server lists are empty, and the fixture server returns `404`. Key pairs
   belong to the user and server groups to the project.
-- Image lists only images the project owns, and creates for another project
-  are refused. A member project cannot read or accept an image shared with
-  it.
+- Image records the owning project on each image. Another project can
+  create, upload, update, and delete its own images and read the images
+  other projects share with it. The fixture image is `private` and returns
+  `404`. See [Image visibility across
+  projects](image.md#image-visibility-across-projects) and [Image
+  members](image-members.md).
 - Networking records the owning project on each resource. Another project
   sees the external `public` network and its own resources and can create
   networks, subnets, ports, routers, and floating IPs. It has no default

@@ -85,7 +85,6 @@ func TestImageVolumeProvisioningChecksVisibilityStateAndSize(t *testing.T) {
 		wantErr error
 	}{
 		{name: "unknown image", getErr: errors.New("missing"), size: 1, wantErr: app.ErrVolumeSourceImageUnavailable},
-		{name: "foreign image", image: imagedomain.Image{ProjectID: "foreign"}, size: 1, wantErr: app.ErrVolumeSourceImageUnavailable},
 		{name: "queued image", image: imagedomain.Image{Queued: true}, size: 1, wantErr: app.ErrVolumeSourceImageUnavailable},
 		{name: "deactivated image", image: imagedomain.Image{Deactivated: true}, size: 1, wantErr: app.ErrVolumeSourceImageUnavailable},
 		{name: "image byte ceiling", image: imagedomain.Image{Size: 1<<30 + 1}, size: 1, wantErr: app.ErrVolumeSourceImageSize},
@@ -107,4 +106,22 @@ func TestImageVolumeProvisioningChecksVisibilityStateAndSize(t *testing.T) {
 			assert.Len(t, service.List(seed.ProjectID, app.ListFilter{}), 1)
 		})
 	}
+}
+
+// https://github.com/openstack/cinder/blob/134790e4206f4effa503c47965b7d0cc888695a1/cinder/volume/flows/api/create_volume.py#L234-L262
+func TestImageVolumeProvisioningAcceptsAnotherProjectsVisibleImage(t *testing.T) {
+	seed := domain.Volume{ID: fixtureID, ProjectID: "project"}
+	image := imagedomain.Image{
+		ID: "image", ProjectID: "owner", Visibility: imagedomain.VisibilityShared, Size: 1,
+	}
+	service := app.NewWithImageLookup(seed, time.Now, func() string { return createdID },
+		imageLookupFunc(func(_, _ string) (imagedomain.Image, error) {
+			return image, nil
+		}))
+
+	created, err := service.CreateFromImage(seed.ProjectID, "user", image.ID, "shared", "", 1, nil)
+
+	require.NoError(t, err)
+	assert.Equal(t, seed.ProjectID, created.ProjectID)
+	assert.Equal(t, image.ID, created.ImageSource.ID)
 }

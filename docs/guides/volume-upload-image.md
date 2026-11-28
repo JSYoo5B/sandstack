@@ -3,8 +3,8 @@
 [Block Storage sandbox](volume.md)
 
 Use the project token and endpoint from the [Block Storage
-sandbox](volume.md) to upload an `available` volume into a new private
-Glance image. Read the image through the [Image sandbox](image.md).
+sandbox](volume.md) to upload an `available` volume into a new Glance
+image. Read the image through the [Image sandbox](image.md).
 
 ## Upload a volume
 
@@ -36,7 +36,7 @@ The response is `202` with an `os-volume_upload_image` object:
 | `volume_type` | The volume type object |
 | `image_id`, `image_name` | The new image's ID and name |
 | `container_format`, `disk_format` | The image's formats |
-| `protected`, `visibility` | `false` and `private`, as Glance returns them |
+| `protected`, `visibility` | `false` and `shared`, as Glance returns them |
 
 Cinder adds `protected` and `visibility` from the image that Glance
 returns, so they appear at 3.0 as well. The `volume_type` object has `id`,
@@ -66,8 +66,10 @@ uploads. See the [Cinder upload manager].
 ## The Glance image
 
 Cinder creates a `queued` image owned by the volume's project with the
-requested name and formats. Glance 12.0.0 makes it `private` and not
-protected, with `min_disk` and `min_ram` `0`. Cinder copies the volume's
+requested name and formats. At microversion 3.0 Cinder sends no
+visibility, so Glance makes the image `shared` and not protected, with
+`min_disk` and `min_ram` `0`. The image has no members until its owner
+[adds them](image-members.md). See the [Glance image defaults]. Cinder copies the volume's
 image metadata into the image properties except the Glance core
 properties and reserved namespaces. SandStack records only core keys as
 volume image metadata (`image_id`, `image_name`, `checksum`,
@@ -113,12 +115,6 @@ format requirement] and [Cinder image cleanup].
 | Volume not `available` | `400` |
 | Unknown volume or another project's volume | `404` |
 
-The Image sandbox creates images only for the primary [Identity
-fixture](identity.md) project, so an upload by an [additional
-fixture](identity.md#additional-fixtures) project returns the `400` for
-rejected Glance formats and leaves the volume `available`. The image owner
-is the token's project.
-
 The checks run in this order: request schema, volume lookup, volume
 state, then the Glance formats. A rejected request creates no image and
 leaves the volume unchanged. Cinder applies no quota to uploads, and the
@@ -150,7 +146,10 @@ rejected forced upload of an attached volume. Raw HTTP checks the
 request validation, the `400` and `404` cases, the `202` response
 fields and `volume_type` object, the deleted image after a `null`
 container format, and reset, all against the pinned Cinder and Glance
-sources.
+sources. `go test ./internal/api/server -run CinderCrossProjectWire
+-count=1` uploads a volume owned by an [additional
+fixture](identity.md#additional-fixtures) project over raw HTTP and reads
+the `shared` image that project owns.
 
 [Cinder upload action]: https://github.com/openstack/cinder/blob/134790e4206f4effa503c47965b7d0cc888695a1/cinder/api/contrib/volume_actions.py#L199-L269
 [Cinder upload schema]: https://github.com/openstack/cinder/blob/134790e4206f4effa503c47965b7d0cc888695a1/cinder/api/schemas/volume_actions.py#L162-L192
@@ -164,6 +163,7 @@ sources.
 [Cinder core properties]: https://github.com/openstack/cinder/blob/134790e4206f4effa503c47965b7d0cc888695a1/cinder/image/glance.py#L81-L87
 [Cinder reserved namespaces]: https://github.com/openstack/cinder/blob/134790e4206f4effa503c47965b7d0cc888695a1/cinder/image/image_utils.py#L1466-L1499
 [Cinder upload volume]: https://github.com/openstack/cinder/blob/134790e4206f4effa503c47965b7d0cc888695a1/cinder/image/image_utils.py#L1161-L1239
+[Glance image defaults]: https://github.com/openstack/glance/blob/3db7567fd77bad31d5fb2d484c7b8f6ff64eb8ef/glance/domain/__init__.py#L71-L94
 [Glance format defaults]: https://github.com/openstack/glance/blob/12.0.0/glance/common/config.py#L44-L56
 [Glance format schema]: https://github.com/openstack/glance/blob/12.0.0/glance/api/v2/images.py#L882-L891
 [Glance format requirement]: https://github.com/openstack/glance/blob/12.0.0/glance/domain/__init__.py#L151-L163

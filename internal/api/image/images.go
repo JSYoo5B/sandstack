@@ -16,7 +16,16 @@ import (
 const (
 	fixtureContainerFormat = domain.ContainerFormatBare
 	fixtureDiskFormat      = domain.DiskFormatQCOW2
-	fixtureVisibility      = "private"
+)
+
+var (
+	imageVisibilities = map[string]bool{
+		domain.VisibilityCommunity: true,
+		domain.VisibilityPublic:    true,
+		domain.VisibilityPrivate:   true,
+		domain.VisibilityShared:    true,
+	}
+	errImageVisibility = errors.New("the image visibility must be community, public, private, or shared")
 )
 
 type imageBody struct {
@@ -73,7 +82,7 @@ func describeImage(image domain.Image) imageBody {
 		Name:            image.Name,
 		Owner:           image.ProjectID,
 		Status:          image.Status(),
-		Visibility:      fixtureVisibility,
+		Visibility:      image.Visibility,
 		CreatedAt:       image.CreatedAt,
 		UpdatedAt:       image.UpdatedAt,
 		ContainerFormat: optionalImageFormat(image.ContainerFormat),

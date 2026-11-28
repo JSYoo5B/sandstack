@@ -175,8 +175,12 @@ func TestCinderCrossProjectWire(t *testing.T) {
 	donorVolumes := send(http.MethodGet, donorProject+"/volumes/detail", "", donor, http.StatusOK)["volumes"]
 	upload := `{"os-volume_upload_image":{"image_name":"moved"}}`
 	send(http.MethodPost, donorProject+"/volumes/"+fixtureVolumeID+"/action", upload, donor, http.StatusNotFound)
-	send(http.MethodPost, receiverProject+"/volumes/"+fixtureVolumeID+"/action", upload, receiver, http.StatusBadRequest)
+	uploaded := send(http.MethodPost, receiverProject+"/volumes/"+fixtureVolumeID+"/action",
+		upload, receiver, http.StatusAccepted)["os-volume_upload_image"]
 	afterUpload := send(http.MethodGet, receiverProject+"/volumes/"+fixtureVolumeID, "", receiver, http.StatusOK)["volume"]
+	uploadedImage := send(http.MethodGet, imagesPath+"/"+field(uploaded, "image_id"), "", receiver, http.StatusOK)
+	donorImageStatus, _, donorImageBody := request(t, instance, http.MethodGet,
+		imagesPath+"/"+field(uploaded, "image_id"), "", donor)
 
 	assert.Equal(t, fixtureVolumeID, field(accepted, "volume_id"))
 	assert.Equal(t, "available", field(moved, "status"))
@@ -186,6 +190,9 @@ func TestCinderCrossProjectWire(t *testing.T) {
 	assert.Equal(t, fixtureVolumeID, field(kept, "volume_id"))
 	assert.JSONEq(t, `[]`, string(donorVolumes))
 	assert.Equal(t, "available", field(afterUpload, "status"))
+	assert.Equal(t, "shared", field(uploaded, "visibility"))
+	assert.Equal(t, http.StatusNotFound, donorImageStatus, "%s", donorImageBody)
+	assert.JSONEq(t, `"`+receiverProjectID+`"`, string(uploadedImage["owner"]))
 
 	send(http.MethodPost, "/_sandstack/reset", "", admin, http.StatusNoContent)
 	donor = map[string]string{"X-Auth-Token": authenticate(t, instance).Token()}

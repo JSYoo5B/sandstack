@@ -38,7 +38,7 @@ var imageSchema = schemaBody{
 		"name":             {Type: []string{"null", "string"}, MaxLength: maxImageTextLength},
 		"owner":            {Type: []string{"null", "string"}, MaxLength: 255},
 		"status":           {Type: "string", ReadOnly: true, Enum: []any{"queued", "active", "deactivated"}},
-		"visibility":       {Type: "string", Enum: []any{fixtureVisibility}},
+		"visibility":       {Type: "string", Enum: []any{"community", "public", "private", "shared"}},
 		"created_at":       {Type: "string", ReadOnly: true},
 		"updated_at":       {Type: "string", ReadOnly: true},
 		"container_format": {Type: []string{"null", "string"}, Enum: []any{nil, fixtureContainerFormat}},

@@ -152,6 +152,6 @@ func describeUploadedImage(uploaded app.UploadedImage) uploadImageBody {
 		DiskFormat:      image.DiskFormat,
 		ImageName:       image.Name,
 		Protected:       image.Protected,
-		Visibility:      "private",
+		Visibility:      image.Visibility,
 	}
 }

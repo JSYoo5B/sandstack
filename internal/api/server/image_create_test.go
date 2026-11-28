@@ -113,7 +113,7 @@ func TestGlanceQueuedImageCreateWire(t *testing.T) {
 	assert.NotEqual(t, fixtureImageID, id)
 	assert.JSONEq(t, `"queued wire image"`, string(created["name"]))
 	assert.JSONEq(t, `"queued"`, string(created["status"]))
-	assert.JSONEq(t, `"private"`, string(created["visibility"]))
+	assert.JSONEq(t, `"shared"`, string(created["visibility"]))
 	expectedOwner, err := json.Marshal(volumeProjectID(t, provider))
 	require.NoError(t, err)
 	assert.JSONEq(t, string(expectedOwner), string(created["owner"]))

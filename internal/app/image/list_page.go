@@ -8,10 +8,12 @@ import (
 )
 
 type ListFilter struct {
-	IDs    map[string]struct{}
-	Name   *string
-	Status *string
-	Tags   []string
+	IDs          map[string]struct{}
+	Name         *string
+	Status       *string
+	Tags         []string
+	Visibility   *string
+	MemberStatus string
 }
 
 func (f ListFilter) matches(image domain.Image) bool {
@@ -53,7 +55,7 @@ func (s *Service) ListPage(projectID string, filter ListFilter, marker *string, 
 			s.mu.RUnlock()
 			return ImagePage{}, ErrImageNotFound
 		}
-		if projectID != anchor.ProjectID {
+		if !s.visible(projectID, anchor) {
 			s.mu.RUnlock()
 			return ImagePage{}, ErrImageMarkerForbidden
 		}
@@ -63,7 +65,7 @@ func (s *Service) ListPage(projectID string, filter ListFilter, marker *string, 
 		return page, nil
 	}
 	for _, image := range s.images {
-		if projectID == image.ProjectID && (marker == nil || compareImages(image, anchor) > 0) && filter.matches(image) {
+		if (marker == nil || compareImages(image, anchor) > 0) && s.listed(projectID, image, filter) {
 			page.Images = append(page.Images, image)
 		}
 	}

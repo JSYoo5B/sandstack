@@ -3,7 +3,7 @@
 [Image sandbox](image.md)
 
 Use the project token and image ID from the Image sandbox. To test
-upload, first [create a queued image](image.md#create-a-private-queued-image).
+upload, first [create a queued image](image.md#create-a-queued-image).
 
 ## Upload a queued image file
 

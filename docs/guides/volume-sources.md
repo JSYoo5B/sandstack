@@ -7,7 +7,10 @@ Glance image, a Cinder snapshot, or an existing Cinder volume.
 
 ## Create a volume from a Glance image
 
-Use a private `active` image from the same project. Pass its UUID as
+Use an `active` image that the project can see: its own image, a public
+or community image, or an image another project shares with it, as
+described in [Image visibility across
+projects](image.md#image-visibility-across-projects). Pass its UUID as
 `ImageID` in Gophercloud's `volumes.CreateOpts`, and specify the size
 in GiB. Gophercloud sends `imageRef`. A raw request can also use
 `image_id`. The size must cover both the image's stored bytes, rounded

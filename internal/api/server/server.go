@@ -75,6 +75,7 @@ func New(config Config) (http.Handler, error) {
 		ID:              "962a0750-d2e0-4400-88e0-a9ad35758eac",
 		Name:            "fixture-image",
 		ProjectID:       fixture.Project.ID,
+		Visibility:      image.VisibilityPrivate,
 		ContainerFormat: image.ContainerFormatBare,
 		DiskFormat:      image.DiskFormatQCOW2,
 		CreatedAt:       created,

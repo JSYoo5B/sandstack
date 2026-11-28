@@ -30,8 +30,6 @@ func TestCreatedImageRecordsPageAndResetIndependentlyOfSeedData(t *testing.T) {
 	baseline, err := service.Get(seed.ProjectID, seed.ID)
 	require.NoError(t, err)
 	require.NoError(t, service.SetUnavailableDownload(seed.ID, true))
-	_, err = service.Create("foreign", app.CreateOptions{})
-	assert.ErrorIs(t, err, app.ErrImageNotFound)
 	first, err := service.Create(seed.ProjectID, app.CreateOptions{
 		Name: "queued", ContainerFormat: domain.ContainerFormatBare, DiskFormat: domain.DiskFormatQCOW2,
 	})

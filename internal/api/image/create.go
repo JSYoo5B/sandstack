@@ -14,8 +14,7 @@ import (
 const maxImageCreateBody = 64 * 1024
 
 var (
-	errImageCreate  = errors.New("expected a named private image with optional bare container and qcow2 disk formats")
-	errImagePublic  = errors.New("the project member cannot create a public image")
+	errImageCreate  = errors.New("expected a named image with optional bare container and qcow2 disk formats")
 	errImageMinimum = errors.New("image capacity minimums must be nonnegative integers")
 )
 
@@ -38,19 +37,15 @@ func (h handler) createImage(w http.ResponseWriter, r *http.Request, projectID s
 		return
 	}
 	options, err := parseImageCreate(data)
-	switch {
-	case errors.Is(err, errImagePublic):
-		http.Error(w, err.Error(), http.StatusForbidden)
-		return
-	case err != nil:
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	image, err := h.service.Create(projectID, options)
 	switch {
-	case errors.Is(err, app.ErrImageNotFound):
-		http.Error(w, "The image project could not be found.", http.StatusNotFound)
+	case errors.Is(err, app.ErrImagePublicize):
+		http.Error(w, "The project member cannot create a public image.", http.StatusForbidden)
 	case err != nil:
 		http.Error(w, "Unable to create the image.", http.StatusInternalServerError)
 	default:
@@ -66,7 +61,6 @@ func parseImageCreate(data []byte) (app.CreateOptions, error) {
 		return app.CreateOptions{}, errImageCreate
 	}
 	var options app.CreateOptions
-	var public bool
 	for field, raw := range fields {
 		switch field {
 		case "protected":
@@ -99,10 +93,10 @@ func parseImageCreate(data []byte) (app.CreateOptions, error) {
 			}
 			options.Name = *value
 		case "visibility":
-			if value == nil || (*value != fixtureVisibility && *value != "public") {
-				return app.CreateOptions{}, errImageCreate
+			if value == nil || !imageVisibilities[*value] {
+				return app.CreateOptions{}, errImageVisibility
 			}
-			public = *value == "public"
+			options.Visibility = *value
 		case "container_format":
 			if value != nil && *value != fixtureContainerFormat {
 				return app.CreateOptions{}, errImageCreate
@@ -123,9 +117,6 @@ func parseImageCreate(data []byte) (app.CreateOptions, error) {
 	}
 	if options.Name == "" {
 		return app.CreateOptions{}, errImageCreate
-	}
-	if public {
-		return app.CreateOptions{}, errImagePublic
 	}
 	return options, nil
 }

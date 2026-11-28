@@ -21,7 +21,8 @@ func (s *Service) CreateVolumeImage(projectID string, template domain.Image) (do
 	if template.DiskFormat != "" && !slices.Contains(supportedDiskFormats, template.DiskFormat) {
 		return domain.Image{}, ErrImageFormat
 	}
-	return s.CreateSnapshot(projectID, template)
+	template.Visibility = domain.VisibilityShared
+	return s.createQueued(projectID, template)
 }
 
 func (s *Service) UploadImageData(projectID, imageID, sourceImageID string) error {

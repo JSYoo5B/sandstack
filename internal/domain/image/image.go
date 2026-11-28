@@ -8,11 +8,19 @@ const (
 	DiskFormatRaw       = "raw"
 )
 
+const (
+	VisibilityPublic    = "public"
+	VisibilityCommunity = "community"
+	VisibilityShared    = "shared"
+	VisibilityPrivate   = "private"
+)
+
 type Image struct {
 	ID              string
 	Name            string
 	Tags            []string
 	ProjectID       string
+	Visibility      string
 	Size            int64
 	Checksum        string
 	CreatedAt       time.Time

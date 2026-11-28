@@ -19,7 +19,7 @@ const maxImagePatchBody = 64 * 1024
 const maxImageTextLength = 255
 const maxImageTags = 128
 
-var errImagePatch = errors.New("expected one replace operation for /name, /tags, or /protected")
+var errImagePatch = errors.New("expected one replace operation for /name, /tags, /protected, or /visibility")
 var errImageName = errors.New("the image name must be a string of up to 255 characters")
 var errImageTags = errors.New("image tags must be an array of strings of up to 255 characters each")
 var errImageTagLimit = errors.New("the image tag count exceeds the limit of 128")
@@ -55,6 +55,10 @@ func (h handler) updateImage(w http.ResponseWriter, r *http.Request, projectID s
 	switch {
 	case errors.Is(err, app.ErrImageNotFound):
 		http.Error(w, "Image not found.", http.StatusNotFound)
+	case errors.Is(err, app.ErrImageForbidden):
+		http.Error(w, "You are not permitted to modify this image.", http.StatusForbidden)
+	case errors.Is(err, app.ErrImagePublicize):
+		http.Error(w, "The project member cannot make an image public.", http.StatusForbidden)
 	case err != nil:
 		http.Error(w, "Unable to update image.", http.StatusInternalServerError)
 	default:
@@ -89,6 +93,12 @@ func parseImagePatch(data []byte) (app.ImageUpdate, error) {
 	case "/protected":
 		protected, err := parseImageProtected(fields["value"])
 		return app.ImageUpdate{Protected: protected}, err
+	case "/visibility":
+		var visibility *string
+		if json.Unmarshal(fields["value"], &visibility) != nil || visibility == nil || !imageVisibilities[*visibility] {
+			return app.ImageUpdate{}, errImageVisibility
+		}
+		return app.ImageUpdate{Visibility: visibility}, nil
 	default:
 		return app.ImageUpdate{}, errImagePatch
 	}

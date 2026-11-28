@@ -31,7 +31,7 @@ type Service struct {
 	downloadUnavailable bool
 }
 
-// New starts a service with one private image and a non-nil clock.
+// New starts a service with one seed image and a non-nil clock.
 // The generator supplies lowercase UUIDs for created images.
 func New(seed domain.Image, now func() time.Time, data string, newID func() string) *Service {
 	seed.Tags = normalizeTags(seed.Tags)
@@ -49,26 +49,27 @@ func (s *Service) Get(projectID, imageID string) (domain.Image, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	image, ok := s.images[imageID]
-	if !ok || projectID != image.ProjectID {
-		return domain.Image{}, ErrImageNotFound
+	image, err := s.visibleImage(projectID, imageID)
+	if err != nil {
+		return domain.Image{}, err
 	}
 	return snapshot(image), nil
 }
 
 type ImageUpdate struct {
-	Name      *string
-	Tags      []string
-	Protected *bool
+	Name       *string
+	Tags       []string
+	Protected  *bool
+	Visibility *string
 }
 
 func (s *Service) Update(projectID, imageID string, changes ImageUpdate) (domain.Image, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	current, ok := s.images[imageID]
-	if !ok || projectID != current.ProjectID {
-		return domain.Image{}, ErrImageNotFound
+	current, err := s.ownedImage(projectID, imageID)
+	if err != nil {
+		return domain.Image{}, err
 	}
 	image := current
 	if changes.Name != nil {
@@ -80,7 +81,14 @@ func (s *Service) Update(projectID, imageID string, changes ImageUpdate) (domain
 	if changes.Protected != nil {
 		image.Protected = *changes.Protected
 	}
-	if image.Name != current.Name || !slices.Equal(image.Tags, current.Tags) || image.Protected != current.Protected {
+	if changes.Visibility != nil {
+		if err := checkVisibility(*changes.Visibility); err != nil {
+			return domain.Image{}, err
+		}
+		image.Visibility = *changes.Visibility
+	}
+	if image.Name != current.Name || !slices.Equal(image.Tags, current.Tags) ||
+		image.Protected != current.Protected || image.Visibility != current.Visibility {
 		image.UpdatedAt = s.now().UTC()
 		s.images[imageID] = image
 		return snapshot(image), nil
@@ -93,9 +101,9 @@ func (s *Service) Delete(projectID, imageID string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	image, ok := s.images[imageID]
-	if !ok || projectID != image.ProjectID {
-		return ErrImageNotFound
+	image, err := s.ownedImage(projectID, imageID)
+	if err != nil {
+		return err
 	}
 	if image.Protected {
 		return ErrImageProtected
@@ -140,9 +148,9 @@ func (s *Service) Download(projectID, imageID string) (data string, checksum str
 
 // checkDownload validates the current image with the lock held.
 func (s *Service) checkDownload(projectID, imageID string) (domain.Image, error) {
-	image, ok := s.images[imageID]
-	if !ok || projectID != image.ProjectID {
-		return domain.Image{}, ErrImageNotFound
+	image, err := s.visibleImage(projectID, imageID)
+	if err != nil {
+		return domain.Image{}, err
 	}
 	if image.Deactivated {
 		return domain.Image{}, ErrImageDeactivated

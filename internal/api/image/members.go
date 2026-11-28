@@ -83,6 +83,10 @@ func (h handler) addMember(w http.ResponseWriter, r *http.Request, projectID str
 
 func (h handler) showMember(w http.ResponseWriter, r *http.Request, projectID string) {
 	member, err := h.service.GetMember(projectID, chi.URLParam(r, "imageID"), chi.URLParam(r, "memberID"))
+	if errors.Is(err, app.ErrMemberVisibility) {
+		http.Error(w, "Only shared images have members.", http.StatusNotFound)
+		return
+	}
 	if err != nil {
 		writeMemberError(w, err)
 		return
@@ -147,8 +151,10 @@ func writeMemberError(w http.ResponseWriter, err error) {
 		http.Error(w, "The member is already associated with the image.", http.StatusConflict)
 	case errors.Is(err, app.ErrMemberLimit):
 		http.Error(w, "The image member count exceeds the limit of 128.", http.StatusRequestEntityTooLarge)
+	case errors.Is(err, app.ErrMemberVisibility):
+		http.Error(w, "Only shared images have members.", http.StatusForbidden)
 	case errors.Is(err, app.ErrMemberForbidden):
-		http.Error(w, "Not allowed to update members for the image.", http.StatusForbidden)
+		http.Error(w, "Not allowed to change members for the image.", http.StatusForbidden)
 	case errors.Is(err, app.ErrMemberStatus):
 		http.Error(w, `Status must be "pending", "accepted" or "rejected".`, http.StatusBadRequest)
 	default:

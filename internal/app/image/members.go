@@ -11,11 +11,12 @@ import (
 const MaxImageMembers = 128
 
 var (
-	ErrMemberNotFound  = errors.New("image member not found")
-	ErrMemberExists    = errors.New("image member already exists")
-	ErrMemberForbidden = errors.New("image member status can be changed only by the member")
-	ErrMemberLimit     = errors.New("image member limit exceeded")
-	ErrMemberStatus    = errors.New("image member status must be pending, accepted, or rejected")
+	ErrMemberNotFound   = errors.New("image member not found")
+	ErrMemberExists     = errors.New("image member already exists")
+	ErrMemberForbidden  = errors.New("the project is not allowed to change this image member")
+	ErrMemberVisibility = errors.New("only shared images have members")
+	ErrMemberLimit      = errors.New("image member limit exceeded")
+	ErrMemberStatus     = errors.New("image member status must be pending, accepted, or rejected")
 )
 
 // AddMember shares an owned image with a project in the pending state.
@@ -23,8 +24,12 @@ func (s *Service) AddMember(projectID, imageID, memberID string) (domain.Member,
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if _, err := s.ownedImage(projectID, imageID); err != nil {
+	image, err := s.sharedImage(projectID, imageID)
+	if err != nil {
 		return domain.Member{}, err
+	}
+	if projectID != image.ProjectID {
+		return domain.Member{}, ErrMemberForbidden
 	}
 	members := s.members[imageID]
 	if len(members) >= MaxImageMembers {
@@ -53,12 +58,15 @@ func (s *Service) ListMembers(projectID, imageID string) ([]domain.Member, error
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	if _, err := s.ownedImage(projectID, imageID); err != nil {
+	image, err := s.sharedImage(projectID, imageID)
+	if err != nil {
 		return nil, err
 	}
 	members := make([]domain.Member, 0, len(s.members[imageID]))
 	for _, member := range s.members[imageID] {
-		members = append(members, member)
+		if projectID == image.ProjectID || projectID == member.MemberID {
+			members = append(members, member)
+		}
 	}
 	slices.SortFunc(members, func(a, b domain.Member) int {
 		if order := a.CreatedAt.Compare(b.CreatedAt); order != 0 {
@@ -73,7 +81,8 @@ func (s *Service) GetMember(projectID, imageID, memberID string) (domain.Member,
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	return s.member(projectID, imageID, memberID)
+	_, member, err := s.member(projectID, imageID, memberID)
+	return member, err
 }
 
 // UpdateMember lets only the member project change its own status.
@@ -81,11 +90,11 @@ func (s *Service) UpdateMember(projectID, imageID, memberID, status string) (dom
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	member, err := s.member(projectID, imageID, memberID)
+	image, member, err := s.member(projectID, imageID, memberID)
 	if err != nil {
 		return domain.Member{}, err
 	}
-	if projectID != member.MemberID {
+	if projectID == image.ProjectID {
 		return domain.Member{}, ErrMemberForbidden
 	}
 	switch status {
@@ -105,30 +114,38 @@ func (s *Service) RemoveMember(projectID, imageID, memberID string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if _, err := s.member(projectID, imageID, memberID); err != nil {
+	image, _, err := s.member(projectID, imageID, memberID)
+	if err != nil {
 		return err
+	}
+	if projectID != image.ProjectID {
+		return ErrMemberForbidden
 	}
 	delete(s.members[imageID], memberID)
 	return nil
 }
 
 // member runs with the lock held.
-func (s *Service) member(projectID, imageID, memberID string) (domain.Member, error) {
-	if _, err := s.ownedImage(projectID, imageID); err != nil {
-		return domain.Member{}, err
+func (s *Service) member(projectID, imageID, memberID string) (domain.Image, domain.Member, error) {
+	image, err := s.sharedImage(projectID, imageID)
+	if err != nil {
+		return domain.Image{}, domain.Member{}, err
 	}
 	member, ok := s.members[imageID][memberID]
-	if !ok {
-		return domain.Member{}, ErrMemberNotFound
+	if !ok || (projectID != image.ProjectID && projectID != memberID) {
+		return domain.Image{}, domain.Member{}, ErrMemberNotFound
 	}
-	return member, nil
+	return image, member, nil
 }
 
-// ownedImage runs with the lock held.
-func (s *Service) ownedImage(projectID, imageID string) (domain.Image, error) {
-	image, ok := s.images[imageID]
-	if !ok || projectID != image.ProjectID {
-		return domain.Image{}, ErrImageNotFound
+// sharedImage runs with the lock held.
+func (s *Service) sharedImage(projectID, imageID string) (domain.Image, error) {
+	image, err := s.visibleImage(projectID, imageID)
+	if err != nil {
+		return domain.Image{}, err
+	}
+	if image.Visibility != domain.VisibilityShared {
+		return domain.Image{}, ErrMemberVisibility
 	}
 	return image, nil
 }
