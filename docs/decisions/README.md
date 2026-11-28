@@ -15,6 +15,7 @@ changes through a new record that supersedes the old one.
 | [0007](0007-dependency-policy.md) | Dependency policy | Accepted |
 | [0008](0008-implementation-scope.md) | Implementation scope | Accepted |
 | [0009](0009-verification-policy.md) | Verification policy | Accepted |
+| [0010](0010-interim-fixture-projects.md) | Interim fixture projects from configuration | Accepted (interim) |
 
 ## Not Carried Over
 
