@@ -8,9 +8,11 @@ same `block-storage` endpoint, which is the path Gophercloud v2.15.0's
 `transfers` package calls. SandStack serves the Cinder v3.0 behavior.
 See the [Cinder transfer controller] and [Gophercloud transfer URLs].
 
-The [Identity fixture](identity.md) has one project. In Cinder, the
-accepting project becomes the owner of the volume. In SandStack, the only
-project that can accept a transfer is the one that created it, so accept
+Only the primary [Identity fixture](identity.md) project has Block Storage
+access. [Additional fixture](identity.md#additional-fixtures) projects
+receive `404` for transfers. In Cinder, the accepting project becomes the
+owner of the volume. In SandStack, the only project that can accept a
+transfer is the one that created it, so accept
 leaves the owner unchanged. Cinder does not reject a transfer accepted
 by the project that created it. See the [Cinder transfer acceptance].
 
@@ -97,9 +99,8 @@ fixture volume.
 ## Omissions
 
 - Accept does not move the volume, its snapshots, or quota usage to
-  another project or user, since the fixture has one project and one
-  user. A token for another project cannot reach the Block Storage
-  endpoint.
+  another project or user, since only the primary fixture project has
+  Block Storage access. A token for another project receives `404`.
 - SandStack does not serve the `volume-transfers` resource, which Cinder
   documents for microversion 3.55 and later. Gophercloud v2.15.0 does
   not call it.

@@ -393,19 +393,24 @@ func assertClientUnauthorized(t *testing.T, client *gophercloud.ServiceClient) {
 	assert.True(t, gophercloud.ResponseCodeIs(err, http.StatusUnauthorized), "%v", err)
 }
 
-func startServer(t *testing.T, publicURL string) *httptest.Server {
+func startServer(t *testing.T, publicURL string, fixtures ...server.Fixture) *httptest.Server {
 	t.Helper()
-	handler, err := server.New(server.Config{
+	handler, err := server.New(testConfig(publicURL, fixtures...))
+	require.NoError(t, err)
+	instance := httptest.NewServer(handler)
+	t.Cleanup(instance.Close)
+	return instance
+}
+
+func testConfig(publicURL string, fixtures ...server.Fixture) server.Config {
+	return server.Config{
 		Username:    username,
 		Password:    password,
 		ProjectName: projectName,
 		AdminToken:  adminToken,
 		PublicURL:   publicURL,
-	})
-	require.NoError(t, err)
-	instance := httptest.NewServer(handler)
-	t.Cleanup(instance.Close)
-	return instance
+		Fixtures:    fixtures,
+	}
 }
 
 func request(

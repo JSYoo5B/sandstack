@@ -11,6 +11,7 @@ const sweepInterval = time.Minute
 
 type token struct {
 	expiresAt    time.Time
+	userID       string
 	credentialID string
 }
 
@@ -24,7 +25,7 @@ func New() *Tokens {
 	return &Tokens{tokens: make(map[string]token)}
 }
 
-func (t *Tokens) Save(id string, issuedAt, expiresAt time.Time, credentialID string) {
+func (t *Tokens) Save(id string, issuedAt, expiresAt time.Time, userID, credentialID string) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
@@ -36,19 +37,19 @@ func (t *Tokens) Save(id string, issuedAt, expiresAt time.Time, credentialID str
 		}
 		t.nextSweep = issuedAt.Add(sweepInterval)
 	}
-	t.tokens[id] = token{expiresAt: expiresAt, credentialID: credentialID}
+	t.tokens[id] = token{expiresAt: expiresAt, userID: userID, credentialID: credentialID}
 }
 
-func (t *Tokens) Lookup(id string, now time.Time) (string, bool) {
+func (t *Tokens) Lookup(id string, now time.Time) (userID, credentialID string, valid bool) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
 	record, exists := t.tokens[id]
 	if exists && !now.Before(record.expiresAt) {
 		delete(t.tokens, id)
-		return "", false
+		return "", "", false
 	}
-	return record.credentialID, exists
+	return record.userID, record.credentialID, exists
 }
 
 func (t *Tokens) Remove(id string) {

@@ -48,8 +48,9 @@ membership otherwise. `updated_at` changes only when the status changes.
 A missing `status` returns `400`. See the [Glance member status] and the
 [Glance member lifecycle test].
 
-The identity fixture has one project, so the owner's token is the only
-token available. Image API v2.0 lets an owner add its own project as a
+A token from an [additional fixture](identity.md#additional-fixtures)
+project cannot yet read an image shared with it or change its membership,
+and receives `404`. Image API v2.0 lets an owner add its own project as a
 member, and then that token can change the membership status. Use this
 self-membership to exercise the successful status update path.
 

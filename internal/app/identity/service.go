@@ -14,20 +14,25 @@ import (
 
 var (
 	ErrInvalidCredentials = errors.New("invalid identity credentials")
+	ErrNoProjectAccess    = errors.New("user has no access to the project")
 	ErrInvalidToken       = errors.New("invalid identity token")
 	ErrTokenGeneration    = errors.New("identity token generation failed")
 )
 
 type TokenStore interface {
-	Save(id string, issuedAt, expiresAt time.Time, credentialID string)
-	Lookup(id string, now time.Time) (credentialID string, valid bool)
+	Save(id string, issuedAt, expiresAt time.Time, userID, credentialID string)
+	Lookup(id string, now time.Time) (userID, credentialID string, valid bool)
 	Remove(id string)
 	Clear()
 }
 
+type account struct {
+	fixture  domain.Fixture
+	password string
+}
+
 type Service struct {
-	fixture     domain.Fixture
-	password    string
+	accounts    []account
 	ttl         time.Duration
 	now         func() time.Time
 	generate    func() string
@@ -54,8 +59,7 @@ func New(
 	entropy io.Reader,
 ) *Service {
 	return &Service{
-		fixture:     fixture,
-		password:    password,
+		accounts:    []account{{fixture: fixture, password: password}},
 		ttl:         ttl,
 		now:         now,
 		generate:    generate,
@@ -65,19 +69,29 @@ func New(
 	}
 }
 
+func (s *Service) WithFixture(fixture domain.Fixture, password string) *Service {
+	s.accounts = append(s.accounts, account{fixture: fixture, password: password})
+	return s
+}
+
 func (s *Service) Authenticate(credentials domain.Credentials) (domain.Token, error) {
-	user, project := s.fixture.User, s.fixture.Project
-	if credentials.Password == "" ||
-		subtle.ConstantTimeCompare([]byte(credentials.Password), []byte(s.password)) != 1 ||
-		!matches(credentials.User, user.ID, user.Name, user.Domain) ||
-		!matches(credentials.Project, project.ID, project.Name, project.Domain) {
+	current, found := s.accountForUser(credentials.User)
+	if !found || credentials.Password == "" ||
+		subtle.ConstantTimeCompare([]byte(credentials.Password), []byte(current.password)) != 1 {
 		return domain.Token{}, ErrInvalidCredentials
+	}
+	project, found := s.project(credentials.Project)
+	if !found {
+		return domain.Token{}, ErrInvalidCredentials
+	}
+	if project.ID != current.fixture.Project.ID {
+		return domain.Token{}, ErrNoProjectAccess
 	}
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	return s.issue(nil)
+	return s.issue(current.fixture, nil)
 }
 
 func (s *Service) AuthenticateApplicationCredential(auth domain.ApplicationCredentialAuth) (domain.Token, error) {
@@ -85,18 +99,22 @@ func (s *Service) AuthenticateApplicationCredential(auth domain.ApplicationCrede
 	defer s.mu.Unlock()
 
 	var credential domain.ApplicationCredential
+	var owner account
 	if auth.ID != "" {
 		var exists bool
 		credential, exists = s.credentials.Get(auth.ID)
 		if !exists {
 			return domain.Token{}, ErrApplicationCredentialNotFound
 		}
-	} else {
-		user := s.fixture.User
-		if !matches(auth.User, user.ID, user.Name, user.Domain) {
+		if owner, exists = s.accountForUserID(credential.UserID); !exists {
 			return domain.Token{}, ErrInvalidCredentials
 		}
-		named := s.credentials.List(user.ID, auth.Name)
+	} else {
+		var found bool
+		if owner, found = s.accountForUser(auth.User); !found {
+			return domain.Token{}, ErrInvalidCredentials
+		}
+		named := s.credentials.List(owner.fixture.User.ID, auth.Name)
 		if len(named) != 1 {
 			return domain.Token{}, ErrInvalidCredentials
 		}
@@ -106,10 +124,10 @@ func (s *Service) AuthenticateApplicationCredential(auth domain.ApplicationCrede
 		(credential.ExpiresAt != nil && !s.now().Before(*credential.ExpiresAt)) {
 		return domain.Token{}, ErrInvalidCredentials
 	}
-	return s.issue(&credential)
+	return s.issue(owner.fixture, &credential)
 }
 
-func (s *Service) issue(credential *domain.ApplicationCredential) (domain.Token, error) {
+func (s *Service) issue(fixture domain.Fixture, credential *domain.ApplicationCredential) (domain.Token, error) {
 	if s.sequence == math.MaxUint64 {
 		return domain.Token{}, ErrTokenGeneration
 	}
@@ -130,13 +148,13 @@ func (s *Service) issue(credential *domain.ApplicationCredential) (domain.Token,
 			expiresAt = *credential.ExpiresAt
 		}
 	}
-	s.store.Save(id, issuedAt, expiresAt, credentialID)
+	s.store.Save(id, issuedAt, expiresAt, fixture.User.ID, credentialID)
 	return domain.Token{
 		ID:                    id,
 		AuditID:               auditID,
 		IssuedAt:              issuedAt,
 		ExpiresAt:             expiresAt,
-		Fixture:               s.fixture,
+		Fixture:               fixture,
 		ApplicationCredential: credential,
 	}, nil
 }
@@ -181,6 +199,7 @@ func (s *Service) Reset() {
 type session struct {
 	userID     string
 	projectID  string
+	role       domain.Role
 	credential *domain.ApplicationCredential
 }
 
@@ -189,11 +208,17 @@ func (s session) restricted() bool {
 }
 
 func (s *Service) session(token string) (session, error) {
-	credentialID, valid := s.store.Lookup(token, s.now())
+	userID, credentialID, valid := s.store.Lookup(token, s.now())
 	if !valid {
 		return session{}, ErrInvalidToken
 	}
-	current := session{userID: s.fixture.User.ID, projectID: s.fixture.Project.ID}
+	owner, found := s.accountForUserID(userID)
+	if !found {
+		s.store.Remove(token)
+		return session{}, ErrInvalidToken
+	}
+	fixture := owner.fixture
+	current := session{userID: fixture.User.ID, projectID: fixture.Project.ID, role: fixture.Role}
 	if credentialID != "" {
 		credential, exists := s.credentials.Get(credentialID)
 		if !exists {
@@ -211,6 +236,35 @@ func (s *Service) InvalidateToken(token string) {
 	defer s.mu.Unlock()
 
 	s.store.Remove(token)
+}
+
+func (s *Service) accountForUser(selector domain.Selector) (account, bool) {
+	for _, candidate := range s.accounts {
+		user := candidate.fixture.User
+		if matches(selector, user.ID, user.Name, user.Domain) {
+			return candidate, true
+		}
+	}
+	return account{}, false
+}
+
+func (s *Service) accountForUserID(userID string) (account, bool) {
+	for _, candidate := range s.accounts {
+		if candidate.fixture.User.ID == userID {
+			return candidate, true
+		}
+	}
+	return account{}, false
+}
+
+func (s *Service) project(selector domain.Selector) (domain.Project, bool) {
+	for _, candidate := range s.accounts {
+		project := candidate.fixture.Project
+		if matches(selector, project.ID, project.Name, project.Domain) {
+			return project, true
+		}
+	}
+	return domain.Project{}, false
 }
 
 func matches(selector domain.Selector, id, name string, namespace domain.Domain) bool {

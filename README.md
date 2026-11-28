@@ -31,7 +31,12 @@ go run ./cmd/sandstack
 
 It listens on `127.0.0.1:8080` by default. Use
 `http://127.0.0.1:8080/identity/v3` as the Identity URL with domain `Default`
-for the user and project. The [Identity guide](docs/guides/identity.md)
+for the user and project. For scenarios that cross a project boundary, add
+users with their own projects through numbered variables such as
+`SANDSTACK_FIXTURE_1_USERNAME`, `SANDSTACK_FIXTURE_1_PASSWORD`, and
+`SANDSTACK_FIXTURE_1_PROJECT`, as described in
+[Additional fixtures](docs/guides/identity.md#additional-fixtures).
+The [Identity guide](docs/guides/identity.md)
 covers token invalidation, reauthentication, and
 [application credentials](docs/guides/identity-application-credentials.md). The
 [Compute guide](docs/guides/compute.md) covers Nova server operations and

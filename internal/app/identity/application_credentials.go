@@ -50,7 +50,7 @@ func (s *Service) CreateApplicationCredential(
 	if userID != session.userID || session.restricted() {
 		return domain.ApplicationCredential{}, "", ErrForbidden
 	}
-	roles, err := s.credentialRoles(request.Roles)
+	roles, err := credentialRoles(session.role, request.Roles)
 	if err != nil {
 		return domain.ApplicationCredential{}, "", err
 	}
@@ -157,8 +157,7 @@ func (s *Service) ownedCredential(token, userID, id string) (session, domain.App
 	return current, credential, nil
 }
 
-func (s *Service) credentialRoles(selectors []domain.Selector) ([]domain.Role, error) {
-	role := s.fixture.Role
+func credentialRoles(role domain.Role, selectors []domain.Selector) ([]domain.Role, error) {
 	for _, selector := range selectors {
 		switch {
 		case selector.ID != "" && selector.ID != role.ID:

@@ -82,6 +82,9 @@ func (h handler) issueToken(w http.ResponseWriter, r *http.Request) {
 	case errors.Is(err, appidentity.ErrInvalidCredentials):
 		h.writeError(w, r, http.StatusUnauthorized, "Invalid authentication credentials or project scope.")
 		return
+	case errors.Is(err, appidentity.ErrNoProjectAccess):
+		h.writeError(w, r, http.StatusUnauthorized, "The request you have made requires authentication.")
+		return
 	case errors.Is(err, appidentity.ErrApplicationCredentialNotFound):
 		h.writeError(w, r, http.StatusNotFound,
 			"Could not find Application Credential: "+grant.applicationCredential.ID+".")
@@ -114,7 +117,7 @@ func (h handler) issueToken(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if !r.URL.Query().Has("nocatalog") {
-		response.Token.Catalog = h.catalog(r)
+		response.Token.Catalog = h.catalog(r, project.ID)
 	}
 
 	w.Header().Set("X-Subject-Token", token.ID)

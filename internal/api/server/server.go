@@ -2,6 +2,7 @@ package server
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
@@ -58,6 +59,17 @@ func New(config Config) (http.Handler, error) {
 		fixture, config.Password, time.Hour, now, randomID, memoryidentity.New(),
 		memoryidentity.NewApplicationCredentials(), rand.Reader,
 	)
+	for _, additional := range config.Fixtures {
+		identityService.WithFixture(identity.Fixture{
+			User: identity.User{
+				ID: fixtureID("user", additional.Username), Name: additional.Username, Domain: domain,
+			},
+			Project: identity.Project{
+				ID: fixtureID("project", additional.ProjectName), Name: additional.ProjectName, Domain: domain,
+			},
+			Role: fixture.Role,
+		}, additional.Password)
+	}
 	created := now().UTC()
 	imageFixture := image.Image{
 		ID:              "962a0750-d2e0-4400-88e0-a9ad35758eac",
@@ -130,11 +142,12 @@ func New(config Config) (http.Handler, error) {
 		return resolveEndpointURL(publicURL, r, path)
 	}
 	apiidentity.Register(services, identityService, endpointURL, apiidentity.CatalogEntry{
-		ServiceID:  "f1746a2a9de3473aa728b42dd5da3c7d",
-		EndpointID: "8adbd297bb4a4551a7fe5676a5fece03",
-		Type:       "compute",
-		Name:       "nova",
-		Path:       apicompute.Path + "/" + fixture.Project.ID,
+		ServiceID:     "f1746a2a9de3473aa728b42dd5da3c7d",
+		EndpointID:    "8adbd297bb4a4551a7fe5676a5fece03",
+		Type:          "compute",
+		Name:          "nova",
+		Path:          apicompute.Path,
+		ProjectScoped: true,
 	}, apiidentity.CatalogEntry{
 		ServiceID:  "930ac12606054fe897303ea77383770c",
 		EndpointID: "6fd74ac16c5246e1bc9a765172237049",
@@ -148,11 +161,12 @@ func New(config Config) (http.Handler, error) {
 		Name:       "glance",
 		Path:       apiimage.CatalogPath,
 	}, apiidentity.CatalogEntry{
-		ServiceID:  "2913d077918c4299aac9f4bbdbe7d993",
-		EndpointID: "0f336234de5b4d42b7fd18b895c21438",
-		Type:       "block-storage",
-		Name:       "cinder",
-		Path:       apivolume.Path + "/" + fixture.Project.ID,
+		ServiceID:     "2913d077918c4299aac9f4bbdbe7d993",
+		EndpointID:    "0f336234de5b4d42b7fd18b895c21438",
+		Type:          "block-storage",
+		Name:          "cinder",
+		Path:          apivolume.Path,
+		ProjectScoped: true,
 	})
 	servers := appcompute.NewServers(
 		computeService, imageService, networkService, volumeService, keyPairs, randomUUID, randomPassword,
@@ -174,6 +188,11 @@ func New(config Config) (http.Handler, error) {
 		func(r chi.Router) { registerRequestJournal(r, journal) },
 	)
 	return router, nil
+}
+
+func fixtureID(kind, name string) string {
+	digest := sha256.Sum256([]byte("sandstack-fixture-" + kind + "\x00" + name))
+	return hex.EncodeToString(digest[:16])
 }
 
 func resolveEndpointURL(origin *url.URL, r *http.Request, path string) string {

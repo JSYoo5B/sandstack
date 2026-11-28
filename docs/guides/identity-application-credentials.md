@@ -2,11 +2,14 @@
 
 [Identity sandbox](identity.md)
 
-Use application credentials to test a job that authenticates without the
+Use application credentials to test a job that authenticates without a
 fixture user's password. The job creates a credential with its
 password-authenticated token, authenticates with the credential ID or name
 and secret, and the credential can later be revoked. Credentials belong to
-the fixture user and live in memory for that server instance.
+the fixture user who created them and live in memory for that server
+instance. Each [additional fixture](identity.md#additional-fixtures) user
+manages only their own credentials, and a token from a credential is scoped
+to its owner's project.
 
 ## Create a credential
 
@@ -32,7 +35,7 @@ random source. See the [Keystone secret generation] and [Keystone secret
 storage].
 
 The credential takes its project from the token scope. Without `roles` it
-receives the token's roles, which is the fixture `member` role. A role ID
+receives the token's roles, which is the `member` role of every fixture. A role ID
 that is not in the token returns `400`, and an unknown role name returns
 `404`. `expires_at` is an ISO 8601 time in UTC, with or without a trailing
 `Z`, such as `2026-12-31T00:00:00.000000`. A time that cannot be parsed or

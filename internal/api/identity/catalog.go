@@ -9,11 +9,12 @@ import (
 
 // CatalogEntry describes a public service endpoint registered in this server.
 type CatalogEntry struct {
-	ServiceID  string
-	EndpointID string
-	Type       string
-	Name       string
-	Path       string
+	ServiceID     string
+	EndpointID    string
+	Type          string
+	Name          string
+	Path          string
+	ProjectScoped bool
 }
 
 type catalogService struct {
@@ -40,9 +41,13 @@ type catalogLinks struct {
 	Self string `json:"self"`
 }
 
-func (h handler) catalog(r *http.Request) []catalogService {
+func (h handler) catalog(r *http.Request, projectID string) []catalogService {
 	services := make([]catalogService, 0, len(h.entries))
 	for _, entry := range h.entries {
+		path := entry.Path
+		if entry.ProjectScoped {
+			path += "/" + projectID
+		}
 		services = append(services, catalogService{
 			ID:   entry.ServiceID,
 			Type: entry.Type,
@@ -52,7 +57,7 @@ func (h handler) catalog(r *http.Request) []catalogService {
 				Interface: "public",
 				Region:    "RegionOne",
 				RegionID:  "RegionOne",
-				URL:       h.endpointURL(r, entry.Path),
+				URL:       h.endpointURL(r, path),
 			}},
 		})
 	}
@@ -65,7 +70,8 @@ func (h handler) getCatalog(w http.ResponseWriter, r *http.Request) {
 		h.writeError(w, r, http.StatusUnauthorized, "A valid authentication token is required.")
 		return
 	}
-	if err := h.service.Validate(tokens[0]); err != nil {
+	projectID, err := h.service.ProjectForToken(tokens[0])
+	if err != nil {
 		if errors.Is(err, appidentity.ErrInvalidToken) {
 			h.writeError(w, r, http.StatusUnauthorized, "A valid authentication token is required.")
 			return
@@ -75,7 +81,7 @@ func (h handler) getCatalog(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, r, http.StatusOK, catalogResponse{
-		Catalog: h.catalog(r),
+		Catalog: h.catalog(r, projectID),
 		Links:   catalogLinks{Self: h.endpointURL(r, identityPath+"/auth/catalog")},
 	})
 }

@@ -3,11 +3,15 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net"
 	"net/http"
 	"os"
 	"os/signal"
+	"slices"
+	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -25,12 +29,17 @@ func main() {
 }
 
 func run(ctx context.Context) error {
+	fixtures, err := additionalFixtures(os.Environ())
+	if err != nil {
+		return err
+	}
 	handler, err := server.New(server.Config{
 		Username:    os.Getenv("SANDSTACK_USERNAME"),
 		Password:    os.Getenv("SANDSTACK_PASSWORD"),
 		ProjectName: os.Getenv("SANDSTACK_PROJECT"),
 		AdminToken:  os.Getenv("SANDSTACK_ADMIN_TOKEN"),
 		PublicURL:   os.Getenv("SANDSTACK_PUBLIC_URL"),
+		Fixtures:    fixtures,
 	})
 	if err != nil {
 		return err
@@ -67,4 +76,39 @@ func run(ctx context.Context) error {
 		defer cancel()
 		return httpServer.Shutdown(shutdown)
 	}
+}
+
+const fixturePrefix = "SANDSTACK_FIXTURE_"
+
+var fixtureFields = []string{"USERNAME", "PASSWORD", "PROJECT"}
+
+func additionalFixtures(environ []string) ([]server.Fixture, error) {
+	values := make(map[string]string)
+	count := 0
+	for _, entry := range environ {
+		key, value, _ := strings.Cut(entry, "=")
+		rest, found := strings.CutPrefix(key, fixturePrefix)
+		if !found {
+			continue
+		}
+		index, field, found := strings.Cut(rest, "_")
+		number, err := strconv.Atoi(index)
+		if !found || err != nil || number < 1 || index != strconv.Itoa(number) ||
+			!slices.Contains(fixtureFields, field) {
+			return nil, fmt.Errorf("unsupported fixture variable %s", key)
+		}
+		values[key] = value
+		count = max(count, number)
+	}
+
+	fixtures := make([]server.Fixture, count)
+	for i := range fixtures {
+		prefix := fixturePrefix + strconv.Itoa(i+1) + "_"
+		fixtures[i] = server.Fixture{
+			Username:    values[prefix+"USERNAME"],
+			Password:    values[prefix+"PASSWORD"],
+			ProjectName: values[prefix+"PROJECT"],
+		}
+	}
+	return fixtures, nil
 }
