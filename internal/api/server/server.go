@@ -78,7 +78,7 @@ func New(config Config) (http.Handler, error) {
 		CreatedAt: created,
 		UpdatedAt: created,
 	}, now, randomUUID, imageService)
-	computeService := appcompute.New(compute.Server{
+	serverFixture := compute.Server{
 		ID:        "d8ba25c2-8224-4e09-88ef-fab16c654770",
 		Name:      "fixture-server",
 		ProjectID: fixture.Project.ID,
@@ -86,7 +86,15 @@ func New(config Config) (http.Handler, error) {
 		ImageID:   imageFixture.ID,
 		CreatedAt: created,
 		UpdatedAt: created,
-	}, now, volumeService)
+	}
+	computeService := appcompute.New(serverFixture, now, volumeService, compute.Action{
+		Name:      compute.ActionCreate,
+		ServerID:  serverFixture.ID,
+		RequestID: computeRequestID(),
+		ProjectID: serverFixture.ProjectID,
+		UserID:    serverFixture.UserID,
+		StartTime: created,
+	})
 	keyPairs := appcompute.NewKeyPairs(now, rand.Reader)
 	journal := sandbox.NewRequestJournal(128)
 	state := sandbox.NewState(
@@ -127,7 +135,7 @@ func New(config Config) (http.Handler, error) {
 	})
 	apicompute.Register(
 		services, computeService, appcompute.NewAttachments(computeService, volumeService), keyPairs,
-		identityService.ProjectForToken, identityService.UserForToken, endpointURL,
+		identityService.ProjectForToken, identityService.UserForToken, endpointURL, computeRequestID,
 	)
 	apinetwork.Register(services, networkService, identityService.ProjectForToken, endpointURL)
 	apiimage.Register(services, imageService, identityService.ProjectForToken, endpointURL)
@@ -158,6 +166,10 @@ func randomID() string {
 	var entropy [16]byte
 	rand.Read(entropy[:])
 	return base64.RawURLEncoding.EncodeToString(entropy[:])
+}
+
+func computeRequestID() string {
+	return "req-" + randomUUID()
 }
 
 func randomUUID() string {

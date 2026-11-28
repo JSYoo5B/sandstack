@@ -27,12 +27,12 @@ func TestLockAndUnlockRecordLockState(t *testing.T) {
 		return current.Server
 	}
 
-	assert.ErrorIs(t, service.Lock("foreign", seed.ID), app.ErrServerNotFound)
-	assert.ErrorIs(t, service.Unlock(seed.ProjectID, "other"), app.ErrServerNotFound)
+	assert.ErrorIs(t, service.Lock(app.ActionRequest{ProjectID: "foreign"}, seed.ID), app.ErrServerNotFound)
+	assert.ErrorIs(t, service.Unlock(app.ActionRequest{ProjectID: seed.ProjectID}, "other"), app.ErrServerNotFound)
 	now = start.Add(time.Minute)
-	lockErr := service.Lock(seed.ProjectID, seed.ID)
+	lockErr := service.Lock(app.ActionRequest{ProjectID: seed.ProjectID}, seed.ID)
 	now = start.Add(2 * time.Minute)
-	repeatErr := service.Lock(seed.ProjectID, seed.ID)
+	repeatErr := service.Lock(app.ActionRequest{ProjectID: seed.ProjectID}, seed.ID)
 
 	require.NoError(t, lockErr)
 	require.NoError(t, repeatErr)
@@ -42,9 +42,9 @@ func TestLockAndUnlockRecordLockState(t *testing.T) {
 	assert.Equal(t, locked, read())
 
 	now = start.Add(3 * time.Minute)
-	unlockErr := service.Unlock(seed.ProjectID, seed.ID)
+	unlockErr := service.Unlock(app.ActionRequest{ProjectID: seed.ProjectID}, seed.ID)
 	now = start.Add(4 * time.Minute)
-	repeatUnlockErr := service.Unlock(seed.ProjectID, seed.ID)
+	repeatUnlockErr := service.Unlock(app.ActionRequest{ProjectID: seed.ProjectID}, seed.ID)
 
 	require.NoError(t, unlockErr)
 	require.NoError(t, repeatUnlockErr)
@@ -52,7 +52,7 @@ func TestLockAndUnlockRecordLockState(t *testing.T) {
 	unlocked.UpdatedAt = start.Add(4 * time.Minute)
 	assert.Equal(t, unlocked, read())
 
-	require.NoError(t, service.Lock(seed.ProjectID, seed.ID))
+	require.NoError(t, service.Lock(app.ActionRequest{ProjectID: seed.ProjectID}, seed.ID))
 	service.Reset()
 
 	assert.Equal(t, seed, read())
@@ -67,28 +67,29 @@ func TestLockedServerRejectsGuardedChanges(t *testing.T) {
 	volumes := &recordedAttachments{seededAttachments: seededAttachments{{VolumeID: "volume"}}}
 	service := app.New(seed, func() time.Time { return start.Add(time.Minute) }, volumes)
 	attachments := app.NewAttachments(service, volumes)
-	require.NoError(t, service.Lock(seed.ProjectID, seed.ID))
+	require.NoError(t, service.Lock(app.ActionRequest{ProjectID: seed.ProjectID}, seed.ID))
 	id, project := seed.ID, seed.ProjectID
+	owner := app.ActionRequest{ProjectID: project}
 	name := "renamed"
 
 	guarded := map[string]error{
-		"stop":            service.SetPower(project, id, false),
-		"start":           service.SetPower(project, id, true),
-		"soft reboot":     service.Reboot(project, id, false),
-		"hard reboot":     service.Reboot(project, id, true),
-		"pause":           service.Pause(project, id),
-		"unpause":         service.Unpause(project, id),
-		"suspend":         service.Suspend(project, id),
-		"resume":          service.Resume(project, id),
+		"stop":            service.SetPower(owner, id, false),
+		"start":           service.SetPower(owner, id, true),
+		"soft reboot":     service.Reboot(owner, id, false),
+		"hard reboot":     service.Reboot(owner, id, true),
+		"pause":           service.Pause(owner, id),
+		"unpause":         service.Unpause(owner, id),
+		"suspend":         service.Suspend(owner, id),
+		"resume":          service.Resume(owner, id),
 		"put metadatum":   service.PutMetadatum(project, id, "item", "changed"),
 		"delete item":     service.DeleteMetadatum(project, id, "item"),
-		"detach attached": attachments.Detach(project, id, "volume"),
+		"detach attached": attachments.Detach(owner, id, "volume"),
 	}
 	_, replaceErr := service.ReplaceMetadata(project, id, map[string]string{})
 	_, mergeErr := service.MergeMetadata(project, id, map[string]string{"other": "value"})
-	_, attachErr := attachments.Attach(project, id, "other", "")
+	_, attachErr := attachments.Attach(owner, id, "other", "")
 	missingItemErr := service.DeleteMetadatum(project, id, "missing")
-	missingAttachmentErr := attachments.Detach(project, id, "missing")
+	missingAttachmentErr := attachments.Detach(owner, id, "missing")
 	_, renameErr := service.UpdateName(project, id, &name)
 
 	for action, err := range guarded {
@@ -108,10 +109,10 @@ func TestLockedServerRejectsGuardedChanges(t *testing.T) {
 	assert.Equal(t, map[string]string{"item": "value"}, current.Metadata)
 	assert.Equal(t, name, current.Name)
 
-	require.NoError(t, service.Unlock(project, id))
-	require.NoError(t, service.Pause(project, id))
+	require.NoError(t, service.Unlock(owner, id))
+	require.NoError(t, service.Pause(owner, id))
 	require.NoError(t, service.PutMetadatum(project, id, "item", "changed"))
-	require.NoError(t, attachments.Detach(project, id, "volume"))
+	require.NoError(t, attachments.Detach(owner, id, "volume"))
 
 	paused := domain.StatusPaused
 	assert.Len(t, service.List(project, app.ListFilter{Status: &paused}), 1)

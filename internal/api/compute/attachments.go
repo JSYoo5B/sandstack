@@ -53,7 +53,9 @@ func (h handler) createAttachment(w http.ResponseWriter, r *http.Request, scope 
 		return
 	}
 
-	attachment, err := h.attachments.Attach(scope.projectID, chi.URLParam(r, "serverID"), request.volumeID, request.device)
+	attachment, err := h.attachments.Attach(
+		scope.actionRequest(), chi.URLParam(r, "serverID"), request.volumeID, request.device,
+	)
 	if err != nil {
 		writeAttachmentError(w, err)
 		return
@@ -91,7 +93,9 @@ func (h handler) deleteAttachment(w http.ResponseWriter, r *http.Request, scope 
 		writeFault(w, http.StatusBadRequest, "badRequest", "Detaching a volume requires an empty request body.")
 		return
 	}
-	if err := h.attachments.Detach(scope.projectID, chi.URLParam(r, "serverID"), chi.URLParam(r, "volumeID")); err != nil {
+	if err := h.attachments.Detach(
+		scope.actionRequest(), chi.URLParam(r, "serverID"), chi.URLParam(r, "volumeID"),
+	); err != nil {
 		writeAttachmentError(w, err)
 		return
 	}

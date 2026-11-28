@@ -44,9 +44,9 @@ func TestPauseAndUnpauseAcceptOnlySupportedStates(t *testing.T) {
 				action = service.Unpause
 			}
 
-			assert.ErrorIs(t, action("foreign", seed.ID), app.ErrServerNotFound)
-			assert.ErrorIs(t, action(seed.ProjectID, "other"), app.ErrServerNotFound)
-			err := action(seed.ProjectID, seed.ID)
+			assert.ErrorIs(t, action(app.ActionRequest{ProjectID: "foreign"}, seed.ID), app.ErrServerNotFound)
+			assert.ErrorIs(t, action(app.ActionRequest{ProjectID: seed.ProjectID}, "other"), app.ErrServerNotFound)
+			err := action(app.ActionRequest{ProjectID: seed.ProjectID}, seed.ID)
 
 			assert.ErrorIs(t, err, test.wantErr)
 			want := seed
@@ -66,14 +66,14 @@ func TestPausedServerAllowsMetadataWritesAndRejectsStop(t *testing.T) {
 	start := time.Date(2026, time.November, 25, 1, 2, 3, 0, time.UTC)
 	seed := domain.Server{ID: "server", ProjectID: "project", UpdatedAt: start}
 	service := app.New(seed, func() time.Time { return start.Add(time.Minute) }, nil)
-	require.NoError(t, service.Pause(seed.ProjectID, seed.ID))
+	require.NoError(t, service.Pause(app.ActionRequest{ProjectID: seed.ProjectID}, seed.ID))
 
 	_, replaceErr := service.ReplaceMetadata(seed.ProjectID, seed.ID, map[string]string{"paused": "yes"})
 	putErr := service.PutMetadatum(seed.ProjectID, seed.ID, "item", "value")
 	deleteErr := service.DeleteMetadatum(seed.ProjectID, seed.ID, "paused")
-	stopErr := service.SetPower(seed.ProjectID, seed.ID, false)
-	startErr := service.SetPower(seed.ProjectID, seed.ID, true)
-	softRebootErr := service.Reboot(seed.ProjectID, seed.ID, false)
+	stopErr := service.SetPower(app.ActionRequest{ProjectID: seed.ProjectID}, seed.ID, false)
+	startErr := service.SetPower(app.ActionRequest{ProjectID: seed.ProjectID}, seed.ID, true)
+	softRebootErr := service.Reboot(app.ActionRequest{ProjectID: seed.ProjectID}, seed.ID, false)
 
 	assert.NoError(t, replaceErr)
 	assert.NoError(t, putErr)

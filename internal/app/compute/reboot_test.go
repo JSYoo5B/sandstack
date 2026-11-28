@@ -39,10 +39,10 @@ func TestRebootAcceptsOnlySupportedStates(t *testing.T) {
 				CreatedAt: start, UpdatedAt: start, State: test.state, Fault: test.fault,
 			}
 			service := app.New(seed, func() time.Time { return now }, seededAttachments{{VolumeID: "volume"}})
-			assert.ErrorIs(t, service.Reboot("foreign", seed.ID, test.hard), app.ErrServerNotFound)
-			assert.ErrorIs(t, service.Reboot(seed.ProjectID, "other", test.hard), app.ErrServerNotFound)
+			assert.ErrorIs(t, service.Reboot(app.ActionRequest{ProjectID: "foreign"}, seed.ID, test.hard), app.ErrServerNotFound)
+			assert.ErrorIs(t, service.Reboot(app.ActionRequest{ProjectID: seed.ProjectID}, "other", test.hard), app.ErrServerNotFound)
 
-			err := service.Reboot(seed.ProjectID, seed.ID, test.hard)
+			err := service.Reboot(app.ActionRequest{ProjectID: seed.ProjectID}, seed.ID, test.hard)
 			assert.ErrorIs(t, err, test.wantErr)
 			want := seed
 			if test.wantErr == nil {
@@ -65,7 +65,7 @@ func TestRebootPreservesDetailReadControls(t *testing.T) {
 	require.NoError(t, service.SetStaleDetail(seed.ID, true))
 	require.NoError(t, service.SetUnavailableDetail(seed.ID, true))
 
-	require.NoError(t, service.Reboot(seed.ProjectID, seed.ID, true))
+	require.NoError(t, service.Reboot(app.ActionRequest{ProjectID: seed.ProjectID}, seed.ID, true))
 	active := domain.StatusActive
 	current := service.List(seed.ProjectID, app.ListFilter{Status: &active})
 	require.Len(t, current, 1)

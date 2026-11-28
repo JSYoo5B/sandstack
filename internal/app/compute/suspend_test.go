@@ -48,9 +48,9 @@ func TestSuspendAndResumeAcceptOnlySupportedStates(t *testing.T) {
 				action = service.Resume
 			}
 
-			assert.ErrorIs(t, action("foreign", seed.ID), app.ErrServerNotFound)
-			assert.ErrorIs(t, action(seed.ProjectID, "other"), app.ErrServerNotFound)
-			err := action(seed.ProjectID, seed.ID)
+			assert.ErrorIs(t, action(app.ActionRequest{ProjectID: "foreign"}, seed.ID), app.ErrServerNotFound)
+			assert.ErrorIs(t, action(app.ActionRequest{ProjectID: seed.ProjectID}, "other"), app.ErrServerNotFound)
+			err := action(app.ActionRequest{ProjectID: seed.ProjectID}, seed.ID)
 
 			assert.ErrorIs(t, err, test.wantErr)
 			want := seed
@@ -72,14 +72,14 @@ func TestSuspendedServerRestrictsPowerAndAttachmentChanges(t *testing.T) {
 	volumes := &recordedAttachments{seededAttachments: seededAttachments{{VolumeID: "volume"}}}
 	service := app.New(seed, func() time.Time { return start.Add(time.Minute) }, volumes)
 	attachments := app.NewAttachments(service, volumes)
-	require.NoError(t, service.Suspend(seed.ProjectID, seed.ID))
+	require.NoError(t, service.Suspend(app.ActionRequest{ProjectID: seed.ProjectID}, seed.ID))
 
-	_, attachErr := attachments.Attach(seed.ProjectID, seed.ID, "other", "")
-	detachErr := attachments.Detach(seed.ProjectID, seed.ID, "volume")
-	missingErr := attachments.Detach(seed.ProjectID, seed.ID, "missing")
-	stopErr := service.SetPower(seed.ProjectID, seed.ID, false)
-	pauseErr := service.Pause(seed.ProjectID, seed.ID)
-	softRebootErr := service.Reboot(seed.ProjectID, seed.ID, false)
+	_, attachErr := attachments.Attach(app.ActionRequest{ProjectID: seed.ProjectID}, seed.ID, "other", "")
+	detachErr := attachments.Detach(app.ActionRequest{ProjectID: seed.ProjectID}, seed.ID, "volume")
+	missingErr := attachments.Detach(app.ActionRequest{ProjectID: seed.ProjectID}, seed.ID, "missing")
+	stopErr := service.SetPower(app.ActionRequest{ProjectID: seed.ProjectID}, seed.ID, false)
+	pauseErr := service.Pause(app.ActionRequest{ProjectID: seed.ProjectID}, seed.ID)
+	softRebootErr := service.Reboot(app.ActionRequest{ProjectID: seed.ProjectID}, seed.ID, false)
 	metadataErr := service.PutMetadatum(seed.ProjectID, seed.ID, "item", "value")
 
 	assert.ErrorIs(t, attachErr, app.ErrServerAttachmentState)
@@ -92,8 +92,8 @@ func TestSuspendedServerRestrictsPowerAndAttachmentChanges(t *testing.T) {
 	assert.Empty(t, volumes.attached)
 	assert.Empty(t, volumes.detached)
 
-	require.NoError(t, service.Reboot(seed.ProjectID, seed.ID, true))
-	require.NoError(t, attachments.Detach(seed.ProjectID, seed.ID, "volume"))
+	require.NoError(t, service.Reboot(app.ActionRequest{ProjectID: seed.ProjectID}, seed.ID, true))
+	require.NoError(t, attachments.Detach(app.ActionRequest{ProjectID: seed.ProjectID}, seed.ID, "volume"))
 
 	active := domain.StatusActive
 	assert.Len(t, service.List(seed.ProjectID, app.ListFilter{Status: &active}), 1)

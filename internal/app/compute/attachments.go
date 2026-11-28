@@ -31,21 +31,28 @@ func NewAttachments(compute *Service, volumes attachmentVolumes) *Attachments {
 	return &Attachments{compute: compute, volumes: volumes}
 }
 
-func (a *Attachments) Attach(projectID, serverID, volumeID, device string) (volumedomain.Attachment, error) {
-	if !a.ownsServer(projectID, serverID) {
+func (a *Attachments) Attach(
+	request ActionRequest, serverID, volumeID, device string,
+) (volumedomain.Attachment, error) {
+	if !a.ownsServer(request.ProjectID, serverID) {
 		return volumedomain.Attachment{}, ErrServerNotFound
 	}
 
 	// Hold the live server state steady until the volume mutation completes.
-	a.compute.mu.RLock()
-	defer a.compute.mu.RUnlock()
+	a.compute.mu.Lock()
+	defer a.compute.mu.Unlock()
 	if a.compute.server.Locked {
 		return volumedomain.Attachment{}, ErrServerLocked
 	}
 	if !slices.Contains(attachStates, a.compute.server.Status()) {
 		return volumedomain.Attachment{}, ErrServerAttachmentState
 	}
-	return a.volumes.Attach(projectID, serverID, volumeID, device)
+	attachment, err := a.volumes.Attach(request.ProjectID, serverID, volumeID, device)
+	if err != nil {
+		return volumedomain.Attachment{}, err
+	}
+	a.compute.recordAction(request, computedomain.ActionAttachVolume)
+	return attachment, nil
 }
 
 func (a *Attachments) Get(projectID, serverID, volumeID string) (volumedomain.Attachment, error) {
@@ -62,13 +69,14 @@ func (a *Attachments) List(projectID, serverID string) ([]volumedomain.Attachmen
 	return a.volumes.ListAttachments(projectID, serverID), nil
 }
 
-func (a *Attachments) Detach(projectID, serverID, volumeID string) error {
+func (a *Attachments) Detach(request ActionRequest, serverID, volumeID string) error {
+	projectID := request.ProjectID
 	if !a.ownsServer(projectID, serverID) {
 		return ErrServerNotFound
 	}
 
-	a.compute.mu.RLock()
-	defer a.compute.mu.RUnlock()
+	a.compute.mu.Lock()
+	defer a.compute.mu.Unlock()
 	server := a.compute.server
 	if server.Locked || server.Status() == computedomain.StatusSuspended {
 		if _, err := a.volumes.GetAttachment(projectID, serverID, volumeID); err != nil {
@@ -79,7 +87,11 @@ func (a *Attachments) Detach(projectID, serverID, volumeID string) error {
 		}
 		return ErrServerAttachmentState
 	}
-	return a.volumes.Detach(projectID, serverID, volumeID)
+	if err := a.volumes.Detach(projectID, serverID, volumeID); err != nil {
+		return err
+	}
+	a.compute.recordAction(request, computedomain.ActionDetachVolume)
+	return nil
 }
 
 func (a *Attachments) ownsServer(projectID, serverID string) bool {

@@ -27,28 +27,28 @@ func (h handler) changeServerPower(w http.ResponseWriter, r *http.Request, scope
 	serverID := chi.URLParam(r, "serverID")
 	switch {
 	case actions["os-start"] != nil:
-		err = h.service.SetPower(scope.projectID, serverID, true)
+		err = h.service.SetPower(scope.actionRequest(), serverID, true)
 	case actions["os-stop"] != nil:
-		err = h.service.SetPower(scope.projectID, serverID, false)
+		err = h.service.SetPower(scope.actionRequest(), serverID, false)
 	case actions["reboot"] != nil:
 		hard, valid := parseRebootType(actions["reboot"])
 		if !valid {
 			writeFault(w, http.StatusBadRequest, "badRequest", "Expected a reboot with type HARD or SOFT.")
 			return
 		}
-		err = h.service.Reboot(scope.projectID, serverID, hard)
+		err = h.service.Reboot(scope.actionRequest(), serverID, hard)
 	case actions["pause"] != nil:
-		err = h.service.Pause(scope.projectID, serverID)
+		err = h.service.Pause(scope.actionRequest(), serverID)
 	case actions["unpause"] != nil:
-		err = h.service.Unpause(scope.projectID, serverID)
+		err = h.service.Unpause(scope.actionRequest(), serverID)
 	case actions["suspend"] != nil:
-		err = h.service.Suspend(scope.projectID, serverID)
+		err = h.service.Suspend(scope.actionRequest(), serverID)
 	case actions["resume"] != nil:
-		err = h.service.Resume(scope.projectID, serverID)
+		err = h.service.Resume(scope.actionRequest(), serverID)
 	case actions["lock"] != nil:
-		err = h.service.Lock(scope.projectID, serverID)
+		err = h.service.Lock(scope.actionRequest(), serverID)
 	case actions["unlock"] != nil:
-		err = h.service.Unlock(scope.projectID, serverID)
+		err = h.service.Unlock(scope.actionRequest(), serverID)
 	default:
 		writeFault(w, http.StatusBadRequest, "badRequest", actionFault)
 		return

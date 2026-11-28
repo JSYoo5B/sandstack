@@ -25,6 +25,8 @@ type Service struct {
 	detailUnavailable atomic.Bool
 	now               func() time.Time
 	attachments       attachmentLookup
+	seedActions       []domain.Action
+	actions           []domain.Action
 }
 
 type attachmentLookup interface {
@@ -37,13 +39,18 @@ type ServerDetail struct {
 	AttachedVolumeIDs []string
 }
 
-// New takes a seeded server, a non-nil clock, and an optional attachment lookup.
-func New(server domain.Server, now func() time.Time, attachments attachmentLookup) *Service {
+// New takes a seeded server, a non-nil clock, an optional attachment lookup,
+// and the server's action history from oldest to newest.
+func New(
+	server domain.Server, now func() time.Time, attachments attachmentLookup, history ...domain.Action,
+) *Service {
 	return &Service{
 		seed:        cloneServer(server),
 		server:      cloneServer(server),
 		now:         now,
 		attachments: attachments,
+		seedActions: slices.Clone(history),
+		actions:     slices.Clone(history),
 	}
 }
 
@@ -67,12 +74,13 @@ func (s *Service) Get(projectID, serverID string) (ServerDetail, error) {
 	return s.liveDetail(), nil
 }
 
-// Reset restores the startup fixture and clears detail read faults.
+// Reset restores the startup fixture and history and clears detail read faults.
 func (s *Service) Reset() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	s.server = cloneServer(s.seed)
+	s.actions = slices.Clone(s.seedActions)
 	s.staleDetail = nil
 	s.detailUnavailable.Store(false)
 }

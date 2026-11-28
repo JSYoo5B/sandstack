@@ -24,6 +24,7 @@ type handler struct {
 type requestScope struct {
 	projectID   string
 	userID      string
+	requestID   string
 	pathProject string
 }
 
@@ -36,7 +37,9 @@ func Register(
 	projectForToken func(string) (string, error),
 	userForToken func(string) (string, error),
 	endpointURL func(*http.Request, string) string,
+	newRequestID func() string,
 ) {
+	router = router.With(assignRequestIDs(newRequestID))
 	h := handler{
 		service: service, attachments: attachments, keyPairs: keyPairs,
 		projectForToken: projectForToken, userForToken: userForToken, endpointURL: endpointURL,
@@ -62,6 +65,8 @@ func Register(
 	createKeyPair := h.withProject(h.createKeyPair)
 	showKeyPair := h.withProject(h.showKeyPair)
 	deleteKeyPair := h.withProject(h.deleteKeyPair)
+	listActions := h.withProject(h.listServerActions)
+	showAction := h.withProject(h.showServerAction)
 	for _, prefix := range []string{Path, Path + "/{projectID}"} {
 		server := prefix + "/servers/{serverID}"
 		router.Get(server, show)
@@ -74,6 +79,8 @@ func Register(
 		router.Get(item, showMetadatum)
 		router.Put(item, writeMetadatum)
 		router.Delete(item, deleteMetadatum)
+		router.Get(server+"/os-instance-actions", listActions)
+		router.Get(server+"/os-instance-actions/{requestID}", showAction)
 		router.Get(prefix+"/servers", listBasic)
 		router.Get(prefix+"/servers/detail", list)
 		router.Get(prefix+"/flavors/{flavorID}", showFlavor)
@@ -114,7 +121,9 @@ func (h handler) withProject(next func(http.ResponseWriter, *http.Request, reque
 				"The URL project does not match the token's project.")
 			return
 		}
-		next(w, r, requestScope{projectID: projectID, userID: userID, pathProject: pathProject})
+		next(w, r, requestScope{
+			projectID: projectID, userID: userID, requestID: requestID(r), pathProject: pathProject,
+		})
 	}
 }
 

@@ -13,41 +13,44 @@ var hardRebootStates = []domain.Status{
 	domain.StatusActive, domain.StatusShutoff, domain.StatusPaused, domain.StatusSuspended, domain.StatusError,
 }
 
-func (s *Service) SetPower(projectID, serverID string, powered bool) error {
+func (s *Service) SetPower(request ActionRequest, serverID string, powered bool) error {
 	if powered {
-		return s.transition(projectID, serverID, domain.StatusActive, domain.StatusShutoff)
+		return s.transition(request, serverID, domain.ActionStart, domain.StatusActive, domain.StatusShutoff)
 	}
-	return s.transition(projectID, serverID, domain.StatusShutoff, domain.StatusActive, domain.StatusError)
+	return s.transition(request, serverID, domain.ActionStop,
+		domain.StatusShutoff, domain.StatusActive, domain.StatusError)
 }
 
-func (s *Service) Reboot(projectID, serverID string, hard bool) error {
+func (s *Service) Reboot(request ActionRequest, serverID string, hard bool) error {
 	if hard {
-		return s.transition(projectID, serverID, domain.StatusActive, hardRebootStates...)
+		return s.transition(request, serverID, domain.ActionReboot, domain.StatusActive, hardRebootStates...)
 	}
-	return s.transition(projectID, serverID, domain.StatusActive, domain.StatusActive)
+	return s.transition(request, serverID, domain.ActionReboot, domain.StatusActive, domain.StatusActive)
 }
 
-func (s *Service) Pause(projectID, serverID string) error {
-	return s.transition(projectID, serverID, domain.StatusPaused, domain.StatusActive)
+func (s *Service) Pause(request ActionRequest, serverID string) error {
+	return s.transition(request, serverID, domain.ActionPause, domain.StatusPaused, domain.StatusActive)
 }
 
-func (s *Service) Unpause(projectID, serverID string) error {
-	return s.transition(projectID, serverID, domain.StatusActive, domain.StatusPaused)
+func (s *Service) Unpause(request ActionRequest, serverID string) error {
+	return s.transition(request, serverID, domain.ActionUnpause, domain.StatusActive, domain.StatusPaused)
 }
 
-func (s *Service) Suspend(projectID, serverID string) error {
-	return s.transition(projectID, serverID, domain.StatusSuspended, domain.StatusActive)
+func (s *Service) Suspend(request ActionRequest, serverID string) error {
+	return s.transition(request, serverID, domain.ActionSuspend, domain.StatusSuspended, domain.StatusActive)
 }
 
-func (s *Service) Resume(projectID, serverID string) error {
-	return s.transition(projectID, serverID, domain.StatusActive, domain.StatusSuspended)
+func (s *Service) Resume(request ActionRequest, serverID string) error {
+	return s.transition(request, serverID, domain.ActionResume, domain.StatusActive, domain.StatusSuspended)
 }
 
-func (s *Service) transition(projectID, serverID string, target domain.Status, allowed ...domain.Status) error {
+func (s *Service) transition(
+	request ActionRequest, serverID, action string, target domain.Status, allowed ...domain.Status,
+) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if s.server.ProjectID != projectID || s.server.ID != serverID {
+	if s.server.ProjectID != request.ProjectID || s.server.ID != serverID {
 		return ErrServerNotFound
 	}
 	if s.server.Locked {
@@ -59,5 +62,6 @@ func (s *Service) transition(projectID, serverID string, target domain.Status, a
 	s.server.State = target
 	s.server.Fault = nil
 	s.server.UpdatedAt = s.now().UTC()
+	s.recordAction(request, action)
 	return nil
 }

@@ -255,6 +255,10 @@ array. Gophercloud reads the field as `Server.AttachedVolumes`. See the
 
 See [Key pairs in the Compute sandbox](compute-keypairs.md).
 
+## Find a server action by request ID
+
+See [Server action history in the Compute sandbox](compute-actions.md).
+
 ## Inject and clear an instance fault
 
 See [Inject and clear an instance fault](compute-faults.md#inject-and-clear-an-instance-fault).
