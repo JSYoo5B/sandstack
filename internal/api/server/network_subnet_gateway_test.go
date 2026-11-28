@@ -140,7 +140,7 @@ func TestSubnetGatewayCreateWire(t *testing.T) {
 			}
 		})
 	}
-	status, headers, body := request(t, instance, http.MethodGet, subnetsPath, "", auth)
+	status, headers, body := request(t, instance, http.MethodGet, subnetsPath+"?network_id="+fixtureNetworkID, "", auth)
 	require.Equal(t, http.StatusOK, status, "%s", body)
 	requireJSON(t, headers)
 	assert.JSONEq(t, `{"subnets":[]}`, string(body))

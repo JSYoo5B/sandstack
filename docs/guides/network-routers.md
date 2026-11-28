@@ -171,12 +171,12 @@ See the [Neutron gateway attribute], [Neutron gateway mode attribute],
 gateway, a static route can use a next hop on the external subnet other
 than the router's own gateway address. See [Neutron route validation].
 
-SandStack hides the external subnet from subnet reads and lists, although
-Neutron lets every project read subnets of external networks. Its ID
-appears in the network's `subnets` and in `external_fixed_ips`. Multiple
-external gateways and packet forwarding are outside this section. See
-[Neutron subnet read policy]. To give a port a public address through the
-gateway, see [Floating IPs](network-floating-ips.md).
+Every project can read the external subnet through subnet lists and
+details, but cannot update or delete it. See
+[Read the external subnet](network-subnets.md#read-the-external-subnet).
+Multiple external gateways and packet forwarding are outside this section.
+To give a port a public address through the gateway, see
+[Floating IPs](network-floating-ips.md).
 
 ## Attach and remove an IPv4 router interface
 
@@ -303,5 +303,4 @@ options, overlap and route checks, and reset.
 [Neutron router gateway update policy]: https://github.com/openstack/neutron/blob/ba84fbf374cc7f5055eb2ff4ebc34d2a19cbbc3d/neutron/conf/policies/router.py#L272-L322
 [Neutron gateway validation]: https://github.com/openstack/neutron/blob/ba84fbf374cc7f5055eb2ff4ebc34d2a19cbbc3d/neutron/db/l3_db.py#L413-L457
 [Neutron route validation]: https://github.com/openstack/neutron/blob/ba84fbf374cc7f5055eb2ff4ebc34d2a19cbbc3d/neutron/db/extraroute_db.py#L83-L124
-[Neutron subnet read policy]: https://github.com/openstack/neutron/blob/ba84fbf374cc7f5055eb2ff4ebc34d2a19cbbc3d/neutron/conf/policies/subnet.py#L123-L144
 [Neutron gateway subnet checks]: https://github.com/openstack/neutron/blob/ba84fbf374cc7f5055eb2ff4ebc34d2a19cbbc3d/neutron/db/l3_db.py#L709-L738

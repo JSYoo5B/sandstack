@@ -216,6 +216,8 @@ func writeSubnetError(w http.ResponseWriter, subnetID string, err error) {
 	switch {
 	case errors.Is(err, app.ErrSubnetNotFound):
 		writeError(w, http.StatusNotFound, "SubnetNotFound", fmt.Sprintf("Subnet %s could not be found.", subnetID))
+	case errors.Is(err, app.ErrSubnetForbidden):
+		writeError(w, http.StatusForbidden, "PolicyNotAuthorized", "The subnet is owned by another project.")
 	case errors.Is(err, app.ErrSubnetInUse):
 		writeError(w, http.StatusConflict, "SubnetInUse", "The subnet still has ports allocated to it.")
 	case errors.Is(err, app.ErrSubnetCIDR), errors.Is(err, app.ErrSubnetOverlap), errors.Is(err, app.ErrSubnetGateway):

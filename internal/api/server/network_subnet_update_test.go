@@ -51,7 +51,7 @@ func TestGophercloudUpdatesSubnetMetadataWithoutChangingAllocations(t *testing.T
 	detail, err := subnets.Get(ctx, service, subnetID).Extract()
 	require.NoError(t, err)
 	assert.Equal(t, &want, detail)
-	pages, err := subnets.List(service, nil).AllPages(ctx)
+	pages, err := subnets.List(service, subnets.ListOpts{NetworkID: resources.networkID}).AllPages(ctx)
 	require.NoError(t, err)
 	listed, err := subnets.ExtractSubnets(pages)
 	require.NoError(t, err)

@@ -11,10 +11,11 @@ import (
 )
 
 var (
-	ErrSubnetNotFound = errors.New("subnet not found")
-	ErrSubnetCIDR     = errors.New("subnet requires an IPv4 prefix from /1 through /30")
-	ErrSubnetOverlap  = errors.New("subnet CIDR overlaps another subnet on the network")
-	ErrSubnetInUse    = errors.New("subnet has allocated port addresses")
+	ErrSubnetNotFound  = errors.New("subnet not found")
+	ErrSubnetCIDR      = errors.New("subnet requires an IPv4 prefix from /1 through /30")
+	ErrSubnetOverlap   = errors.New("subnet CIDR overlaps another subnet on the network")
+	ErrSubnetInUse     = errors.New("subnet has allocated port addresses")
+	ErrSubnetForbidden = errors.New("subnet is owned by another project")
 )
 
 type SubnetCreate struct {
@@ -91,10 +92,25 @@ func (s *Service) GetSubnet(projectID, subnetID string) (domain.Subnet, error) {
 	defer s.mu.RUnlock()
 
 	subnet, ok := s.subnets[subnetID]
-	if !ok || subnet.ProjectID != projectID {
+	if !ok || !s.visibleSubnet(subnet, projectID) {
 		return domain.Subnet{}, ErrSubnetNotFound
 	}
 	return copySubnet(subnet), nil
+}
+
+func (s *Service) visibleSubnet(subnet domain.Subnet, projectID string) bool {
+	return subnet.ProjectID == projectID || s.networks[subnet.NetworkID].External
+}
+
+func (s *Service) ownedSubnet(projectID, subnetID string) (domain.Subnet, error) {
+	subnet, ok := s.subnets[subnetID]
+	if !ok || !s.visibleSubnet(subnet, projectID) {
+		return domain.Subnet{}, ErrSubnetNotFound
+	}
+	if subnet.ProjectID != projectID {
+		return domain.Subnet{}, ErrSubnetForbidden
+	}
+	return subnet, nil
 }
 
 type SubnetUpdate struct {
@@ -110,9 +126,9 @@ func (s *Service) UpdateSubnet(projectID, subnetID string, changes SubnetUpdate)
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	subnet, ok := s.subnets[subnetID]
-	if !ok || subnet.ProjectID != projectID {
-		return domain.Subnet{}, ErrSubnetNotFound
+	subnet, err := s.ownedSubnet(projectID, subnetID)
+	if err != nil {
+		return domain.Subnet{}, err
 	}
 	originalGateway := subnet.Gateway
 	if changes.Gateway != nil {
@@ -170,7 +186,7 @@ func (f SubnetListFilter) matches(subnet domain.Subnet) bool {
 		(len(f.DHCPStates) == 0 || slices.Contains(f.DHCPStates, subnet.EnableDHCP))
 }
 
-// ListSubnets returns the project's matching subnets ordered by ID.
+// ListSubnets returns the matching subnets visible to the project ordered by ID.
 func (s *Service) ListSubnets(projectID string, filter SubnetListFilter) []domain.Subnet {
 	return s.ListSubnetsPage(projectID, filter, PageOptions{}).Items
 }
@@ -180,12 +196,12 @@ func (s *Service) ListSubnetsPage(projectID string, filter SubnetListFilter, opt
 	var marker *domain.Subnet
 	s.mu.RLock()
 	if options.Limit > 0 && options.Marker != "" {
-		if subnet, exists := s.subnets[options.Marker]; exists && subnet.ProjectID == projectID {
+		if subnet, exists := s.subnets[options.Marker]; exists && s.visibleSubnet(subnet, projectID) {
 			marker = &subnet
 		}
 	}
 	for _, subnet := range s.subnets {
-		if subnet.ProjectID == projectID && filter.matches(subnet) {
+		if s.visibleSubnet(subnet, projectID) && filter.matches(subnet) {
 			subnets = append(subnets, copySubnet(subnet))
 		}
 	}
@@ -208,9 +224,9 @@ func (s *Service) DeleteSubnet(projectID, subnetID string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	subnet, ok := s.subnets[subnetID]
-	if !ok || subnet.ProjectID != projectID {
-		return ErrSubnetNotFound
+	subnet, err := s.ownedSubnet(projectID, subnetID)
+	if err != nil {
+		return err
 	}
 	for _, port := range s.ports {
 		if port.SubnetID == subnetID {

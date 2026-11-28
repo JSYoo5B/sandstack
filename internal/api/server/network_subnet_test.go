@@ -22,7 +22,7 @@ func TestSubnetCreateAndDeleteWire(t *testing.T) {
 	auth := map[string]string{"X-Auth-Token": provider.Token()}
 	listing := func() []wireSubnet {
 		t.Helper()
-		status, headers, body := request(t, instance, http.MethodGet, subnetsPath, "", auth)
+		status, headers, body := request(t, instance, http.MethodGet, subnetsPath+"?network_id="+fixtureNetworkID, "", auth)
 		require.Equal(t, http.StatusOK, status, "%s", body)
 		requireJSON(t, headers)
 		var response struct {
@@ -155,7 +155,9 @@ func TestGophercloudManagesSubnetsThroughNetworkLifecycle(t *testing.T) {
 		require.NotEmpty(t, result.ID)
 		return result
 	}
-	assert.Empty(t, listSubnets(service))
+	public, err := subnets.Get(t.Context(), service, externalSubnetID).Extract()
+	require.NoError(t, err)
+	assert.Equal(t, []subnets.Subnet{*public}, listSubnets(service))
 	assert.Equal(t, []string{}, parent.Subnets)
 
 	created := createSubnet(parent.ID, "10.42.0.0/24", "sdk-subnet")
@@ -169,7 +171,7 @@ func TestGophercloudManagesSubnetsThroughNetworkLifecycle(t *testing.T) {
 	view, err := subnets.Get(t.Context(), service, created.ID).Extract()
 	require.NoError(t, err)
 	assert.Equal(t, created, view)
-	assert.Equal(t, []subnets.Subnet{*created}, listSubnets(service))
+	assert.ElementsMatch(t, []subnets.Subnet{*created, *public}, listSubnets(service))
 	assert.Equal(t, []string{created.ID}, readNetwork(service, parent.ID).Subnets)
 
 	require.NoError(t, subnets.Delete(t.Context(), service, created.ID).ExtractErr())
@@ -177,16 +179,16 @@ func TestGophercloudManagesSubnetsThroughNetworkLifecycle(t *testing.T) {
 	require.Error(t, err)
 	assert.True(t, gophercloud.ResponseCodeIs(err, http.StatusNotFound), "%v", err)
 	assert.Equal(t, []string{}, readNetwork(service, parent.ID).Subnets)
-	assert.Empty(t, listSubnets(service))
+	assert.Equal(t, []subnets.Subnet{*public}, listSubnets(service))
 
 	cascading := createSubnet(parent.ID, "10.42.0.0/24", "cascading-subnet")
 	remaining := createSubnet(fixtureNetworkID, "10.43.0.0/24", "seed-subnet")
-	assert.ElementsMatch(t, []subnets.Subnet{*cascading, *remaining}, listSubnets(service))
+	assert.ElementsMatch(t, []subnets.Subnet{*cascading, *remaining, *public}, listSubnets(service))
 	require.NoError(t, networks.Delete(t.Context(), service, parent.ID).ExtractErr())
 	_, err = subnets.Get(t.Context(), service, cascading.ID).Extract()
 	require.Error(t, err)
 	assert.True(t, gophercloud.ResponseCodeIs(err, http.StatusNotFound), "%v", err)
-	assert.Equal(t, []subnets.Subnet{*remaining}, listSubnets(service))
+	assert.ElementsMatch(t, []subnets.Subnet{*remaining, *public}, listSubnets(service))
 	assert.Equal(t, []string{remaining.ID}, readNetwork(service, fixtureNetworkID).Subnets)
 
 	status, _, body := request(t, instance, http.MethodPost, "/_sandstack/reset", "", map[string]string{
@@ -198,7 +200,7 @@ func TestGophercloudManagesSubnetsThroughNetworkLifecycle(t *testing.T) {
 	assert.True(t, gophercloud.ResponseCodeIs(err, http.StatusUnauthorized), "%v", err)
 	current := discover(authenticate(t, instance))
 	assert.Equal(t, []string{}, readNetwork(current, fixtureNetworkID).Subnets)
-	assert.Empty(t, listSubnets(current))
+	assert.Equal(t, []subnets.Subnet{*public}, listSubnets(current))
 	_, err = subnets.Get(t.Context(), current, remaining.ID).Extract()
 	require.Error(t, err)
 	assert.True(t, gophercloud.ResponseCodeIs(err, http.StatusNotFound), "%v", err)

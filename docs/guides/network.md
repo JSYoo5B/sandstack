@@ -19,7 +19,9 @@ resource requests.
 Use project-scoped `X-Auth-Token` credentials. Networks the project creates
 are private and start with no subnets. The fixture also provides a
 read-only external network, `public`, owned by a separate administrative
-project. See [Set an external gateway](network-routers.md#set-an-external-gateway).
+project. Every project can read its subnet but cannot change it. See
+[Set an external gateway](network-routers.md#set-an-external-gateway) and
+[Read the external subnet](network-subnets.md#read-the-external-subnet).
 [Reset the sandbox](reset.md) to restore the seeds and remove networks,
 subnets, and ports created by the client.
 

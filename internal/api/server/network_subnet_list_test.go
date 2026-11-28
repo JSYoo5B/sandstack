@@ -23,17 +23,19 @@ func TestGophercloudListsSubnetsByExactFilters(t *testing.T) {
 	for _, subnet := range []*subnets.Subnet{first, unnamed, other} {
 		require.Equal(t, projectID, subnet.ProjectID)
 	}
+	public, err := subnets.Get(t.Context(), client, externalSubnetID).Extract()
+	require.NoError(t, err)
 	disabled := false
 	for _, test := range []struct {
 		name string
 		opts subnets.ListOptsBuilder
 		want []subnets.Subnet
 	}{
-		{"unfiltered", nil, []subnets.Subnet{*first, *unnamed, *other}},
+		{"unfiltered", nil, []subnets.Subnet{*first, *unnamed, *other, *public}},
 		{"name", &subnets.ListOpts{Name: first.Name}, []subnets.Subnet{*first, *other}},
 		{"network", &subnets.ListOpts{NetworkID: first.NetworkID}, []subnets.Subnet{*first, *unnamed}},
 		{"cidr", &subnets.ListOpts{CIDR: first.CIDR}, []subnets.Subnet{*first, *other}},
-		{"disabled dhcp", &subnets.ListOpts{EnableDHCP: &disabled}, []subnets.Subnet{*unnamed, *other}},
+		{"disabled dhcp", &subnets.ListOpts{EnableDHCP: &disabled}, []subnets.Subnet{*unnamed, *other, *public}},
 		{"combined", &subnets.ListOpts{
 			Name: other.Name, NetworkID: other.NetworkID, CIDR: other.CIDR, EnableDHCP: &disabled,
 		}, []subnets.Subnet{*other}},
@@ -49,7 +51,7 @@ func TestGophercloudListsSubnetsByExactFilters(t *testing.T) {
 
 	unscoped := authOptions(instance)
 	unscoped.Scope.ProjectName = "nonexistent-project"
-	_, err := openstack.AuthenticatedClient(t.Context(), unscoped)
+	_, err = openstack.AuthenticatedClient(t.Context(), unscoped)
 	assert.True(t, gophercloud.ResponseCodeIs(err, http.StatusUnauthorized), "unavailable project: %v", err)
 }
 

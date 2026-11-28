@@ -47,7 +47,7 @@ func TestGophercloudManagesSubnetHostRoutes(t *testing.T) {
 		detail, err := subnets.Get(ctx, client, created.ID).Extract()
 		require.NoError(t, err)
 		check(want, detail)
-		pages, err := subnets.List(client, nil).AllPages(ctx)
+		pages, err := subnets.List(client, subnets.ListOpts{NetworkID: fixtureNetworkID}).AllPages(ctx)
 		require.NoError(t, err)
 		listed, err := subnets.ExtractSubnets(pages)
 		require.NoError(t, err)

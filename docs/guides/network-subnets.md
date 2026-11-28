@@ -102,8 +102,9 @@ its previous configuration. See the [Neutron gateway update].
 
 ### Filter the subnet list
 
-`GET /network/v2.0/subnets` lists subnets in the token's project. Filter
-by `id`, `name`, `network_id`, `cidr`, `gateway_ip`, or `enable_dhcp`. A
+`GET /network/v2.0/subnets` lists subnets in the token's project and the
+subnet of the external network. Filter by `id`, `name`, `network_id`,
+`cidr`, `gateway_ip`, or `enable_dhcp`. A
 repeated key matches any of its values. Different keys must all match,
 and an omitted key leaves that field unrestricted. Supply CIDRs as an
 address and prefix length. For a subnet with CIDR `192.0.2.0/24`,
@@ -155,8 +156,8 @@ See the [Gophercloud subnet options] and [Gophercloud subnet page links].
 
 Send `PUT /network/v2.0/subnets/{subnet_id}` with a `subnet` object to
 update `name`, `enable_dhcp`, `dns_nameservers`, `host_routes`, `gateway_ip`,
-or `allocation_pools` in the token's project. A successful request returns `200`
-with the updated subnet. Omitted fields keep their values. Use an empty
+or `allocation_pools` on a subnet owned by the token's project. A
+successful request returns `200` with the updated subnet. Omitted fields keep their values. Use an empty
 string to clear the name or `false` to disable the DHCP flag. Pass `Name` and
 `EnableDHCP` pointers in `subnets.UpdateOpts` to `subnets.Update`.
 See the [subnet update reference].
@@ -194,6 +195,22 @@ Compare routes as a set because response order is unspecified. SandStack
 stores these routes as subnet metadata. See the [Neutron host route
 validation], [Neutron host route limit], and [Neutron subnet IP validation].
 
+### Read the external subnet
+
+The fixture's external network `public` has one subnet, `public-subnet`,
+with CIDR `203.0.113.0/24`. Neutron lets every project read subnets of
+external networks, so `subnets.List` and `subnets.Get` return it to any
+project token, with the administrative project as `project_id`. Filter by
+the network ID to list only it, or by your own network ID to leave it out.
+See the [Neutron subnet read policy] and [Neutron external subnet rule].
+
+The project cannot change the external subnet. `PUT` and `DELETE` on it
+return `403` with `PolicyNotAuthorized`, because Neutron reports a policy
+failure on a readable resource instead of hiding it. SandStack does not
+allocate ports on the external network, and a port request for it returns
+`404`. See the [Neutron subnet update policy], [Neutron subnet delete policy],
+[Neutron update authorization], and [Neutron delete authorization].
+
 ## Verification
 
 Run `go test ./...` to check subnet lifecycle, filters, allocation pools,
@@ -211,6 +228,12 @@ Gateway update tests check pool and port address preservation, conflicts,
 and attachment with the updated gateway.
 
 [subnet create reference]: https://docs.openstack.org/api-ref/network/v2/#create-subnet
+[Neutron subnet read policy]: https://github.com/openstack/neutron/blob/ba84fbf374cc7f5055eb2ff4ebc34d2a19cbbc3d/neutron/conf/policies/subnet.py#L123-L144
+[Neutron external subnet rule]: https://github.com/openstack/neutron/blob/ba84fbf374cc7f5055eb2ff4ebc34d2a19cbbc3d/neutron/conf/policies/subnet.py#L59-L64
+[Neutron subnet update policy]: https://github.com/openstack/neutron/blob/ba84fbf374cc7f5055eb2ff4ebc34d2a19cbbc3d/neutron/conf/policies/subnet.py#L186-L199
+[Neutron subnet delete policy]: https://github.com/openstack/neutron/blob/ba84fbf374cc7f5055eb2ff4ebc34d2a19cbbc3d/neutron/conf/policies/subnet.py#L249-L263
+[Neutron update authorization]: https://github.com/openstack/neutron/blob/ba84fbf374cc7f5055eb2ff4ebc34d2a19cbbc3d/neutron/api/v2/base.py#L665-L683
+[Neutron delete authorization]: https://github.com/openstack/neutron/blob/ba84fbf374cc7f5055eb2ff4ebc34d2a19cbbc3d/neutron/api/v2/base.py#L577-L598
 [Gophercloud gateway encoding]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/networking/v2/subnets/requests.go#L158-L169
 [Gophercloud gateway update encoding]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/networking/v2/subnets/requests.go#L234-L244
 [Neutron gateway validation]: https://github.com/openstack/neutron/blob/master/neutron/db/db_base_plugin_v2.py#L687-L718
