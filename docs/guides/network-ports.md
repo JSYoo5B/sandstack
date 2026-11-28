@@ -263,7 +263,7 @@ exhaustion and resource-in-use errors.
 [Neutron marker query]: https://github.com/openstack/neutron-lib/blob/master/neutron_lib/db/model_query.py#L300-L316
 [port create reference]: https://docs.openstack.org/api-ref/network/v2/#create-port
 [Neutron port security group binding]: https://github.com/openstack/neutron/blob/ba84fbf374cc7f5055eb2ff4ebc34d2a19cbbc3d/neutron/db/securitygroups_db.py#L1207-L1302
-[Neutron port security update check]: https://github.com/openstack/neutron/blob/ba84fbf374cc7f5055eb2ff4ebc34d2a19cbbc3d/neutron/plugins/ml2/plugin.py#L1746-L1850
+[Neutron port security update check]: https://github.com/openstack/neutron/blob/ba84fbf374cc7f5055eb2ff4ebc34d2a19cbbc3d/neutron/plugins/ml2/plugin.py#L1922-L1925
 [Neutron port security extension driver]: https://github.com/openstack/neutron/blob/ba84fbf374cc7f5055eb2ff4ebc34d2a19cbbc3d/neutron/plugins/ml2/extensions/port_security.py#L38-L81
 [Neutron port security attributes]: https://github.com/openstack/neutron-lib/blob/5.0.0/neutron_lib/api/definitions/port_security.py#L59-L74
 [Neutron port security create check]: https://github.com/openstack/neutron/blob/ba84fbf374cc7f5055eb2ff4ebc34d2a19cbbc3d/neutron/plugins/ml2/plugin.py#L1584-L1600
