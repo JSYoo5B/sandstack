@@ -24,7 +24,7 @@ func TestVolumeMetadataReplacementPreservesAttachmentAndDetailFailure(t *testing
 	require.NoError(t, err)
 	require.Equal(t, map[string]string{"baseline": "seed"}, baseline.Metadata)
 	require.NoError(t, service.SetUnavailableDetail(seed.ID, true))
-	other, err := service.Create(seed.ProjectID, "other volume", "", 1)
+	other, err := service.Create(seed.ProjectID, seed.UserID, "other volume", "", 1)
 	require.NoError(t, err)
 
 	input := map[string]string{"stage": "ready"}

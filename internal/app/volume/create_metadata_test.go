@@ -28,11 +28,11 @@ func TestInitialVolumeMetadataIsDetachedForBothSources(t *testing.T) {
 	require.NoError(t, service.FinishSnapshotCreation(snapshot.ID, false))
 
 	input := map[string]string{"stage": "blank"}
-	blank, err := service.CreateWithMetadata(seed.ProjectID, "blank", "", 2, input)
+	blank, err := service.CreateWithMetadata(seed.ProjectID, seed.UserID, "blank", "", 2, input)
 	require.NoError(t, err)
 	assert.Equal(t, input, blank.Metadata)
 	input["stage"] = "derived"
-	derived, err := service.CreateFromSnapshotWithMetadata(seed.ProjectID, snapshot.ID, "derived", "", 0, input)
+	derived, err := service.CreateFromSnapshotWithMetadata(seed.ProjectID, seed.UserID, snapshot.ID, "derived", "", 0, input)
 	require.NoError(t, err)
 	assert.Equal(t, input, derived.Metadata)
 	assert.Equal(t, snapshot.ID, derived.SnapshotID)

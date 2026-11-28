@@ -39,7 +39,7 @@ func TestImageVolumeProvisioningCapturesSourceAndBecomesBootableOnSuccess(t *tes
 	}))
 
 	metadata := map[string]string{"stage": "initial"}
-	provisioning, err := service.CreateFromImage(seed.ProjectID, image.ID, "boot", "description", 2, metadata)
+	provisioning, err := service.CreateFromImage(seed.ProjectID, seed.UserID, image.ID, "boot", "description", 2, metadata)
 	require.NoError(t, err)
 	assert.Equal(t, domain.StateCreating, provisioning.State)
 	assert.False(t, provisioning.Bootable)
@@ -63,7 +63,7 @@ func TestImageVolumeProvisioningCapturesSourceAndBecomesBootableOnSuccess(t *tes
 	assert.Equal(t, provisioning.ImageSource, available.ImageSource)
 	assert.Equal(t, map[string]string{"stage": "initial"}, available.Metadata)
 
-	second, err := service.CreateFromImage(seed.ProjectID, image.ID, "fail", "", 2, nil)
+	second, err := service.CreateFromImage(seed.ProjectID, seed.UserID, image.ID, "fail", "", 2, nil)
 	require.NoError(t, err)
 	require.NoError(t, service.SetFailed(second.ID, true))
 	assert.ErrorIs(t, service.CompleteCreation(second.ID), app.ErrVolumeStateConflict)
@@ -102,7 +102,7 @@ func TestImageVolumeProvisioningChecksVisibilityStateAndSize(t *testing.T) {
 				return image, test.getErr
 			}))
 
-			_, err := service.CreateFromImage(seed.ProjectID, imageID, "boot", "", test.size, nil)
+			_, err := service.CreateFromImage(seed.ProjectID, seed.UserID, imageID, "boot", "", test.size, nil)
 			assert.ErrorIs(t, err, test.wantErr)
 			assert.Len(t, service.List(seed.ProjectID, app.ListFilter{}), 1)
 		})

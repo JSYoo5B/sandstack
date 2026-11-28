@@ -175,7 +175,12 @@ func (h handler) acceptTransfer(w http.ResponseWriter, r *http.Request, projectI
 	}
 
 	transferID := chi.URLParam(r, "transferID")
-	transfer, err := h.service.AcceptTransfer(projectID, transferID, authKey)
+	userID, ok := h.requestUser(w, r)
+	if !ok {
+		return
+	}
+	transfer, err := h.service.AcceptTransfer(projectID, userID, transferID, authKey)
+	var snapshotErr app.TransferAcceptSnapshotStateError
 	switch {
 	case errors.Is(err, app.ErrTransferNotFound):
 		writeTransferNotFound(w, transferID)
@@ -185,6 +190,8 @@ func (h handler) acceptTransfer(w http.ResponseWriter, r *http.Request, projectI
 	case errors.Is(err, app.ErrVolumeStateConflict):
 		writeFault(w, http.StatusBadRequest, "badRequest",
 			"Invalid volume: Transfer "+transferID+": Volume expected in awaiting-transfer state.")
+	case errors.As(err, &snapshotErr):
+		writeFault(w, http.StatusBadRequest, "badRequest", "Invalid snapshot: "+snapshotErr.Error())
 	case err != nil:
 		writeFault(w, http.StatusInternalServerError, "computeFault", "Unable to accept the transfer.")
 	default:

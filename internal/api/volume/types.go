@@ -19,9 +19,9 @@ type volumeTypeBody struct {
 	ExtraSpecs   map[string]string `json:"extra_specs"`
 }
 
-func (h handler) showVolumeType(w http.ResponseWriter, r *http.Request, projectID string) {
+func (h handler) showVolumeType(w http.ResponseWriter, r *http.Request, _ string) {
 	typeID := chi.URLParam(r, "typeID")
-	volumeType, err := h.service.GetVolumeType(projectID, typeID)
+	volumeType, err := h.service.GetVolumeType(typeID)
 	switch {
 	case errors.Is(err, app.ErrVolumeTypeNotFound):
 		writeFault(w, http.StatusNotFound, "itemNotFound", "The volume type could not be found.")

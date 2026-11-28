@@ -25,22 +25,22 @@ func TestCreateFromSnapshotPreservesSizeAndProvenance(t *testing.T) {
 	})
 	snapshot, err := service.CreateSnapshot(seed.ProjectID, seed.ID, app.SnapshotCreateOptions{Name: "checkpoint"})
 	require.NoError(t, err)
-	_, err = service.CreateFromSnapshot(seed.ProjectID, snapshot.ID, "", "", 0)
+	_, err = service.CreateFromSnapshot(seed.ProjectID, seed.UserID, snapshot.ID, "", "", 0)
 	assert.ErrorIs(t, err, app.ErrSnapshotStateConflict)
 	require.NoError(t, service.FinishSnapshotCreation(snapshot.ID, false))
 
-	_, err = service.CreateFromSnapshot("foreign", snapshot.ID, "", "", 0)
+	_, err = service.CreateFromSnapshot("foreign", "foreign-user", snapshot.ID, "", "", 0)
 	assert.ErrorIs(t, err, app.ErrSnapshotNotFound)
-	_, err = service.CreateFromSnapshot(seed.ProjectID, "unknown", "", "", 0)
+	_, err = service.CreateFromSnapshot(seed.ProjectID, seed.UserID, "unknown", "", "", 0)
 	assert.ErrorIs(t, err, app.ErrSnapshotNotFound)
-	_, err = service.CreateFromSnapshot(seed.ProjectID, snapshot.ID, "", "", -1)
+	_, err = service.CreateFromSnapshot(seed.ProjectID, seed.UserID, snapshot.ID, "", "", -1)
 	assert.ErrorIs(t, err, app.ErrInvalidVolumeSize)
-	_, err = service.CreateFromSnapshot(seed.ProjectID, snapshot.ID, "", "", seed.Size-1)
+	_, err = service.CreateFromSnapshot(seed.ProjectID, seed.UserID, snapshot.ID, "", "", seed.Size-1)
 	assert.ErrorIs(t, err, app.ErrVolumeSmallerThanSnapshot)
 	assert.Equal(t, []domain.Volume{seed}, service.List(seed.ProjectID, app.ListFilter{}))
 
 	defaultSize, err := service.CreateFromSnapshot(
-		seed.ProjectID, snapshot.ID, "clone", "recovered data", 0,
+		seed.ProjectID, seed.UserID, snapshot.ID, "clone", "recovered data", 0,
 	)
 	require.NoError(t, err)
 	assert.NotEmpty(t, defaultSize.ID)
@@ -57,10 +57,10 @@ func TestCreateFromSnapshotPreservesSizeAndProvenance(t *testing.T) {
 		CreatedAt:   start,
 		State:       domain.StateCreating,
 	}, defaultSize)
-	sameSize, err := service.CreateFromSnapshot(seed.ProjectID, snapshot.ID, "", "", seed.Size)
+	sameSize, err := service.CreateFromSnapshot(seed.ProjectID, seed.UserID, snapshot.ID, "", "", seed.Size)
 	require.NoError(t, err)
 	assert.Equal(t, seed.Size, sameSize.Size)
-	larger, err := service.CreateFromSnapshot(seed.ProjectID, snapshot.ID, "", "", seed.Size+2)
+	larger, err := service.CreateFromSnapshot(seed.ProjectID, seed.UserID, snapshot.ID, "", "", seed.Size+2)
 	require.NoError(t, err)
 	assert.Equal(t, seed.Size+2, larger.Size)
 	assert.ElementsMatch(t, []domain.Volume{seed, defaultSize, sameSize, larger}, service.List(seed.ProjectID, app.ListFilter{}))
@@ -94,7 +94,7 @@ func TestCreateFromSnapshotPreservesSizeAndProvenance(t *testing.T) {
 	original, err := service.Get(seed.ProjectID, seed.ID)
 	require.NoError(t, err)
 	assert.Equal(t, seed, original)
-	_, err = service.CreateFromSnapshot(seed.ProjectID, snapshot.ID, "", "", 0)
+	_, err = service.CreateFromSnapshot(seed.ProjectID, seed.UserID, snapshot.ID, "", "", 0)
 	assert.ErrorIs(t, err, app.ErrSnapshotNotFound)
 
 	service.Reset()
@@ -108,7 +108,7 @@ func TestCreateFromSnapshotRejectsFailedSnapshot(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, service.FinishSnapshotCreation(snapshot.ID, true))
 
-	_, err = service.CreateFromSnapshot(seed.ProjectID, snapshot.ID, "", "", 0)
+	_, err = service.CreateFromSnapshot(seed.ProjectID, seed.UserID, snapshot.ID, "", "", 0)
 	assert.ErrorIs(t, err, app.ErrSnapshotStateConflict)
 }
 
@@ -131,7 +131,7 @@ func TestRestoreUsesCapturedImageSourceAndLiveOriginalBootability(t *testing.T) 
 	require.NoError(t, err)
 	assert.Equal(t, seed.ImageSource, snapshot.ImageSource)
 
-	fromBootable, err := service.CreateFromSnapshot(seed.ProjectID, snapshot.ID, "bootable", "", 0)
+	fromBootable, err := service.CreateFromSnapshot(seed.ProjectID, seed.UserID, snapshot.ID, "bootable", "", 0)
 	require.NoError(t, err)
 	assert.False(t, fromBootable.Bootable)
 	assert.False(t, fromBootable.ImageMetadataReady)
@@ -142,7 +142,7 @@ func TestRestoreUsesCapturedImageSourceAndLiveOriginalBootability(t *testing.T) 
 	assert.True(t, available.ImageMetadataReady)
 	assert.Equal(t, seed.ImageSource, available.ImageSource)
 
-	fromUnbootable, err := service.CreateFromSnapshot(seed.ProjectID, snapshot.ID, "manual bootable", "", 0)
+	fromUnbootable, err := service.CreateFromSnapshot(seed.ProjectID, seed.UserID, snapshot.ID, "manual bootable", "", 0)
 	require.NoError(t, err)
 	require.NoError(t, service.SetBootable(seed.ProjectID, seed.ID, false))
 	require.NoError(t, service.SetBootable(seed.ProjectID, fromUnbootable.ID, true))
@@ -159,7 +159,7 @@ func TestRestoreUsesCapturedImageSourceAndLiveOriginalBootability(t *testing.T) 
 	require.NoError(t, err)
 	require.NoError(t, service.FinishSnapshotCreation(withoutPublishedSource.ID, false))
 	require.NoError(t, service.SetBootable(seed.ProjectID, seed.ID, true))
-	withoutSource, err := service.CreateFromSnapshot(seed.ProjectID, withoutPublishedSource.ID, "no metadata", "", 0)
+	withoutSource, err := service.CreateFromSnapshot(seed.ProjectID, seed.UserID, withoutPublishedSource.ID, "no metadata", "", 0)
 	require.NoError(t, err)
 	require.NoError(t, service.CompleteCreation(withoutSource.ID))
 	current, err := service.Get(seed.ProjectID, withoutSource.ID)

@@ -116,14 +116,11 @@ func (s *Service) GetAttachment(projectID, serverID, volumeID string) (domain.At
 // ListAttachments returns the server's attachments ordered by volume ID.
 func (s *Service) ListAttachments(projectID, serverID string) []domain.Attachment {
 	attachments := []domain.Attachment{}
-	if s.seed.ProjectID != projectID {
-		return attachments
-	}
 	s.mu.RLock()
 	for _, volumeID := range s.attachmentVolumes {
-		attachment := s.volumes[volumeID].Attachment
-		if attachment.ServerID == serverID {
-			attachments = append(attachments, attachment)
+		volume := s.volumes[volumeID]
+		if volume.ProjectID == projectID && volume.Attachment.ServerID == serverID {
+			attachments = append(attachments, volume.Attachment)
 		}
 	}
 	s.mu.RUnlock()

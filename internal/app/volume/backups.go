@@ -63,19 +63,16 @@ func optionalText(value *string) domain.NullableText {
 }
 
 func (s *Service) CreateBackup(projectID, volumeID string, options BackupCreateOptions) (domain.Backup, error) {
-	if s.seed.ProjectID != projectID {
-		return domain.Backup{}, ErrVolumeNotFound
-	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	volume, ok := s.volumes[volumeID]
+	volume, ok := s.ownedVolume(projectID, volumeID)
 	if !ok {
 		return domain.Backup{}, ErrVolumeNotFound
 	}
 	var snapshot domain.Snapshot
 	if options.SnapshotID != "" {
-		snapshot, ok = s.snapshots[options.SnapshotID]
+		snapshot, ok = s.ownedSnapshot(projectID, options.SnapshotID)
 		switch {
 		case !ok:
 			return domain.Backup{}, ErrSnapshotNotFound
@@ -89,7 +86,7 @@ func (s *Service) CreateBackup(projectID, volumeID string, options BackupCreateO
 	}
 	var parentID string
 	if options.Incremental {
-		parent, found := s.incrementalParent(volumeID, snapshot)
+		parent, found := s.incrementalParent(projectID, volumeID, snapshot)
 		if !found {
 			return domain.Backup{}, ErrNoIncrementalParent
 		}
@@ -129,10 +126,10 @@ func (s *Service) CreateBackup(projectID, volumeID string, options BackupCreateO
 }
 
 // incrementalParent runs with the service's write lock held.
-func (s *Service) incrementalParent(volumeID string, snapshot domain.Snapshot) (domain.Backup, bool) {
+func (s *Service) incrementalParent(projectID, volumeID string, snapshot domain.Snapshot) (domain.Backup, bool) {
 	var candidates []domain.Backup
 	for _, backup := range s.backups {
-		if backup.VolumeID != volumeID ||
+		if backup.ProjectID != projectID || backup.VolumeID != volumeID ||
 			(backup.State != domain.StateAvailable && backup.State != domain.StateRestoring) ||
 			(snapshot.ID != "" && !backup.DataTimestamp.Before(snapshot.CreatedAt)) {
 			continue
@@ -152,12 +149,9 @@ func (s *Service) incrementalParent(volumeID string, snapshot domain.Snapshot) (
 }
 
 func (s *Service) GetBackup(projectID, backupID string) (domain.Backup, error) {
-	if s.seed.ProjectID != projectID {
-		return domain.Backup{}, ErrBackupNotFound
-	}
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	backup, ok := s.backups[backupID]
+	backup, ok := s.ownedBackup(projectID, backupID)
 	if !ok {
 		return domain.Backup{}, ErrBackupNotFound
 	}
@@ -172,17 +166,11 @@ func (s *Service) ListBackupsPage(
 	marker *string,
 	limit int,
 ) (BackupPage, error) {
-	if s.seed.ProjectID != projectID {
-		if marker != nil {
-			return BackupPage{}, ErrBackupNotFound
-		}
-		return BackupPage{Backups: []domain.Backup{}}, nil
-	}
 	s.mu.RLock()
 	var after string
 	if marker != nil {
 		after = *marker
-		if _, ok := s.backups[after]; !ok || after == "" {
+		if _, ok := s.ownedBackup(projectID, after); !ok || after == "" {
 			s.mu.RUnlock()
 			return BackupPage{}, ErrBackupNotFound
 		}
@@ -193,7 +181,7 @@ func (s *Service) ListBackupsPage(
 	}
 	backups := make([]domain.Backup, 0, len(s.backups))
 	for _, backup := range s.backups {
-		if (marker == nil || backup.ID > after) && filter.matches(backup) {
+		if backup.ProjectID == projectID && (marker == nil || backup.ID > after) && filter.matches(backup) {
 			backups = append(backups, backup)
 		}
 	}
@@ -206,12 +194,9 @@ func (s *Service) ListBackupsPage(
 }
 
 func (s *Service) DeleteBackup(projectID, backupID string) error {
-	if s.seed.ProjectID != projectID {
-		return ErrBackupNotFound
-	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	backup, ok := s.backups[backupID]
+	backup, ok := s.ownedBackup(projectID, backupID)
 	if !ok {
 		return ErrBackupNotFound
 	}
@@ -283,14 +268,11 @@ func (s *Service) FinishBackupCreation(backupID string, failed bool) error {
 }
 
 // RestoreBackup restores into an available volume, or into a new volume when volumeID is empty.
-func (s *Service) RestoreBackup(projectID, backupID, volumeID string, name *string) (domain.Restore, error) {
-	if s.seed.ProjectID != projectID {
-		return domain.Restore{}, ErrBackupNotFound
-	}
+func (s *Service) RestoreBackup(projectID, userID, backupID, volumeID string, name *string) (domain.Restore, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	backup, ok := s.backups[backupID]
+	backup, ok := s.ownedBackup(projectID, backupID)
 	if !ok {
 		return domain.Restore{}, ErrBackupNotFound
 	}
@@ -311,14 +293,14 @@ func (s *Service) RestoreBackup(projectID, backupID, volumeID string, name *stri
 			ID:          id,
 			Name:        domain.NullableText{Value: volumeName, Valid: true},
 			Description: domain.NullableText{Value: restoreVolumeDescription, Valid: true},
-			ProjectID:   s.seed.ProjectID,
-			UserID:      s.seed.UserID,
+			ProjectID:   projectID,
+			UserID:      userID,
 			Size:        backup.Size,
 			CreatedAt:   s.now().UTC(),
 			State:       domain.StateAvailable,
 		}
 	} else {
-		volume, ok = s.volumes[volumeID]
+		volume, ok = s.ownedVolume(projectID, volumeID)
 		if !ok {
 			return domain.Restore{}, ErrVolumeNotFound
 		}

@@ -13,19 +13,19 @@ type VolumeTypePage struct {
 
 // ListVolumeTypesPage returns the fixture types after the marker in fixture order.
 // Only a concrete type ID can be used as a marker.
-func (s *Service) ListVolumeTypesPage(projectID string, marker *string, limit int) (VolumeTypePage, error) {
+func (s *Service) ListVolumeTypesPage(marker *string, limit int) (VolumeTypePage, error) {
 	page := VolumeTypePage{Types: []domain.VolumeType{}}
 	start := 0
 	if marker != nil {
 		index := slices.IndexFunc(fixtureVolumeTypes, func(volumeType domain.VolumeType) bool {
 			return volumeType.ID == *marker
 		})
-		if index < 0 || s.seed.ProjectID != projectID {
+		if index < 0 {
 			return VolumeTypePage{}, ErrVolumeTypeNotFound
 		}
 		start = index + 1
 	}
-	if s.seed.ProjectID != projectID || limit == 0 {
+	if limit == 0 {
 		return page, nil
 	}
 	remaining := fixtureVolumeTypes[start:]

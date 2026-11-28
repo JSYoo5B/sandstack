@@ -155,7 +155,7 @@ func TestForcedBackupOfAttachedVolumeRestoresInUse(t *testing.T) {
 	assert.NotEmpty(t, failed.FailReason)
 	assert.Equal(t, domain.StateInUse, attached.State)
 	assert.Equal(t, seed.Attachment, attached.Attachment)
-	_, restoreErr := service.RestoreBackup(seed.ProjectID, backup.ID, "", nil)
+	_, restoreErr := service.RestoreBackup(seed.ProjectID, seed.UserID, backup.ID, "", nil)
 	assert.ErrorIs(t, restoreErr, app.ErrBackupStateConflict)
 	require.NoError(t, service.DeleteBackup(seed.ProjectID, backup.ID))
 }
@@ -165,7 +165,7 @@ func TestForcedBackupOfAttachedVolumeRestoresInUse(t *testing.T) {
 func TestSnapshotBackupKeepsVolumeStatusAndSelectsEarlierParent(t *testing.T) {
 	fixture := newBackupFixture(domain.Volume{ID: fixtureID, ProjectID: "project", Size: 1, State: domain.StateAvailable})
 	service, seed := fixture.service, fixture.seed
-	other, err := service.Create(seed.ProjectID, "", "", 1)
+	other, err := service.Create(seed.ProjectID, seed.UserID, "", "", 1)
 	require.NoError(t, err)
 	require.NoError(t, service.CompleteCreation(other.ID))
 	early, err := service.CreateBackup(seed.ProjectID, seed.ID, app.BackupCreateOptions{})
@@ -225,22 +225,22 @@ func TestRestoreBackupIntoNewAndExistingVolumes(t *testing.T) {
 	service := fixture.service
 	backup, err := service.CreateBackup(seed.ProjectID, seed.ID, app.BackupCreateOptions{})
 	require.NoError(t, err)
-	_, pendingErr := service.RestoreBackup(seed.ProjectID, backup.ID, "", nil)
+	_, pendingErr := service.RestoreBackup(seed.ProjectID, seed.UserID, backup.ID, "", nil)
 	require.NoError(t, service.FinishBackupCreation(backup.ID, false))
-	small, err := service.Create(seed.ProjectID, "small", "", 1)
+	small, err := service.Create(seed.ProjectID, seed.UserID, "small", "", 1)
 	require.NoError(t, err)
-	_, creatingErr := service.RestoreBackup(seed.ProjectID, backup.ID, small.ID, nil)
+	_, creatingErr := service.RestoreBackup(seed.ProjectID, seed.UserID, backup.ID, small.ID, nil)
 	require.NoError(t, service.CompleteCreation(small.ID))
 
-	_, foreignErr := service.RestoreBackup("foreign", backup.ID, "", nil)
-	_, missingBackupErr := service.RestoreBackup(seed.ProjectID, "missing", "", nil)
-	_, missingVolumeErr := service.RestoreBackup(seed.ProjectID, backup.ID, "missing", nil)
-	_, smallErr := service.RestoreBackup(seed.ProjectID, backup.ID, small.ID, nil)
+	_, foreignErr := service.RestoreBackup("foreign", "foreign-user", backup.ID, "", nil)
+	_, missingBackupErr := service.RestoreBackup(seed.ProjectID, seed.UserID, "missing", "", nil)
+	_, missingVolumeErr := service.RestoreBackup(seed.ProjectID, seed.UserID, backup.ID, "missing", nil)
+	_, smallErr := service.RestoreBackup(seed.ProjectID, seed.UserID, backup.ID, small.ID, nil)
 	fixture.tick()
-	restore, err := service.RestoreBackup(seed.ProjectID, backup.ID, "", nil)
+	restore, err := service.RestoreBackup(seed.ProjectID, seed.UserID, backup.ID, "", nil)
 	require.NoError(t, err)
 	restoring := fixture.volume(t, restore.VolumeID)
-	_, busyErr := service.RestoreBackup(seed.ProjectID, backup.ID, seed.ID, nil)
+	_, busyErr := service.RestoreBackup(seed.ProjectID, seed.UserID, backup.ID, seed.ID, nil)
 
 	assert.ErrorIs(t, pendingErr, app.ErrBackupStateConflict)
 	assert.ErrorIs(t, creatingErr, app.ErrRestoreVolumeState)
@@ -285,11 +285,11 @@ func TestRestoreBackupIntoNewAndExistingVolumes(t *testing.T) {
 
 	_, err = service.ReplaceVolumeMetadata(seed.ProjectID, seed.ID, map[string]string{})
 	require.NoError(t, err)
-	named, err := service.RestoreBackup(seed.ProjectID, backup.ID, "", text("named"))
+	named, err := service.RestoreBackup(seed.ProjectID, seed.UserID, backup.ID, "", text("named"))
 	require.NoError(t, err)
 	require.NoError(t, service.FinishBackupRestore(backup.ID, true))
 	failed := fixture.volume(t, named.VolumeID)
-	inPlace, err := service.RestoreBackup(seed.ProjectID, backup.ID, seed.ID, text("ignored"))
+	inPlace, err := service.RestoreBackup(seed.ProjectID, seed.UserID, backup.ID, seed.ID, text("ignored"))
 	require.NoError(t, err)
 	require.NoError(t, service.FinishBackupRestore(backup.ID, false))
 	original := fixture.volume(t, seed.ID)
@@ -312,7 +312,7 @@ func TestRestoreBackupIntoNewAndExistingVolumes(t *testing.T) {
 func TestListBackupsFiltersAndPages(t *testing.T) {
 	fixture := newBackupFixture(domain.Volume{ID: fixtureID, ProjectID: "project", Size: 1, State: domain.StateAvailable})
 	service, seed := fixture.service, fixture.seed
-	other, err := service.Create(seed.ProjectID, "", "", 1)
+	other, err := service.Create(seed.ProjectID, seed.UserID, "", "", 1)
 	require.NoError(t, err)
 	require.NoError(t, service.CompleteCreation(other.ID))
 	first, err := service.CreateBackup(seed.ProjectID, seed.ID, app.BackupCreateOptions{Name: text("daily")})

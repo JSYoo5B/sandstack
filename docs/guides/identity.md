@@ -48,8 +48,12 @@ as Keystone substitutes `$(project_id)s` in endpoint URLs. See the
 
 Services keep the primary project as the only project with seeded resources:
 
-- Block Storage refuses every operation for another project. Lists are
-  empty, and creates and reads return `404`.
+- Block Storage records the owning project on each volume, snapshot,
+  backup, and transfer. Another project sees the shared volume types and
+  availability zone and its own resources, and can create volumes,
+  snapshots, backups, and transfers and accept transfers. The fixture
+  volume returns `404` unless it is transferred to that project. See
+  [Block Storage projects](volume.md#projects).
 - Compute lists no flavors for another project, so it cannot boot servers.
   Server lists are empty, and the fixture server returns `404`. Key pairs
   belong to the user and server groups to the project.

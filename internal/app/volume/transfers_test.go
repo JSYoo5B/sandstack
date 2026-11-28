@@ -79,7 +79,7 @@ func TestTransferCreationHoldsVolumeUntilDeleted(t *testing.T) {
 	_, attachErr := service.Attach(seed.ProjectID, "server", seed.ID, "")
 	_, snapshotCreateErr := service.CreateSnapshot(seed.ProjectID, seed.ID, app.SnapshotCreateOptions{Force: true})
 	_, backupErr := service.CreateBackup(seed.ProjectID, seed.ID, app.BackupCreateOptions{Force: true})
-	_, cloneErr := service.CreateVolume(seed.ProjectID, app.CreateRequest{SourceVolumeID: seed.ID})
+	_, cloneErr := service.CreateVolume(seed.ProjectID, seed.UserID, app.CreateRequest{SourceVolumeID: seed.ID})
 	faultErr := service.SetFailed(seed.ID, true)
 
 	assert.ErrorIs(t, deleteErr, app.ErrVolumeHasSnapshots)
@@ -120,22 +120,20 @@ func TestTransferAcceptanceRequiresTheAuthKey(t *testing.T) {
 	held := fixture.volume(t, seed.ID)
 	fixture.tick()
 
-	_, wrongKeyErr := service.AcceptTransfer(seed.ProjectID, created.Transfer.ID, "0000000000000002")
-	_, emptyKeyErr := service.AcceptTransfer(seed.ProjectID, created.Transfer.ID, "")
-	_, missingErr := service.AcceptTransfer(seed.ProjectID, "missing", created.AuthKey)
-	_, foreignErr := service.AcceptTransfer("foreign", created.Transfer.ID, created.AuthKey)
+	_, wrongKeyErr := service.AcceptTransfer(seed.ProjectID, seed.UserID, created.Transfer.ID, "0000000000000002")
+	_, emptyKeyErr := service.AcceptTransfer(seed.ProjectID, seed.UserID, created.Transfer.ID, "")
+	_, missingErr := service.AcceptTransfer(seed.ProjectID, seed.UserID, "missing", created.AuthKey)
 
 	assert.ErrorIs(t, wrongKeyErr, app.ErrTransferAuthKey)
 	assert.ErrorIs(t, emptyKeyErr, app.ErrTransferAuthKey)
 	assert.ErrorIs(t, missingErr, app.ErrTransferNotFound)
-	assert.ErrorIs(t, foreignErr, app.ErrTransferNotFound)
 	assert.Equal(t, held, fixture.volume(t, seed.ID))
 	assert.Len(t, service.ListTransfers(seed.ProjectID), 1)
 
-	accepted, err := service.AcceptTransfer(seed.ProjectID, created.Transfer.ID, created.AuthKey)
+	accepted, err := service.AcceptTransfer(seed.ProjectID, seed.UserID, created.Transfer.ID, created.AuthKey)
 	require.NoError(t, err)
 	owned := fixture.volume(t, seed.ID)
-	_, repeatErr := service.AcceptTransfer(seed.ProjectID, created.Transfer.ID, created.AuthKey)
+	_, repeatErr := service.AcceptTransfer(seed.ProjectID, seed.UserID, created.Transfer.ID, created.AuthKey)
 
 	assert.Equal(t, created.Transfer, accepted)
 	assert.Equal(t, domain.StateAvailable, owned.State)

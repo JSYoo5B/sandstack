@@ -10,13 +10,10 @@ var ErrVolumeTypeUnchanged = errors.New("the requested volume type must differ f
 
 // Retype completes immediately because the fixture types have equal extra specs.
 func (s *Service) Retype(projectID, volumeID, selector string) error {
-	if s.seed.ProjectID != projectID {
-		return ErrVolumeNotFound
-	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	volume, ok := s.volumes[volumeID]
+	volume, ok := s.ownedVolume(projectID, volumeID)
 	if !ok {
 		return ErrVolumeNotFound
 	}

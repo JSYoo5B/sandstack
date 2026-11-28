@@ -111,7 +111,13 @@ format requirement] and [Cinder image cleanup].
 | Missing or `null` action object, missing, empty, or non-string `image_name`, invalid `force`, unknown or `null` `disk_format`, a `container_format` longer than 255 characters, `visibility`, `protected`, or another field | `400` |
 | `disk_format` or `container_format` that Glance 12.0.0 rejects | `400` |
 | Volume not `available` | `400` |
-| Unknown volume | `404` |
+| Unknown volume or another project's volume | `404` |
+
+The Image sandbox creates images only for the primary [Identity
+fixture](identity.md) project, so an upload by an [additional
+fixture](identity.md#additional-fixtures) project returns the `400` for
+rejected Glance formats and leaves the volume `available`. The image owner
+is the token's project.
 
 The checks run in this order: request schema, volume lookup, volume
 state, then the Glance formats. A rejected request creates no image and

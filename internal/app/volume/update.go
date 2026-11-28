@@ -8,13 +8,10 @@ type TextUpdate struct {
 }
 
 func (s *Service) Update(projectID, volumeID string, changes TextUpdate) (domain.Volume, error) {
-	if s.seed.ProjectID != projectID {
-		return domain.Volume{}, ErrVolumeNotFound
-	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	volume, ok := s.volumes[volumeID]
+	volume, ok := s.ownedVolume(projectID, volumeID)
 	if !ok {
 		return domain.Volume{}, ErrVolumeNotFound
 	}

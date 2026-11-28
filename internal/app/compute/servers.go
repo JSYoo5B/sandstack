@@ -69,7 +69,7 @@ type serverVolumes interface {
 	Lookup(projectID, volumeID string) (volumedomain.Volume, error)
 	ReserveRoot(projectID, serverID, volumeID string) (volumedomain.Attachment, error)
 	CompleteReservation(projectID, volumeID string) error
-	CreateServerVolume(projectID, imageID string, size int) (volumedomain.Volume, error)
+	CreateServerVolume(projectID, userID, imageID string, size int) (volumedomain.Volume, error)
 	CompleteCreation(volumeID string) error
 	Detach(projectID, serverID, volumeID string) error
 	Delete(projectID, volumeID string) error
@@ -225,7 +225,7 @@ func (s *Servers) Create(request ActionRequest, spec ServerCreate) (CreatedServe
 	case failure != "":
 		s.releaseBootVolume(projectID, serverID, bootVolume)
 	case !held:
-		if failure = s.prepareBootVolume(projectID, serverID, bootVolume); failure != "" {
+		if failure = s.prepareBootVolume(projectID, request.UserID, serverID, bootVolume); failure != "" {
 			s.releasePorts(projectID, serverID, ports)
 			ports = nil
 		}

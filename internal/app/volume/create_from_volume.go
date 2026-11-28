@@ -15,22 +15,22 @@ var (
 // CreateFromVolume accepts an owned source and captures its volume provenance.
 // A zero size inherits the source size.
 func (s *Service) CreateFromVolume(
-	projectID, sourceVolumeID, name, description string,
+	projectID, userID, sourceVolumeID, name, description string,
 	size int,
 	metadata map[string]string,
 ) (domain.Volume, error) {
-	return s.createFromVolume(projectID, "", sourceVolumeID, name, description, size, metadata)
+	return s.createFromVolume(owner{projectID, userID}, "", sourceVolumeID, name, description, size, metadata)
 }
 
 func (s *Service) createFromVolume(
-	projectID, typeID, sourceVolumeID, name, description string,
+	creator owner, typeID, sourceVolumeID, name, description string,
 	size int,
 	metadata map[string]string,
 ) (domain.Volume, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	source, ok := s.volumes[sourceVolumeID]
-	if !ok || sourceVolumeID == "" || source.ProjectID != projectID {
+	source, ok := s.ownedVolume(creator.projectID, sourceVolumeID)
+	if !ok || sourceVolumeID == "" {
 		return domain.Volume{}, ErrVolumeSourceNotFound
 	}
 	if source.State != domain.StateAvailable && source.State != domain.StateInUse {
@@ -52,5 +52,5 @@ func (s *Service) createFromVolume(
 	if source.Bootable && source.ImageMetadataReady {
 		provenance.image = source.ImageSource
 	}
-	return s.createVolume(name, description, size, metadata, provenance)
+	return s.createVolume(creator, name, description, size, metadata, provenance)
 }

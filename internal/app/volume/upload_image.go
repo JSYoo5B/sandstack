@@ -39,13 +39,10 @@ func (s *Service) WithImageUploads(uploads imageUploads) *Service {
 }
 
 func (s *Service) UploadImage(projectID, volumeID string, request UploadImageRequest) (UploadedImage, error) {
-	if s.seed.ProjectID != projectID {
-		return UploadedImage{}, ErrVolumeNotFound
-	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	volume, ok := s.volumes[volumeID]
+	volume, ok := s.ownedVolume(projectID, volumeID)
 	if !ok {
 		return UploadedImage{}, ErrVolumeNotFound
 	}

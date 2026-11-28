@@ -50,7 +50,7 @@ func TestRetypeAcceptsAvailableAndInUseVolumesWithSnapshots(t *testing.T) {
 	require.NoError(t, service.Retype(seed.ProjectID, seed.ID, "performance"))
 	retyped, err := service.Get(seed.ProjectID, seed.ID)
 	require.NoError(t, err)
-	clone, err := service.CreateFromSnapshot(seed.ProjectID, snapshot.ID, "", "", 0)
+	clone, err := service.CreateFromSnapshot(seed.ProjectID, seed.UserID, snapshot.ID, "", "", 0)
 	require.NoError(t, err)
 	sameAgainErr := service.Retype(seed.ProjectID, seed.ID, performanceTypeID)
 
@@ -77,7 +77,7 @@ func TestRetypeAcceptsAvailableAndInUseVolumesWithSnapshots(t *testing.T) {
 func TestRetypeRejectsTransitionalStates(t *testing.T) {
 	seed := domain.Volume{ID: fixtureID, ProjectID: "project", Size: 1}
 	service := app.New(seed, time.Now, func() string { return "00000080-0000-4000-8000-000000000000" })
-	creating, err := service.Create(seed.ProjectID, "", "", 1)
+	creating, err := service.Create(seed.ProjectID, seed.UserID, "", "", 1)
 	require.NoError(t, err)
 	require.NoError(t, service.StartExtension(seed.ProjectID, seed.ID, 2))
 
@@ -97,18 +97,18 @@ func TestCreateVolumeSelectsOrInheritsVolumeType(t *testing.T) {
 		return fmt.Sprintf("%08x-0000-4000-8000-000000000000", id)
 	})
 
-	byName, err := service.CreateVolume(seed.ProjectID, app.CreateRequest{VolumeType: "performance", Size: 1})
+	byName, err := service.CreateVolume(seed.ProjectID, seed.UserID, app.CreateRequest{VolumeType: "performance", Size: 1})
 	require.NoError(t, err)
 	require.NoError(t, service.CompleteCreation(byName.ID))
-	inherited, err := service.CreateVolume(seed.ProjectID, app.CreateRequest{SourceVolumeID: byName.ID})
+	inherited, err := service.CreateVolume(seed.ProjectID, seed.UserID, app.CreateRequest{SourceVolumeID: byName.ID})
 	require.NoError(t, err)
-	explicit, err := service.CreateVolume(seed.ProjectID, app.CreateRequest{
+	explicit, err := service.CreateVolume(seed.ProjectID, seed.UserID, app.CreateRequest{
 		SourceVolumeID: byName.ID, VolumeType: standardTypeID,
 	})
 	require.NoError(t, err)
-	defaulted, err := service.CreateVolume(seed.ProjectID, app.CreateRequest{Size: 1})
+	defaulted, err := service.CreateVolume(seed.ProjectID, seed.UserID, app.CreateRequest{Size: 1})
 	require.NoError(t, err)
-	_, unknownErr := service.CreateVolume(seed.ProjectID, app.CreateRequest{VolumeType: "missing", Size: 1})
+	_, unknownErr := service.CreateVolume(seed.ProjectID, seed.UserID, app.CreateRequest{VolumeType: "missing", Size: 1})
 
 	assert.Equal(t, performanceTypeID, byName.TypeID)
 	assert.Equal(t, performanceTypeID, inherited.TypeID)

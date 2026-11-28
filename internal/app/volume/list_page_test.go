@@ -19,9 +19,9 @@ func TestVolumePageUsesScopedMarkersWithoutConsumingDetailFailures(t *testing.T)
 		ids = ids[1:]
 		return id
 	})
-	first, err := service.Create(seed.ProjectID, "filtered", "", 1)
+	first, err := service.Create(seed.ProjectID, seed.UserID, "filtered", "", 1)
 	require.NoError(t, err)
-	last, err := service.Create(seed.ProjectID, "filtered", "", 1)
+	last, err := service.Create(seed.ProjectID, seed.UserID, "filtered", "", 1)
 	require.NoError(t, err)
 	require.NoError(t, service.SetUnavailableDetail(seed.ID, true))
 	require.NoError(t, service.SetUnavailableDetail(last.ID, true))

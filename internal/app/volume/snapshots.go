@@ -25,13 +25,10 @@ func (s *Service) CreateSnapshot(
 	projectID, volumeID string,
 	options SnapshotCreateOptions,
 ) (domain.Snapshot, error) {
-	if s.seed.ProjectID != projectID {
-		return domain.Snapshot{}, ErrVolumeNotFound
-	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	volume, ok := s.volumes[volumeID]
+	volume, ok := s.ownedVolume(projectID, volumeID)
 	if !ok {
 		return domain.Snapshot{}, ErrVolumeNotFound
 	}
@@ -58,12 +55,9 @@ func (s *Service) CreateSnapshot(
 }
 
 func (s *Service) GetSnapshot(projectID, snapshotID string) (domain.Snapshot, error) {
-	if s.seed.ProjectID != projectID {
-		return domain.Snapshot{}, ErrSnapshotNotFound
-	}
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	snapshot, ok := s.snapshots[snapshotID]
+	snapshot, ok := s.ownedSnapshot(projectID, snapshotID)
 	if !ok {
 		return domain.Snapshot{}, ErrSnapshotNotFound
 	}
@@ -74,13 +68,10 @@ func (s *Service) UpdateSnapshot(
 	projectID, snapshotID string,
 	changes TextUpdate,
 ) (domain.Snapshot, time.Time, error) {
-	if s.seed.ProjectID != projectID {
-		return domain.Snapshot{}, time.Time{}, ErrSnapshotNotFound
-	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	snapshot, ok := s.snapshots[snapshotID]
+	snapshot, ok := s.ownedSnapshot(projectID, snapshotID)
 	if !ok {
 		return domain.Snapshot{}, time.Time{}, ErrSnapshotNotFound
 	}
@@ -113,13 +104,10 @@ func (s *Service) writeSnapshotMetadata(
 	metadata map[string]string,
 	replace bool,
 ) (map[string]string, error) {
-	if s.seed.ProjectID != projectID {
-		return nil, ErrSnapshotNotFound
-	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	snapshot, ok := s.snapshots[snapshotID]
+	snapshot, ok := s.ownedSnapshot(projectID, snapshotID)
 	if !ok {
 		return nil, ErrSnapshotNotFound
 	}
@@ -161,17 +149,11 @@ func (s *Service) ListSnapshotsPage(
 	marker *string,
 	limit int,
 ) (SnapshotPage, error) {
-	if s.seed.ProjectID != projectID {
-		if marker != nil {
-			return SnapshotPage{}, ErrSnapshotNotFound
-		}
-		return SnapshotPage{Snapshots: []domain.Snapshot{}}, nil
-	}
 	s.mu.RLock()
 	var after string
 	if marker != nil {
 		after = *marker
-		if _, ok := s.snapshots[after]; !ok || after == "" {
+		if _, ok := s.ownedSnapshot(projectID, after); !ok || after == "" {
 			s.mu.RUnlock()
 			return SnapshotPage{}, ErrSnapshotNotFound
 		}
@@ -182,7 +164,8 @@ func (s *Service) ListSnapshotsPage(
 	}
 	snapshots := make([]domain.Snapshot, 0, len(s.snapshots))
 	for _, snapshot := range s.snapshots {
-		if (marker == nil || snapshot.ID > after) && filter.matches(snapshot.Name, snapshot.State) {
+		if snapshot.ProjectID == projectID && (marker == nil || snapshot.ID > after) &&
+			filter.matches(snapshot.Name, snapshot.State) {
 			snapshots = append(snapshots, snapshot)
 		}
 	}
@@ -195,12 +178,9 @@ func (s *Service) ListSnapshotsPage(
 }
 
 func (s *Service) DeleteSnapshot(projectID, snapshotID string) error {
-	if s.seed.ProjectID != projectID {
-		return ErrSnapshotNotFound
-	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	snapshot, ok := s.snapshots[snapshotID]
+	snapshot, ok := s.ownedSnapshot(projectID, snapshotID)
 	if !ok {
 		return ErrSnapshotNotFound
 	}

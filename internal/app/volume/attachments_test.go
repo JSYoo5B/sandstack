@@ -82,7 +82,7 @@ func TestAttachmentDeviceSelectionAndReset(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "/dev/vdc", first.Device)
 
-	second, err := service.Create(seed.ProjectID, "second", "", 1)
+	second, err := service.Create(seed.ProjectID, seed.UserID, "second", "", 1)
 	require.NoError(t, err)
 	_, err = service.Attach(seed.ProjectID, serverID, second.ID, "")
 	assert.ErrorIs(t, err, app.ErrVolumeStateConflict)
@@ -114,7 +114,7 @@ func TestAttachmentsRejectExhaustedDeviceSlots(t *testing.T) {
 		return fmt.Sprintf("%08x-0000-4000-8000-000000000000", id)
 	})
 	for letter := byte('b'); letter <= 'z'; letter++ {
-		volume, err := service.Create(seed.ProjectID, "", "", 1)
+		volume, err := service.Create(seed.ProjectID, seed.UserID, "", "", 1)
 		require.NoError(t, err)
 		require.NoError(t, service.CompleteCreation(volume.ID))
 		attachment, err := service.Attach(seed.ProjectID, "server", volume.ID, "")

@@ -52,12 +52,12 @@ func TestDeletingVolumeDiscardsPendingDetailFailure(t *testing.T) {
 	seed := domain.Volume{ID: fixtureID, ProjectID: "project"}
 	const volumeID = "8593c006-d628-4ebe-bc2f-2ccd86f27d9d"
 	service := app.New(seed, func() time.Time { return time.Time{} }, func() string { return volumeID })
-	oldVolume, err := service.Create(seed.ProjectID, "old", "", 1)
+	oldVolume, err := service.Create(seed.ProjectID, seed.UserID, "old", "", 1)
 	require.NoError(t, err)
 	require.NoError(t, service.CompleteCreation(oldVolume.ID))
 	require.NoError(t, service.SetUnavailableDetail(oldVolume.ID, true))
 	require.NoError(t, service.Delete(seed.ProjectID, oldVolume.ID))
-	replacement, err := service.Create(seed.ProjectID, "replacement", "", 1)
+	replacement, err := service.Create(seed.ProjectID, seed.UserID, "replacement", "", 1)
 	require.NoError(t, err)
 	require.Equal(t, oldVolume.ID, replacement.ID)
 

@@ -13,11 +13,11 @@ import (
 
 const performanceTypeID = "6f0c2b8e-4d1a-4e7b-9c35-2a8f1d7e5b90"
 
-func TestDefaultVolumeTypeAndIDShareProjectScope(t *testing.T) {
+func TestDefaultVolumeTypeResolvesByAliasAndID(t *testing.T) {
 	seed := domain.Volume{ID: fixtureID, ProjectID: "project"}
 	service := app.New(seed, time.Now, nil)
 
-	defaultType, err := service.GetVolumeType(seed.ProjectID, "default")
+	defaultType, err := service.GetVolumeType("default")
 	require.NoError(t, err)
 	assert.Equal(t, domain.VolumeType{
 		ID:          "3190e22a-9606-4cf7-b9bd-4eb5af3dc601",
@@ -25,16 +25,12 @@ func TestDefaultVolumeTypeAndIDShareProjectScope(t *testing.T) {
 		Description: "Standard SandStack volume type",
 		Public:      true,
 	}, defaultType)
-	byID, err := service.GetVolumeType(seed.ProjectID, defaultType.ID)
+	byID, err := service.GetVolumeType(defaultType.ID)
 	require.NoError(t, err)
 	assert.Equal(t, defaultType, byID)
 
-	for _, id := range []string{"default", defaultType.ID} {
-		_, err := service.GetVolumeType("foreign", id)
-		assert.ErrorIs(t, err, app.ErrVolumeTypeNotFound)
-	}
 	for _, id := range []string{"missing", "standard", "performance"} {
-		_, err = service.GetVolumeType(seed.ProjectID, id)
+		_, err = service.GetVolumeType(id)
 		assert.ErrorIs(t, err, app.ErrVolumeTypeNotFound)
 	}
 }
@@ -43,8 +39,7 @@ func TestPerformanceVolumeTypeIsReadableByID(t *testing.T) {
 	seed := domain.Volume{ID: fixtureID, ProjectID: "project"}
 	service := app.New(seed, time.Now, nil)
 
-	performance, err := service.GetVolumeType(seed.ProjectID, performanceTypeID)
-	_, foreignErr := service.GetVolumeType("foreign", performanceTypeID)
+	performance, err := service.GetVolumeType(performanceTypeID)
 
 	require.NoError(t, err)
 	assert.Equal(t, domain.VolumeType{
@@ -53,5 +48,4 @@ func TestPerformanceVolumeTypeIsReadableByID(t *testing.T) {
 		Description: "Performance SandStack volume type",
 		Public:      true,
 	}, performance)
-	assert.ErrorIs(t, foreignErr, app.ErrVolumeTypeNotFound)
 }

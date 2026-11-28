@@ -33,10 +33,7 @@ var fixtureVolumeTypes = []domain.VolumeType{
 }
 
 // resolveCreateVolumeType returns an empty ID when the volume inherits or defaults its type.
-func (s *Service) resolveCreateVolumeType(projectID, selector string) (string, error) {
-	if s.seed.ProjectID != projectID {
-		return "", ErrVolumeTypeNotFound
-	}
+func resolveCreateVolumeType(selector string) (string, error) {
 	if selector == "" {
 		return "", nil
 	}
@@ -48,10 +45,7 @@ func (s *Service) resolveCreateVolumeType(projectID, selector string) (string, e
 }
 
 // GetVolumeType resolves the fixture's default alias and concrete type IDs.
-func (s *Service) GetVolumeType(projectID, typeID string) (domain.VolumeType, error) {
-	if s.seed.ProjectID != projectID {
-		return domain.VolumeType{}, ErrVolumeTypeNotFound
-	}
+func (s *Service) GetVolumeType(typeID string) (domain.VolumeType, error) {
 	if typeID == "default" {
 		typeID = standardVolumeTypeID
 	}

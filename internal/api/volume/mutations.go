@@ -44,7 +44,11 @@ func (h handler) createVolume(w http.ResponseWriter, r *http.Request, projectID 
 		writeFault(w, http.StatusBadRequest, "badRequest", err.Error())
 		return
 	}
-	volume, err := h.service.CreateVolume(projectID, app.CreateRequest{
+	userID, ok := h.requestUser(w, r)
+	if !ok {
+		return
+	}
+	volume, err := h.service.CreateVolume(projectID, userID, app.CreateRequest{
 		VolumeType:     params.volumeType,
 		ImageID:        params.imageID,
 		SnapshotID:     params.snapshotID,
@@ -57,8 +61,6 @@ func (h handler) createVolume(w http.ResponseWriter, r *http.Request, projectID 
 	switch {
 	case errors.Is(err, app.ErrVolumeTypeNotFound):
 		writeFault(w, http.StatusNotFound, "itemNotFound", "The volume type could not be found.")
-	case errors.Is(err, app.ErrVolumeNotFound):
-		writeFault(w, http.StatusNotFound, "itemNotFound", "The volume project could not be found.")
 	case errors.Is(err, app.ErrSnapshotNotFound):
 		writeFault(w, http.StatusNotFound, "itemNotFound", "The source snapshot could not be found.")
 	case errors.Is(err, app.ErrVolumeSourceNotFound):

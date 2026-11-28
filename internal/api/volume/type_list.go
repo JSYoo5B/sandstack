@@ -27,7 +27,7 @@ func (h handler) listVolumeTypes(w http.ResponseWriter, r *http.Request, project
 		writeFault(w, http.StatusBadRequest, "badRequest", err.Error())
 		return
 	}
-	page, err := h.service.ListVolumeTypesPage(projectID, marker, limit)
+	page, err := h.service.ListVolumeTypesPage(marker, limit)
 	switch {
 	case errors.Is(err, app.ErrVolumeTypeNotFound):
 		writeFault(w, http.StatusNotFound, "itemNotFound", "The volume type marker could not be found.")

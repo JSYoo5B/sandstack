@@ -178,7 +178,9 @@ func New(config Config) (http.Handler, error) {
 	)
 	apinetwork.Register(services, networkService, identityService.ProjectForToken, endpointURL)
 	apiimage.Register(services, imageService, identityService.ProjectForToken, endpointURL)
-	apivolume.Register(services, volumeService, identityService.ProjectForToken, endpointURL)
+	apivolume.Register(
+		services, volumeService, identityService.ProjectForToken, identityService.UserForToken, endpointURL,
+	)
 	registerControlRoutes(router, state, config.AdminToken,
 		func(r chi.Router) { registerIdentityControls(r, identityService) },
 		func(r chi.Router) { registerComputeControls(r, computeService, servers) },

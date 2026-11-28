@@ -51,11 +51,11 @@ func TestVolumeProvisioningReassertsCapturedBootability(t *testing.T) {
 		ids = ids[1:]
 		return id
 	}, imageLookupFunc(func(_, _ string) (imagedomain.Image, error) { return image, nil }))
-	fromImage, err := service.CreateFromImage(seed.ProjectID, image.ID, "image", "", 1, nil)
+	fromImage, err := service.CreateFromImage(seed.ProjectID, seed.UserID, image.ID, "image", "", 1, nil)
 	require.NoError(t, err)
-	clone, err := service.CreateFromVolume(seed.ProjectID, seed.ID, "clone", "", 0, nil)
+	clone, err := service.CreateFromVolume(seed.ProjectID, seed.UserID, seed.ID, "clone", "", 0, nil)
 	require.NoError(t, err)
-	blank, err := service.Create(seed.ProjectID, "blank", "", 1)
+	blank, err := service.Create(seed.ProjectID, seed.UserID, "blank", "", 1)
 	require.NoError(t, err)
 	assert.True(t, fromImage.BootableOnProvision)
 	assert.True(t, clone.BootableOnProvision)

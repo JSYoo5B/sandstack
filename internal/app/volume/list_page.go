@@ -31,17 +31,11 @@ func (s *Service) List(projectID string, filter ListFilter) []domain.Volume {
 // ListPage returns matching volumes after the marker in ID order. A negative
 // limit is unbounded. A full positive page exposes its last ID as the next marker.
 func (s *Service) ListPage(projectID string, filter ListFilter, marker *string, limit int) (VolumePage, error) {
-	if s.seed.ProjectID != projectID {
-		if marker != nil {
-			return VolumePage{}, ErrVolumeNotFound
-		}
-		return VolumePage{Volumes: []domain.Volume{}}, nil
-	}
 	s.mu.RLock()
 	var after string
 	if marker != nil {
 		after = *marker
-		if _, ok := s.volumes[after]; !ok || after == "" {
+		if _, ok := s.ownedVolume(projectID, after); !ok || after == "" {
 			s.mu.RUnlock()
 			return VolumePage{}, ErrVolumeNotFound
 		}
@@ -52,7 +46,8 @@ func (s *Service) ListPage(projectID string, filter ListFilter, marker *string, 
 	}
 	volumes := make([]domain.Volume, 0, len(s.volumes))
 	for _, volume := range s.volumes {
-		if (marker == nil || volume.ID > after) && filter.matches(volume.Name, volume.State) {
+		if volume.ProjectID == projectID && (marker == nil || volume.ID > after) &&
+			filter.matches(volume.Name, volume.State) {
 			volumes = append(volumes, volume)
 		}
 	}

@@ -195,7 +195,13 @@ func (h handler) restoreBackup(w http.ResponseWriter, r *http.Request, projectID
 		return
 	}
 
-	restore, err := h.service.RestoreBackup(projectID, chi.URLParam(r, "backupID"), params.volumeID, params.name)
+	userID, ok := h.requestUser(w, r)
+	if !ok {
+		return
+	}
+	restore, err := h.service.RestoreBackup(
+		projectID, userID, chi.URLParam(r, "backupID"), params.volumeID, params.name,
+	)
 	switch {
 	case errors.Is(err, app.ErrBackupNotFound):
 		writeFault(w, http.StatusNotFound, "itemNotFound", "The backup could not be found.")

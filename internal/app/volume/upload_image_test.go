@@ -89,7 +89,7 @@ func TestUploadImageCreatesActiveImageAndRestoresAvailableVolume(t *testing.T) {
 // https://github.com/openstack/cinder/blob/134790e4206f4effa503c47965b7d0cc888695a1/cinder/image/image_utils.py#L1161-L1239
 func TestUploadImageCopiesSourceImageDataOfImageVolume(t *testing.T) {
 	fixture := newUploadFixture(t)
-	created, err := fixture.volumes.CreateFromImage(fixture.seed.ProjectID, uploadSourceImageID, "from image", "", 1, nil)
+	created, err := fixture.volumes.CreateFromImage(fixture.seed.ProjectID, fixture.seed.UserID, uploadSourceImageID, "from image", "", 1, nil)
 	require.NoError(t, err)
 	require.NoError(t, fixture.volumes.CompleteCreation(created.ID))
 
@@ -134,7 +134,7 @@ func TestUploadImageWithoutContainerFormatDeletesFailedImage(t *testing.T) {
 // https://github.com/openstack/glance/blob/12.0.0/glance/common/config.py#L44-L56
 func TestUploadImageRejectsStateAndFormatsWithoutChanges(t *testing.T) {
 	fixture := newUploadFixture(t)
-	creating, err := fixture.volumes.Create(fixture.seed.ProjectID, "", "", 1)
+	creating, err := fixture.volumes.Create(fixture.seed.ProjectID, fixture.seed.UserID, "", "", 1)
 	require.NoError(t, err)
 	inUse := domain.Volume{
 		ID: fixtureID, ProjectID: "project", Size: 1, State: domain.StateInUse,

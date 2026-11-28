@@ -9,63 +9,57 @@ import (
 
 var ErrVolumeSmallerThanSnapshot = errors.New("volume size must be at least the snapshot size")
 
-func (s *Service) Create(projectID, name, description string, size int) (domain.Volume, error) {
-	return s.CreateWithMetadata(projectID, name, description, size, nil)
+func (s *Service) Create(projectID, userID, name, description string, size int) (domain.Volume, error) {
+	return s.CreateWithMetadata(projectID, userID, name, description, size, nil)
 }
 
 func (s *Service) CreateWithMetadata(
-	projectID, name, description string,
+	projectID, userID, name, description string,
 	size int,
 	metadata map[string]string,
 ) (domain.Volume, error) {
-	return s.createBlank(projectID, "", name, description, size, metadata)
+	return s.createBlank(owner{projectID, userID}, "", name, description, size, metadata)
 }
 
 func (s *Service) createBlank(
-	projectID, typeID, name, description string,
+	creator owner, typeID, name, description string,
 	size int,
 	metadata map[string]string,
 ) (domain.Volume, error) {
-	if s.seed.ProjectID != projectID {
-		return domain.Volume{}, ErrVolumeNotFound
-	}
 	if size <= 0 {
 		return domain.Volume{}, ErrInvalidVolumeSize
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.createVolume(name, description, size, metadata, volumeSource{typeID: typeID})
+	return s.createVolume(creator, name, description, size, metadata, volumeSource{typeID: typeID})
 }
 
 // CreateFromSnapshot uses the snapshot's size when size is omitted (zero).
 func (s *Service) CreateFromSnapshot(
-	projectID, snapshotID, name, description string,
+	projectID, userID, snapshotID, name, description string,
 	size int,
 ) (domain.Volume, error) {
-	return s.CreateFromSnapshotWithMetadata(projectID, snapshotID, name, description, size, nil)
+	return s.CreateFromSnapshotWithMetadata(projectID, userID, snapshotID, name, description, size, nil)
 }
 
 // CreateFromSnapshotWithMetadata assigns the requested metadata to the new volume.
 func (s *Service) CreateFromSnapshotWithMetadata(
-	projectID, snapshotID, name, description string,
+	projectID, userID, snapshotID, name, description string,
 	size int,
 	metadata map[string]string,
 ) (domain.Volume, error) {
-	return s.createFromSnapshot(projectID, "", snapshotID, name, description, size, metadata)
+	return s.createFromSnapshot(owner{projectID, userID}, "", snapshotID, name, description, size, metadata)
 }
 
 func (s *Service) createFromSnapshot(
-	projectID, typeID, snapshotID, name, description string,
+	creator owner, typeID, snapshotID, name, description string,
 	size int,
 	metadata map[string]string,
 ) (domain.Volume, error) {
-	if s.seed.ProjectID != projectID {
-		return domain.Volume{}, ErrSnapshotNotFound
-	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	snapshot, ok := s.snapshots[snapshotID]
+	snapshot, ok := s.ownedSnapshot(creator.projectID, snapshotID)
 	if !ok {
 		return domain.Volume{}, ErrSnapshotNotFound
 	}
@@ -84,7 +78,12 @@ func (s *Service) createFromSnapshot(
 	if typeID == "" {
 		typeID = s.volumes[snapshot.VolumeID].TypeID
 	}
-	return s.createVolume(name, description, size, metadata, volumeSource{snapshotID: snapshotID, typeID: typeID})
+	return s.createVolume(creator, name, description, size, metadata, volumeSource{snapshotID: snapshotID, typeID: typeID})
+}
+
+type owner struct {
+	projectID string
+	userID    string
 }
 
 type volumeSource struct {
@@ -97,6 +96,7 @@ type volumeSource struct {
 
 // createVolume runs with the service's write lock held.
 func (s *Service) createVolume(
+	creator owner,
 	name, description string,
 	size int,
 	metadata map[string]string,
@@ -110,8 +110,8 @@ func (s *Service) createVolume(
 		ID:                  id,
 		Name:                domain.NullableText{Value: name, Valid: name != ""},
 		Description:         domain.NullableText{Value: description, Valid: description != ""},
-		ProjectID:           s.seed.ProjectID,
-		UserID:              s.seed.UserID,
+		ProjectID:           creator.projectID,
+		UserID:              creator.userID,
 		SnapshotID:          source.snapshotID,
 		SourceVolumeID:      source.volumeID,
 		Size:                size,
@@ -140,22 +140,23 @@ type CreateRequest struct {
 
 // CreateVolume resolves the requested type before selecting the volume source.
 // An omitted type inherits the source volume or snapshot type, or defaults to standard.
-func (s *Service) CreateVolume(projectID string, request CreateRequest) (domain.Volume, error) {
-	typeID, err := s.resolveCreateVolumeType(projectID, request.VolumeType)
+func (s *Service) CreateVolume(projectID, userID string, request CreateRequest) (domain.Volume, error) {
+	typeID, err := resolveCreateVolumeType(request.VolumeType)
 	if err != nil {
 		return domain.Volume{}, err
 	}
+	creator := owner{projectID: projectID, userID: userID}
 	switch {
 	case request.ImageID != "":
-		return s.createFromImage(projectID, typeID, request.ImageID,
+		return s.createFromImage(creator, typeID, request.ImageID,
 			request.Name, request.Description, request.Size, request.Metadata)
 	case request.SnapshotID != "":
-		return s.createFromSnapshot(projectID, typeID, request.SnapshotID,
+		return s.createFromSnapshot(creator, typeID, request.SnapshotID,
 			request.Name, request.Description, request.Size, request.Metadata)
 	case request.SourceVolumeID != "":
-		return s.createFromVolume(projectID, typeID, request.SourceVolumeID,
+		return s.createFromVolume(creator, typeID, request.SourceVolumeID,
 			request.Name, request.Description, request.Size, request.Metadata)
 	default:
-		return s.createBlank(projectID, typeID, request.Name, request.Description, request.Size, request.Metadata)
+		return s.createBlank(creator, typeID, request.Name, request.Description, request.Size, request.Metadata)
 	}
 }

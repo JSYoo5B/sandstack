@@ -52,7 +52,7 @@ func (s *Servers) FinishBuild(serverID string, failed bool) error {
 		server.Fault = &domain.Fault{Code: 500, Message: buildFailureMessage, CreatedAt: now}
 		return nil
 	}
-	if failure := s.prepareBootVolume(server.ProjectID, serverID, server.BootVolume); failure != "" {
+	if failure := s.prepareBootVolume(server.ProjectID, server.UserID, serverID, server.BootVolume); failure != "" {
 		s.releasePorts(server.ProjectID, serverID, server.Ports)
 		server.Ports = nil
 		s.releaseBootVolume(server.ProjectID, serverID, server.BootVolume)

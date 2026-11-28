@@ -182,12 +182,12 @@ func (s *Servers) reserveBootVolume(projectID, serverID string, bootVolume *doma
 	return nil
 }
 
-func (s *Servers) prepareBootVolume(projectID, serverID string, bootVolume *domain.BootVolume) string {
+func (s *Servers) prepareBootVolume(projectID, userID, serverID string, bootVolume *domain.BootVolume) string {
 	if bootVolume == nil {
 		return ""
 	}
 	if bootVolume.VolumeID == "" {
-		volume, err := s.volumes.CreateServerVolume(projectID, bootVolume.ImageID, bootVolume.Size)
+		volume, err := s.volumes.CreateServerVolume(projectID, userID, bootVolume.ImageID, bootVolume.Size)
 		if err != nil {
 			return blockDevicePrepareFailure
 		}

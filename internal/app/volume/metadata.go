@@ -8,12 +8,9 @@ import (
 
 // GetVolumeMetadata reads metadata independently of volume detail faults.
 func (s *Service) GetVolumeMetadata(projectID, volumeID string) (map[string]string, error) {
-	if s.seed.ProjectID != projectID {
-		return nil, ErrVolumeNotFound
-	}
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	volume, ok := s.volumes[volumeID]
+	volume, ok := s.ownedVolume(projectID, volumeID)
 	if !ok {
 		return nil, ErrVolumeNotFound
 	}
@@ -41,12 +38,9 @@ func (s *Service) writeVolumeMetadata(
 	metadata map[string]string,
 	replace bool,
 ) (map[string]string, error) {
-	if s.seed.ProjectID != projectID {
-		return nil, ErrVolumeNotFound
-	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	volume, ok := s.volumes[volumeID]
+	volume, ok := s.ownedVolume(projectID, volumeID)
 	if !ok {
 		return nil, ErrVolumeNotFound
 	}

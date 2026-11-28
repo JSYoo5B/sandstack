@@ -24,6 +24,15 @@ func (e TransferSnapshotStateError) Error() string {
 	return "snapshot: " + e.SnapshotID + " status must be available"
 }
 
+type TransferAcceptSnapshotStateError struct {
+	TransferID string
+	SnapshotID string
+}
+
+func (e TransferAcceptSnapshotStateError) Error() string {
+	return "Transfer " + e.TransferID + ": Snapshot " + e.SnapshotID + " is not in the expected available state."
+}
+
 type CreatedTransfer struct {
 	Transfer domain.Transfer
 	AuthKey  string
@@ -37,14 +46,11 @@ func (s *Service) WithTransferKeys(newAuthKey func() string) *Service {
 }
 
 func (s *Service) CreateTransfer(projectID, volumeID string, name *string) (CreatedTransfer, error) {
-	if s.seed.ProjectID != projectID {
-		return CreatedTransfer{}, ErrVolumeNotFound
-	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	volume, ok := s.volumes[volumeID]
-	if !ok || volume.ProjectID != projectID {
+	volume, ok := s.ownedVolume(projectID, volumeID)
+	if !ok {
 		return CreatedTransfer{}, ErrVolumeNotFound
 	}
 	if volume.State != domain.StateAvailable {
@@ -132,10 +138,7 @@ func (s *Service) DeleteTransfer(projectID, transferID string) error {
 	return nil
 }
 
-func (s *Service) AcceptTransfer(projectID, transferID, authKey string) (domain.Transfer, error) {
-	if s.seed.ProjectID != projectID {
-		return domain.Transfer{}, ErrTransferNotFound
-	}
+func (s *Service) AcceptTransfer(projectID, userID, transferID, authKey string) (domain.Transfer, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -150,7 +153,20 @@ func (s *Service) AcceptTransfer(projectID, transferID, authKey string) (domain.
 	if !found || volume.State != domain.StateAwaitingTransfer {
 		return domain.Transfer{}, ErrVolumeStateConflict
 	}
+	if snapshotID := s.unavailableSnapshot(volume.ID); snapshotID != "" {
+		s.updateState(volume, domain.StateAwaitingTransfer)
+		return domain.Transfer{}, TransferAcceptSnapshotStateError{TransferID: transferID, SnapshotID: snapshotID}
+	}
+	now := s.now().UTC()
+	for id, snapshot := range s.snapshots {
+		if snapshot.VolumeID == volume.ID {
+			snapshot.ProjectID = projectID
+			snapshot.UpdatedAt = now
+			s.snapshots[id] = snapshot
+		}
+	}
 	volume.ProjectID = projectID
+	volume.UserID = userID
 	s.updateState(volume, domain.StateAvailable)
 	delete(s.transfers, transferID)
 	return withoutAuthKey(transfer), nil

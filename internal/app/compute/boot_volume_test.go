@@ -19,7 +19,7 @@ func bootIndex(index int) *int {
 }
 
 func (s *ServersSuite) bootableVolume() string {
-	volume, err := s.volumes.CreateFromImage(serverProject, serverImage, "root", "", 1, nil)
+	volume, err := s.volumes.CreateFromImage(serverProject, serverUser, serverImage, "root", "", 1, nil)
 	s.Require().NoError(err)
 	s.Require().NoError(s.volumes.CompleteCreation(volume.ID))
 	return volume.ID

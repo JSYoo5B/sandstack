@@ -20,15 +20,15 @@ type imageLookup interface {
 
 // CreateFromImage captures the active source image's metadata for provisioning.
 func (s *Service) CreateFromImage(
-	projectID, imageID, name, description string,
+	projectID, userID, imageID, name, description string,
 	size int,
 	metadata map[string]string,
 ) (domain.Volume, error) {
-	return s.createFromImage(projectID, "", imageID, name, description, size, metadata)
+	return s.createFromImage(owner{projectID, userID}, "", imageID, name, description, size, metadata)
 }
 
-func (s *Service) CreateServerVolume(projectID, imageID string, size int) (domain.Volume, error) {
-	volume, err := s.CreateVolume(projectID, CreateRequest{ImageID: imageID, Size: size})
+func (s *Service) CreateServerVolume(projectID, userID, imageID string, size int) (domain.Volume, error) {
+	volume, err := s.CreateVolume(projectID, userID, CreateRequest{ImageID: imageID, Size: size})
 	if err != nil {
 		return domain.Volume{}, err
 	}
@@ -42,21 +42,19 @@ func (s *Service) CreateServerVolume(projectID, imageID string, size int) (domai
 }
 
 func (s *Service) createFromImage(
-	projectID, typeID, imageID, name, description string,
+	creator owner, typeID, imageID, name, description string,
 	size int,
 	metadata map[string]string,
 ) (domain.Volume, error) {
-	if s.seed.ProjectID != projectID {
-		return domain.Volume{}, ErrVolumeNotFound
-	}
 	if size <= 0 {
 		return domain.Volume{}, ErrInvalidVolumeSize
 	}
 	if s.images == nil {
 		return domain.Volume{}, ErrVolumeSourceImageUnavailable
 	}
-	image, err := s.images.Get(projectID, imageID)
-	if err != nil || imageID == "" || image.ID != imageID || image.ProjectID != projectID || image.Status() != "active" {
+	image, err := s.images.Get(creator.projectID, imageID)
+	if err != nil || imageID == "" || image.ID != imageID || image.ProjectID != creator.projectID ||
+		image.Status() != "active" {
 		return domain.Volume{}, ErrVolumeSourceImageUnavailable
 	}
 	minimumGiB := image.Size / bytesPerGiB
@@ -78,5 +76,5 @@ func (s *Service) createFromImage(
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.createVolume(name, description, size, metadata, volumeSource{image: source, typeID: typeID})
+	return s.createVolume(creator, name, description, size, metadata, volumeSource{image: source, typeID: typeID})
 }

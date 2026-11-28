@@ -10,12 +10,9 @@ var ErrVolumeImageMetadataNotFound = errors.New("the volume has no image metadat
 
 // GetPublishedImageSource reads image provenance independently of detail faults.
 func (s *Service) GetPublishedImageSource(projectID, volumeID string) (domain.ImageSource, error) {
-	if s.seed.ProjectID != projectID {
-		return domain.ImageSource{}, ErrVolumeNotFound
-	}
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	volume, ok := s.volumes[volumeID]
+	volume, ok := s.ownedVolume(projectID, volumeID)
 	if !ok {
 		return domain.ImageSource{}, ErrVolumeNotFound
 	}

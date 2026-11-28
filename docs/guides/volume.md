@@ -10,6 +10,32 @@ Use `volumes.List` for `GET /volumes/detail` and `volumes.Get` for
 The sandbox starts with an unattached `fixture-volume` of 1 GiB and uses
 baseline Cinder v3 metadata.
 
+## Projects
+
+Every volume, snapshot, backup, and transfer belongs to the project that
+created it, and a volume records the creating user as `user_id`. The
+fixture volume belongs to the primary [Identity fixture](identity.md)
+project. An [additional fixture](identity.md#additional-fixtures) project
+can create and manage its own Block Storage resources with its own token
+and endpoint. Volume types and the `nova` availability zone are shared by
+all projects, as Cinder's volume types are public by default. See the
+[Cinder volume type visibility].
+
+Cinder looks up volumes, snapshots, and backups with a project filter for
+a non-admin token, so another project's resource is not found. SandStack
+returns the same `404` for reads, updates, actions, and deletes of another
+project's volume, snapshot, or backup, and for creates that name it as a
+source. Lists and pagination markers only cover the token's project. See
+the [Cinder project filter], [Cinder volume lookup], [Cinder snapshot
+lookup], [Cinder backup lookup], and [Cinder volume list scope].
+
+A [transfer](volume-transfers.md) moves a volume and its snapshots to
+another project. An additional project cannot create volumes from images
+or upload volumes to images, because the [Image sandbox](image.md) refuses
+image creates for that project. Compute serves servers only to the primary
+project, so only that project boots from or attaches volumes. SandStack
+does not implement Block Storage quotas or limits.
+
 ## Discover the default volume type
 
 See [Discover the default volume type](volume-discovery.md#discover-the-default-volume-type).
@@ -289,6 +315,12 @@ check empty results and invalid queries over HTTP.
 The transient detail outage test checks the Cinder `503` response and
 reads the live volume on retry through Gophercloud.
 
+[Cinder project filter]: https://github.com/openstack/cinder/blob/134790e4206f4effa503c47965b7d0cc888695a1/cinder/db/api.py#L331-L370
+[Cinder volume lookup]: https://github.com/openstack/cinder/blob/134790e4206f4effa503c47965b7d0cc888695a1/cinder/db/api.py#L2377-L2395
+[Cinder snapshot lookup]: https://github.com/openstack/cinder/blob/134790e4206f4effa503c47965b7d0cc888695a1/cinder/db/api.py#L3783-L3797
+[Cinder backup lookup]: https://github.com/openstack/cinder/blob/134790e4206f4effa503c47965b7d0cc888695a1/cinder/db/api.py#L6368-L6390
+[Cinder volume type visibility]: https://github.com/openstack/cinder/blob/134790e4206f4effa503c47965b7d0cc888695a1/cinder/volume/volume_types.py#L49-L54
+[Cinder volume list scope]: https://github.com/openstack/cinder/blob/134790e4206f4effa503c47965b7d0cc888695a1/cinder/volume/api.py#L633-L686
 [create volume reference]: https://docs.openstack.org/api-ref/block-storage/v3/#create-a-volume
 [Cinder volume create schema]: https://github.com/openstack/cinder/blob/master/cinder/api/schemas/volumes.py#L23-L69
 [Cinder volume type resolution]: https://github.com/openstack/cinder/blob/master/cinder/api/v3/volumes.py#L360-L375

@@ -18,6 +18,7 @@ const (
 type handler struct {
 	service         *app.Service
 	projectForToken func(string) (string, error)
+	userForToken    func(string) (string, error)
 	endpointURL     func(*http.Request, string) string
 }
 
@@ -28,9 +29,15 @@ func Register(
 	router chi.Router,
 	service *app.Service,
 	projectForToken func(string) (string, error),
+	userForToken func(string) (string, error),
 	endpointURL func(*http.Request, string) string,
 ) {
-	h := handler{service: service, projectForToken: projectForToken, endpointURL: endpointURL}
+	h := handler{
+		service:         service,
+		projectForToken: projectForToken,
+		userForToken:    userForToken,
+		endpointURL:     endpointURL,
+	}
 	router.Get(Path+"/{projectID}/os-availability-zone", h.withProject(h.listAvailabilityZones))
 	router.Get(Path+"/{projectID}/types", h.withProject(h.listVolumeTypes))
 	router.Get(Path+"/{projectID}/types/{typeID}", h.withProject(withoutQuery(h.showVolumeType)))
@@ -92,6 +99,15 @@ func (h handler) withProject(next projectHandler) http.HandlerFunc {
 		}
 		next(w, r, projectID)
 	}
+}
+
+func (h handler) requestUser(w http.ResponseWriter, r *http.Request) (string, bool) {
+	userID, err := h.userForToken(r.Header.Get("X-Auth-Token"))
+	if err != nil || userID == "" {
+		writeUnauthorized(w)
+		return "", false
+	}
+	return userID, true
 }
 
 func withoutQuery(next projectHandler) projectHandler {

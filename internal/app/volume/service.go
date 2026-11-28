@@ -55,12 +55,9 @@ func NewWithImageLookup(seed domain.Volume, now func() time.Time, newID func() s
 }
 
 func (s *Service) Get(projectID, volumeID string) (domain.Volume, error) {
-	if s.seed.ProjectID != projectID {
-		return domain.Volume{}, ErrVolumeNotFound
-	}
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	volume, ok := s.volumes[volumeID]
+	volume, ok := s.ownedVolume(projectID, volumeID)
 	if !ok {
 		return domain.Volume{}, ErrVolumeNotFound
 	}
@@ -72,16 +69,28 @@ func (s *Service) Get(projectID, volumeID string) (domain.Volume, error) {
 }
 
 func (s *Service) Lookup(projectID, volumeID string) (domain.Volume, error) {
-	if s.seed.ProjectID != projectID {
-		return domain.Volume{}, ErrVolumeNotFound
-	}
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	volume, ok := s.volumes[volumeID]
+	volume, ok := s.ownedVolume(projectID, volumeID)
 	if !ok {
 		return domain.Volume{}, ErrVolumeNotFound
 	}
 	return cloneVolume(volume), nil
+}
+
+func (s *Service) ownedVolume(projectID, volumeID string) (domain.Volume, bool) {
+	volume, ok := s.volumes[volumeID]
+	return volume, ok && volume.ProjectID == projectID
+}
+
+func (s *Service) ownedSnapshot(projectID, snapshotID string) (domain.Snapshot, bool) {
+	snapshot, ok := s.snapshots[snapshotID]
+	return snapshot, ok && snapshot.ProjectID == projectID
+}
+
+func (s *Service) ownedBackup(projectID, backupID string) (domain.Backup, bool) {
+	backup, ok := s.backups[backupID]
+	return backup, ok && backup.ProjectID == projectID
 }
 
 // allocateID runs with the service's write lock held.
@@ -115,13 +124,10 @@ func (s *Service) allocateID() (string, error) {
 }
 
 func (s *Service) Delete(projectID, volumeID string) error {
-	if s.seed.ProjectID != projectID {
-		return ErrVolumeNotFound
-	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	volume, ok := s.volumes[volumeID]
+	volume, ok := s.ownedVolume(projectID, volumeID)
 	if !ok {
 		return ErrVolumeNotFound
 	}

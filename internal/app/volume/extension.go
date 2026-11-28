@@ -10,12 +10,9 @@ var ErrInvalidExtensionSize = errors.New("new volume size must be larger than th
 
 // StartExtension records the requested size without changing the current size.
 func (s *Service) StartExtension(projectID, volumeID string, newSize int) error {
-	if s.seed.ProjectID != projectID {
-		return ErrVolumeNotFound
-	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	volume, ok := s.volumes[volumeID]
+	volume, ok := s.ownedVolume(projectID, volumeID)
 	if !ok {
 		return ErrVolumeNotFound
 	}

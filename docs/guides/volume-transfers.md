@@ -8,13 +8,13 @@ same `block-storage` endpoint, which is the path Gophercloud v2.15.0's
 `transfers` package calls. SandStack serves the Cinder v3.0 behavior.
 See the [Cinder transfer controller] and [Gophercloud transfer URLs].
 
-Only the primary [Identity fixture](identity.md) project has Block Storage
-access. [Additional fixture](identity.md#additional-fixtures) projects
-receive `404` for transfers. In Cinder, the accepting project becomes the
-owner of the volume. In SandStack, the only project that can accept a
-transfer is the one that created it, so accept
-leaves the owner unchanged. Cinder does not reject a transfer accepted
-by the project that created it. See the [Cinder transfer acceptance].
+A transfer hands a volume from the project that created the transfer to
+the project whose token accepts it. Configure an [additional
+fixture](identity.md#additional-fixtures) to accept with another project.
+The accepting project becomes the owner of the volume and its snapshots.
+Cinder does not reject a transfer accepted by the project that created
+it, and SandStack accepts it too, leaving the owner unchanged. See the
+[Cinder transfer acceptance] and [Block Storage projects](volume.md#projects).
 
 ## Create a transfer
 
@@ -57,8 +57,10 @@ without `auth_key`. Use `transfers.List` for
 /os-volume-transfer` lists summaries with `id`, `volume_id`, `name`, and
 `links`. Both lists contain the token's project's transfers in ascending
 `created_at` order, then by ID. An unknown transfer returns `404` with
-`Transfer <transfer_id> could not be found.` See the [Cinder transfer
-reads].
+`Transfer <transfer_id> could not be found.` Cinder reads a transfer only
+through the project that owns its volume, so the accepting project also
+receives `404` before it accepts. See the [Cinder transfer reads] and the
+[Cinder transfer lookup].
 
 SandStack's lists take no query parameters and never include
 `transfers_links`. A query string returns `400`. Pass `nil` or empty
@@ -77,13 +79,28 @@ transfer schema].
 | Matching `auth_key` | `202` with the transfer summary |
 | Missing, `null`, or non-string, non-integer `auth_key`, or an extra field | `400` |
 | Wrong `auth_key` | `400` with `Invalid auth key: Attempt to transfer <transfer_id> with invalid auth key.` |
+| A snapshot of the volume is not `available` | `400` with `Invalid snapshot: Transfer <transfer_id>: Snapshot <snapshot_id> is not in the expected available state.` |
 | Unknown, cancelled, or accepted transfer | `404` with `Transfer <transfer_id> could not be found.` |
 
-The `202` response contains a `transfer` object with `id`, `volume_id`,
-`name`, and `links`. The volume returns to `available` and its
-`updated_at` changes. The transfer is removed from reads and lists. A
-rejected accept leaves the volume in `awaiting-transfer`. See the [Cinder
-transfer acceptance] and [Cinder transfer record acceptance].
+Any project that has the transfer ID and `auth_key` can accept. The `202`
+response contains a `transfer` object with `id`, `volume_id`, `name`, and
+`links`, linked under the accepting project. The volume returns to
+`available`, its `updated_at` changes, and its project and `user_id`
+become the accepting token's project and user. Each snapshot of the volume
+moves to the accepting project and its `updated_at` changes. Backups stay
+with the project that created them, as Cinder's acceptance does not
+change them. Afterwards the accepting project can read and manage the
+volume and snapshots, and the previous owner receives `404` for them. The
+transfer is removed from reads and lists. See the [Cinder transfer
+acceptance] and [Cinder transfer record acceptance].
+
+A volume can gain a snapshot that is not `available` while it waits, for
+example when a backup of an existing snapshot starts. Cinder then rolls
+the acceptance back. SandStack checks the snapshots before it changes
+anything, reports the snapshot with the lowest ID, and keeps the volume in
+`awaiting-transfer` with a new `updated_at`. A rejected accept leaves the
+volume in `awaiting-transfer` and the transfer in place. See the [Cinder
+transfer rollback].
 
 ## Cancel a transfer
 
@@ -98,9 +115,8 @@ fixture volume.
 
 ## Omissions
 
-- Accept does not move the volume, its snapshots, or quota usage to
-  another project or user, since only the primary fixture project has
-  Block Storage access. A token for another project receives `404`.
+- SandStack does not track quota usage, so accept moves no quota between
+  projects and has no quota errors.
 - SandStack does not serve the `volume-transfers` resource, which Cinder
   documents for microversion 3.55 and later. Gophercloud v2.15.0 does
   not call it.
@@ -112,12 +128,15 @@ fixture volume.
 
 The application tests cover the volume and snapshot state rules, the
 `awaiting-transfer` interactions with other volume operations, auth key
-checks, acceptance, cancellation, and reset. The tests inject the auth key
-generator. The Gophercloud test creates, reads, lists, accepts, and
-cancels transfers with separate sessions for the creator and the
-receiver. Raw HTTP tests check request validation, the create, detail,
-and summary fields, links, the exact error messages, the `202` responses,
-and reset.
+checks, acceptance by the same and another project, the snapshot and
+backup ownership after acceptance, cancellation, and reset. The tests
+inject the auth key generator. One Gophercloud test creates, reads,
+lists, accepts, and cancels transfers with separate sessions of the
+primary project. Another accepts a transfer with an additional fixture
+project and checks that the volume and snapshot move. Raw HTTP tests
+check request validation, the create, detail, and summary fields, links,
+the exact error messages, the `202` responses, the cross-project `404`
+responses before and after acceptance, and reset.
 
 [Cinder transfer controller]: https://github.com/openstack/cinder/blob/134790e4206f4effa503c47965b7d0cc888695a1/cinder/api/contrib/volume_transfer.py#L148-L164
 [Cinder transfer reads]: https://github.com/openstack/cinder/blob/134790e4206f4effa503c47965b7d0cc888695a1/cinder/api/contrib/volume_transfer.py#L42-L145
@@ -127,6 +146,8 @@ and reset.
 [Cinder transfer creation]: https://github.com/openstack/cinder/blob/134790e4206f4effa503c47965b7d0cc888695a1/cinder/transfer/api.py#L131-L197
 [Cinder transfer acceptance]: https://github.com/openstack/cinder/blob/134790e4206f4effa503c47965b7d0cc888695a1/cinder/transfer/api.py#L235-L351
 [Cinder transfer record acceptance]: https://github.com/openstack/cinder/blob/134790e4206f4effa503c47965b7d0cc888695a1/cinder/db/api.py#L6996-L7061
+[Cinder transfer lookup]: https://github.com/openstack/cinder/blob/134790e4206f4effa503c47965b7d0cc888695a1/cinder/db/api.py#L6769-L6787
+[Cinder transfer rollback]: https://github.com/openstack/cinder/blob/134790e4206f4effa503c47965b7d0cc888695a1/cinder/db/api.py#L6960-L7048
 [Cinder transfer record deletion]: https://github.com/openstack/cinder/blob/134790e4206f4effa503c47965b7d0cc888695a1/cinder/db/api.py#L6929-L6957
 [Cinder volume delete conditions]: https://github.com/openstack/cinder/blob/134790e4206f4effa503c47965b7d0cc888695a1/cinder/volume/api.py#L476-L518
 [Gophercloud transfer URLs]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/blockstorage/v3/transfers/urls.go#L1-L23

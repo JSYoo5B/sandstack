@@ -11,8 +11,8 @@ type availabilityZoneStateBody struct {
 	Available bool `json:"available"`
 }
 
-func (h handler) listAvailabilityZones(w http.ResponseWriter, _ *http.Request, projectID string) {
-	zones := h.service.ListAvailabilityZones(projectID)
+func (h handler) listAvailabilityZones(w http.ResponseWriter, _ *http.Request, _ string) {
+	zones := h.service.ListAvailabilityZones()
 	items := make([]availabilityZoneBody, len(zones))
 	for i, zone := range zones {
 		items[i] = availabilityZoneBody{
