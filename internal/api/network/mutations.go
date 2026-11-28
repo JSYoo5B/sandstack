@@ -78,6 +78,10 @@ func (h handler) updateNetwork(w http.ResponseWriter, r *http.Request, projectID
 		writeNetworkNotFound(w, networkID)
 		return
 	}
+	if errors.Is(err, app.ErrNetworkForbidden) {
+		writeNetworkForbidden(w, "update")
+		return
+	}
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "HTTPInternalServerError", "Unable to update the network.")
 		return
@@ -94,6 +98,10 @@ func (h handler) deleteNetwork(w http.ResponseWriter, r *http.Request, projectID
 	err := h.service.Delete(projectID, networkID)
 	if errors.Is(err, app.ErrNetworkNotFound) {
 		writeNetworkNotFound(w, networkID)
+		return
+	}
+	if errors.Is(err, app.ErrNetworkForbidden) {
+		writeNetworkForbidden(w, "delete")
 		return
 	}
 	if errors.Is(err, app.ErrNetworkInUse) {

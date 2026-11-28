@@ -76,14 +76,13 @@ func (s *Service) RemoveRouterInterface(projectID, routerID, subnetID string) (d
 }
 
 func (s *Service) checkRouterSubnetConflict(routerID string, subnet domain.Subnet, port domain.Port) error {
-	if port.DeviceOwner != domain.DeviceOwnerRouterInterface || port.DeviceID != routerID {
-		return nil
-	}
-	if port.SubnetID == subnet.ID {
-		return ErrRouterSubnetAttached
-	}
-	if subnet.CIDR.Overlaps(s.subnets[port.SubnetID].CIDR) {
-		return ErrRouterSubnetOverlap
+	for _, attached := range s.routerPortSubnets(routerID, port) {
+		if attached.ID == subnet.ID {
+			return ErrRouterSubnetAttached
+		}
+		if subnet.CIDR.Overlaps(attached.CIDR) {
+			return ErrRouterSubnetOverlap
+		}
 	}
 	return nil
 }

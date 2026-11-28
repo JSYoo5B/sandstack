@@ -9,6 +9,15 @@ type Router struct {
 	Description  string
 	AdminStateUp bool
 	Routes       []RouterRoute
+	Gateway      *RouterGateway
+}
+
+type RouterGateway struct {
+	NetworkID  string
+	PortID     string
+	SubnetID   string
+	Address    netip.Addr
+	EnableSNAT bool
 }
 
 type RouterRoute struct {

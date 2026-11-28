@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net/http"
+	"net/netip"
 	"net/url"
 	"time"
 
@@ -64,10 +65,23 @@ func New(config Config) (http.Handler, error) {
 		UpdatedAt:       created,
 	}
 	imageService := appimage.New(imageFixture, now, fixtureImageData, randomUUID)
-	networkService := appnetwork.New(network.Network{
+	networkService := appnetwork.NewWithExternalNetwork(network.Network{
 		ID:        "43d92fea-ce36-4d02-aba4-29806839f902",
 		Name:      "fixture-network",
 		ProjectID: fixture.Project.ID,
+	}, network.Network{
+		ID:        "6c5a1e4f-0d3b-4f0e-9a76-2b8f1c3d9e10",
+		Name:      "public",
+		ProjectID: "d0c1b2a39e8f4c7d8b6a5f4e3d2c1b0a",
+	}, network.Subnet{
+		ID:      "9e7d3c2b-1a0f-4e8d-b7c6-5a4f3e2d1c0b",
+		Name:    "public-subnet",
+		CIDR:    netip.MustParsePrefix("203.0.113.0/24"),
+		Gateway: netip.MustParseAddr("203.0.113.1"),
+		AllocationPools: []network.AllocationPool{{
+			Start: netip.MustParseAddr("203.0.113.2"),
+			End:   netip.MustParseAddr("203.0.113.254"),
+		}},
 	}, randomUUID)
 	volumeService := appvolume.NewWithImageLookup(volume.Volume{
 		ID:        "7b37635e-be9b-4bfb-bc2e-d163b75921e6",

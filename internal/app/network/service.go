@@ -14,6 +14,7 @@ var (
 	ErrNetworkNotFound     = errors.New("network not found")
 	ErrNetworkIDGeneration = errors.New("network ID generation failed")
 	ErrNetworkInUse        = errors.New("network has attached ports")
+	ErrNetworkForbidden    = errors.New("network is owned by another project")
 )
 
 const networkIDAttempts = 8
@@ -23,6 +24,8 @@ var networkIDPattern = regexp.MustCompile(`^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f
 type Service struct {
 	mu                      sync.RWMutex
 	seed                    domain.Network
+	external                domain.Network
+	externalSubnet          domain.Subnet
 	networks                map[string]domain.Network
 	subnets                 map[string]domain.Subnet
 	ports                   map[string]domain.Port
@@ -36,22 +39,52 @@ type ListFilter struct {
 	Names       []string
 	Statuses    []string
 	AdminStates []bool
+	External    []bool
 }
 
 // New starts a service with one private network and its default security group.
 // The generator supplies a lowercase UUID on success or an empty string on failure.
 func New(seed domain.Network, newID func() string) *Service {
+	return NewWithExternalNetwork(seed, domain.Network{}, domain.Subnet{}, newID)
+}
+
+func NewWithExternalNetwork(seed, external domain.Network, subnet domain.Subnet, newID func() string) *Service {
 	seed.SubnetIDs = nil
-	s := &Service{
-		seed:     seed,
-		networks: map[string]domain.Network{seed.ID: seed},
-		subnets:  make(map[string]domain.Subnet),
-		ports:    make(map[string]domain.Port),
-		routers:  make(map[string]domain.Router),
-		newID:    newID,
+	external.SubnetIDs = nil
+	external.External = external.ID != ""
+	if external.External && subnet.ID != "" {
+		subnet.NetworkID = external.ID
+		subnet.ProjectID = external.ProjectID
+		external.SubnetIDs = []string{subnet.ID}
+	} else {
+		subnet = domain.Subnet{}
 	}
-	s.resetSecurityGroups()
+	s := &Service{
+		seed:           seed,
+		external:       external,
+		externalSubnet: subnet,
+		newID:          newID,
+	}
+	s.restoreFixtures()
 	return s
+}
+
+func (s *Service) restoreFixtures() {
+	s.networks = map[string]domain.Network{s.seed.ID: s.seed}
+	s.subnets = make(map[string]domain.Subnet)
+	if s.external.External {
+		s.networks[s.external.ID] = snapshot(s.external)
+	}
+	if s.externalSubnet.ID != "" {
+		s.subnets[s.externalSubnet.ID] = copySubnet(s.externalSubnet)
+	}
+	s.ports = make(map[string]domain.Port)
+	s.routers = make(map[string]domain.Router)
+	s.resetSecurityGroups()
+}
+
+func visibleNetwork(network domain.Network, projectID string) bool {
+	return network.ProjectID == projectID || network.External
 }
 
 func (s *Service) Get(projectID, networkID string) (domain.Network, error) {
@@ -59,7 +92,7 @@ func (s *Service) Get(projectID, networkID string) (domain.Network, error) {
 	defer s.mu.RUnlock()
 
 	network, ok := s.networks[networkID]
-	if !ok || network.ProjectID != projectID {
+	if !ok || !visibleNetwork(network, projectID) {
 		return domain.Network{}, ErrNetworkNotFound
 	}
 	return snapshot(network), nil
@@ -78,14 +111,15 @@ func (s *Service) ListNetworksPage(projectID string, filter ListFilter, options 
 	s.mu.RLock()
 	if options.Limit > 0 && options.Marker != "" {
 		network, exists := s.networks[options.Marker]
-		if !exists || network.ProjectID != projectID {
+		if !exists || !visibleNetwork(network, projectID) {
 			s.mu.RUnlock()
 			return Page[domain.Network]{}, ErrNetworkNotFound
 		}
 		marker = &network
 	}
 	for _, network := range s.networks {
-		if network.ProjectID != projectID ||
+		if !visibleNetwork(network, projectID) ||
+			(len(filter.External) > 0 && !slices.Contains(filter.External, network.External)) ||
 			(len(filter.Names) > 0 && !slices.Contains(filter.Names, network.Name)) ||
 			(len(filter.Statuses) > 0 && !slices.Contains(filter.Statuses, network.Status())) ||
 			(len(filter.AdminStates) > 0 && !slices.Contains(filter.AdminStates, !network.AdminDown)) {
@@ -122,9 +156,9 @@ func (s *Service) Update(projectID, networkID string, changes NetworkUpdate) (do
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	network, ok := s.networks[networkID]
-	if !ok || network.ProjectID != projectID {
-		return domain.Network{}, ErrNetworkNotFound
+	network, err := s.ownedNetwork(projectID, networkID)
+	if err != nil {
+		return domain.Network{}, err
 	}
 	if changes.Name != nil {
 		network.Name = *changes.Name
@@ -134,6 +168,17 @@ func (s *Service) Update(projectID, networkID string, changes NetworkUpdate) (do
 	}
 	s.networks[networkID] = network
 	return snapshot(network), nil
+}
+
+func (s *Service) ownedNetwork(projectID, networkID string) (domain.Network, error) {
+	network, ok := s.networks[networkID]
+	if !ok || !visibleNetwork(network, projectID) {
+		return domain.Network{}, ErrNetworkNotFound
+	}
+	if network.ProjectID != projectID {
+		return domain.Network{}, ErrNetworkForbidden
+	}
+	return network, nil
 }
 
 // allocateID runs with the write lock held. If supplied, available can reject
@@ -154,6 +199,7 @@ func (s *Service) allocateID(available func(string) bool) (string, error) {
 		_, groupExists := s.securityGroups[id]
 		_, ruleExists := s.securityGroupRuleGroups[id]
 		if networkExists || subnetExists || portExists || routerExists || id == s.seed.ID ||
+			id == s.external.ID || id == s.externalSubnet.ID ||
 			groupExists || ruleExists || isDefaultSecurityGroupID(id) ||
 			(available != nil && !available(id)) {
 			continue
@@ -167,9 +213,9 @@ func (s *Service) Delete(projectID, networkID string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	network, ok := s.networks[networkID]
-	if !ok || network.ProjectID != projectID {
-		return ErrNetworkNotFound
+	network, err := s.ownedNetwork(projectID, networkID)
+	if err != nil {
+		return err
 	}
 	for _, port := range s.ports {
 		if port.NetworkID == networkID {
@@ -200,11 +246,7 @@ func (s *Service) Reset() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.networks = map[string]domain.Network{s.seed.ID: s.seed}
-	s.subnets = make(map[string]domain.Subnet)
-	s.ports = make(map[string]domain.Port)
-	s.routers = make(map[string]domain.Router)
-	s.resetSecurityGroups()
+	s.restoreFixtures()
 }
 
 func snapshot(network domain.Network) domain.Network {

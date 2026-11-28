@@ -14,6 +14,14 @@ var (
 )
 
 func (s *Service) CreateRouter(projectID, name, description string, adminStateUp bool) (domain.Router, error) {
+	return s.CreateRouterWithGateway(projectID, name, description, adminStateUp, RouterGatewayUpdate{})
+}
+
+func (s *Service) CreateRouterWithGateway(
+	projectID, name, description string,
+	adminStateUp bool,
+	gateway RouterGatewayUpdate,
+) (domain.Router, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -29,7 +37,14 @@ func (s *Service) CreateRouter(projectID, name, description string, adminStateUp
 		AdminStateUp: adminStateUp,
 	}
 	s.routers[id] = router
-	return router, nil
+	if gateway.NetworkID != "" {
+		if _, err := s.applyRouterGateway(&router, gateway); err != nil {
+			delete(s.routers, id)
+			return domain.Router{}, err
+		}
+	}
+	s.routers[id] = router
+	return cloneRouter(router), nil
 }
 
 func (s *Service) GetRouter(projectID, routerID string) (domain.Router, error) {
@@ -48,7 +63,8 @@ type RouterUpdate struct {
 	Description  *string
 	AdminStateUp *bool
 	// Routes replaces the entire route list when non-nil.
-	Routes []domain.RouterRoute
+	Routes  []domain.RouterRoute
+	Gateway *RouterGatewayUpdate
 }
 
 func (s *Service) UpdateRouter(projectID, routerID string, changes RouterUpdate) (domain.Router, error) {
@@ -58,9 +74,20 @@ func (s *Service) UpdateRouter(projectID, routerID string, changes RouterUpdate)
 	if !ok || router.ProjectID != projectID {
 		return domain.Router{}, ErrRouterNotFound
 	}
-	if changes.Routes != nil {
-		routes := slices.Clone(changes.Routes)
+	undo := func() {}
+	if changes.Gateway != nil {
+		var err error
+		if undo, err = s.applyRouterGateway(&router, *changes.Gateway); err != nil {
+			return domain.Router{}, err
+		}
+	}
+	if changes.Routes != nil || changes.Gateway != nil {
+		routes := router.Routes
+		if changes.Routes != nil {
+			routes = slices.Clone(changes.Routes)
+		}
 		if err := s.validateRouterRoutes(routerID, routes); err != nil {
+			undo()
 			return domain.Router{}, err
 		}
 		router.Routes = routes
@@ -124,6 +151,7 @@ func (s *Service) ListRoutersPage(
 
 func cloneRouter(router domain.Router) domain.Router {
 	router.Routes = slices.Clone(router.Routes)
+	router.Gateway = cloneGateway(router.Gateway)
 	return router
 }
 
@@ -139,6 +167,9 @@ func (s *Service) DeleteRouter(projectID, routerID string) error {
 		if port.DeviceOwner == domain.DeviceOwnerRouterInterface && port.DeviceID == routerID {
 			return ErrRouterInUse
 		}
+	}
+	if router.Gateway != nil {
+		delete(s.ports, router.Gateway.PortID)
 	}
 	delete(s.routers, routerID)
 	return nil

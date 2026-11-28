@@ -74,8 +74,11 @@ func (s *Service) validateRouterRoutes(routerID string, routes []domain.RouterRo
 	var attached []netip.Prefix
 	interfaceIPs := make(map[netip.Addr]bool)
 	for _, port := range s.ports {
-		if port.DeviceOwner == domain.DeviceOwnerRouterInterface && port.DeviceID == routerID {
-			attached = append(attached, s.subnets[port.SubnetID].CIDR)
+		subnets := s.routerPortSubnets(routerID, port)
+		for _, subnet := range subnets {
+			attached = append(attached, subnet.CIDR)
+		}
+		if len(subnets) > 0 && port.FixedIP.IsValid() {
 			interfaceIPs[port.FixedIP] = true
 		}
 	}

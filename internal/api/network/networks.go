@@ -20,6 +20,7 @@ type networkBody struct {
 	Status       string   `json:"status"`
 	AdminStateUp bool     `json:"admin_state_up"`
 	Shared       bool     `json:"shared"`
+	External     bool     `json:"router:external"`
 	Subnets      []string `json:"subnets"`
 }
 
@@ -40,6 +41,7 @@ func describeNetwork(network domain.Network) networkBody {
 		Status:       network.Status(),
 		AdminStateUp: !network.AdminDown,
 		Shared:       false,
+		External:     network.External,
 		Subnets:      subnets,
 	}
 }
@@ -52,10 +54,11 @@ func (h handler) listNetworks(w http.ResponseWriter, r *http.Request, projectID 
 	}
 	for field := range query {
 		switch field {
-		case "name", "status", "admin_state_up", "limit", "marker", "page_reverse":
+		case "name", "status", "admin_state_up", "router:external", "limit", "marker", "page_reverse":
 		default:
 			writeError(w, http.StatusBadRequest, "BadRequest",
-				"Network lists accept only name, status, admin_state_up, limit, marker, and page_reverse query parameters.")
+				"Network lists accept only name, status, admin_state_up, router:external, limit, marker, "+
+					"and page_reverse query parameters.")
 			return
 		}
 	}
@@ -64,12 +67,19 @@ func (h handler) listNetworks(w http.ResponseWriter, r *http.Request, projectID 
 		writeError(w, http.StatusBadRequest, "InvalidInput", "The network list admin_state_up filter requires a boolean.")
 		return
 	}
+	external, ok := parseBooleanFilters(query["router:external"])
+	if !ok {
+		writeError(w, http.StatusBadRequest, "InvalidInput", "The network list router:external filter requires a boolean.")
+		return
+	}
 	options, err := parsePageOptions(query)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "BadRequest", err.Error())
 		return
 	}
-	filter := app.ListFilter{Names: query["name"], Statuses: query["status"], AdminStates: adminStates}
+	filter := app.ListFilter{
+		Names: query["name"], Statuses: query["status"], AdminStates: adminStates, External: external,
+	}
 	page, err := h.service.ListNetworksPage(projectID, filter, options)
 	if errors.Is(err, app.ErrNetworkNotFound) {
 		writeNetworkNotFound(w, options.Marker)
@@ -104,6 +114,11 @@ func (h handler) showNetwork(w http.ResponseWriter, r *http.Request, projectID s
 		return
 	}
 	writeJSON(w, http.StatusOK, networkResponse{Network: describeNetwork(network)})
+}
+
+func writeNetworkForbidden(w http.ResponseWriter, action string) {
+	writeError(w, http.StatusForbidden, "PolicyNotAuthorized",
+		fmt.Sprintf("rule:%s_network is disallowed by policy.", action))
 }
 
 func writeNetworkNotFound(w http.ResponseWriter, networkID string) {

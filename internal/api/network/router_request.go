@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/netip"
+	"strings"
 	"unicode/utf8"
 
 	app "github.com/JSYoo5B/sandstack/internal/app/network"
@@ -19,6 +20,7 @@ type createRouterParams struct {
 	name         string
 	description  string
 	adminStateUp bool
+	gateway      app.RouterGatewayUpdate
 	requestOwnership
 }
 
@@ -28,7 +30,45 @@ func parseCreateRouter(data []byte) (createRouterParams, error) {
 		Name: &params.name, Description: &params.description, AdminStateUp: &params.adminStateUp,
 	}
 	err := parseRouterFields(data, &fields, &params.requestOwnership)
+	if fields.Gateway != nil {
+		params.gateway = *fields.Gateway
+	}
 	return params, err
+}
+
+var (
+	errInvalidRouterGateway = errors.New("external_gateway_info requires a network_id UUID")
+	errRouterGatewayPolicy  = errors.New("only administrators may set enable_snat or external_fixed_ips")
+)
+
+func parseRouterGateway(data json.RawMessage) (*app.RouterGatewayUpdate, error) {
+	if bytes.Equal(data, []byte("null")) {
+		return &app.RouterGatewayUpdate{}, nil
+	}
+	fields, err := readUniqueObject(data)
+	if err != nil {
+		return nil, errInvalidRouterGateway
+	}
+	if len(fields) == 0 {
+		return &app.RouterGatewayUpdate{}, nil
+	}
+	var networkID string
+	for field, value := range fields {
+		switch field {
+		case "network_id":
+			if !decodeCreateField(value, &networkID) || !resourceUUIDPattern.MatchString(networkID) {
+				return nil, errInvalidRouterGateway
+			}
+		case "enable_snat", "external_fixed_ips":
+			return nil, errRouterGatewayPolicy
+		default:
+			return nil, errInvalidRouterGateway
+		}
+	}
+	if networkID == "" {
+		return nil, errInvalidRouterGateway
+	}
+	return &app.RouterGatewayUpdate{NetworkID: strings.ToLower(networkID)}, nil
 }
 
 func parseRouterFields(data []byte, changes *app.RouterUpdate, ownership *requestOwnership) error {
@@ -45,6 +85,12 @@ func parseRouterFields(data []byte, changes *app.RouterUpdate, ownership *reques
 			target = &changes.Description
 		case "admin_state_up":
 			target = &changes.AdminStateUp
+		case "external_gateway_info":
+			changes.Gateway, err = parseRouterGateway(value)
+			if err != nil {
+				return err
+			}
+			continue
 		case "routes":
 			if ownership != nil {
 				return errInvalidRouterRequest

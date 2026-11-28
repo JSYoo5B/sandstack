@@ -26,7 +26,7 @@ func TestNetworkCreateAndDeleteWire(t *testing.T) {
 	auth := map[string]string{"X-Auth-Token": provider.Token()}
 	readList := func() []wireNetwork {
 		t.Helper()
-		status, headers, body := request(t, instance, http.MethodGet, networksPath, "", auth)
+		status, headers, body := request(t, instance, http.MethodGet, networksPath+"?router:external=false", "", auth)
 		require.Equal(t, http.StatusOK, status, "%s", body)
 		requireJSON(t, headers)
 		var response struct {
@@ -165,7 +165,7 @@ func TestGophercloudCreatesFaultsDeletesAndResetsNetworks(t *testing.T) {
 	}
 	readList := func(client *gophercloud.ServiceClient) []networks.Network {
 		t.Helper()
-		pages, err := networks.List(client, nil).AllPages(t.Context())
+		pages, err := networks.List(client, privateNetworks()).AllPages(t.Context())
 		require.NoError(t, err)
 		items, err := networks.ExtractNetworks(pages)
 		require.NoError(t, err)

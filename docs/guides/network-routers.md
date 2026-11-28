@@ -25,9 +25,11 @@ router starts with `status: ACTIVE` even if you create it with
 | `PUT /network/v2.0/routers/{router_id}` | `routers.Update` | `200` with updated router metadata. |
 | `DELETE /network/v2.0/routers/{router_id}` | `routers.Delete` | `204` and the router disappears from subsequent reads. |
 
-Router responses show
-`external_gateway_info: null` and `gw_port_id: null`. A new router starts
-with `routes: []`.
+A router without a gateway shows `external_gateway_info: null`. Responses
+omit `gw_port_id` because Neutron removes attributes that no API
+definition declares. See [Set an external gateway](#set-an-external-gateway)
+and [Neutron response attribute filtering]. A new router starts with
+`routes: []`.
 
 ### Filter the router list
 
@@ -120,6 +122,60 @@ their next hops differ. The same route validation applies to the resulting
 set. An invalid request returns `400` and leaves the router's previous
 routes intact. See [Neutron extra route member actions].
 
+## Set an external gateway
+
+Discover the fixture external network with `GET
+/network/v2.0/networks?router:external=true`. In Gophercloud v2.15.0,
+wrap `networks.ListOpts` in `external.ListOptsExt` with `External` set to a
+pointer to `true`, and decode `external.NetworkExternalExt` with
+`networks.ExtractNetworksInto`. The network is named `public`, reports
+`router:external: true` and `shared: false`, and belongs to a separate
+administrative project. It has one subnet, `203.0.113.0/24`, with gateway
+`203.0.113.1` and allocation pool `203.0.113.2` through `203.0.113.254`.
+Every project can read the network. Updating or deleting it returns `403`
+with `PolicyNotAuthorized`, and creating a port on it returns `404`. See
+the [Neutron external network definition], [Neutron network read policy],
+[Neutron network write policy], [Neutron update and delete authorization],
+and [Neutron network ownership check].
+
+Set `external_gateway_info` to `{"network_id": "<external network ID>"}`
+when you create or update a router. In Gophercloud, pass
+`routers.GatewayInfo{NetworkID: id}` as `GatewayInfo` in
+`routers.CreateOpts` or `routers.UpdateOpts`. The response then shows the
+network ID, `enable_snat: true`, and `external_fixed_ips` with the
+allocated external subnet address. Addresses come from the lowest free
+address in the external allocation pool. The gateway port belongs to no project, so port reads and lists in the
+router's project do not show it. Setting the same network again keeps the
+current address. See the [router update reference], [Neutron gateway
+response], [Neutron gateway mode response], and [Neutron SNAT default].
+
+Send `external_gateway_info: null` or `{}` to clear the gateway and release
+its address. In Gophercloud, pass `&routers.GatewayInfo{}`. Deleting a router
+also releases its gateway address. See [Neutron gateway replacement] and
+[Neutron router deletion].
+
+| Request | Result |
+| --- | --- |
+| Unknown or inaccessible `network_id` | `404` with `NetworkNotFound`. |
+| Network without `router:external` | `400` with `BadRequest`. |
+| `network_id` missing or not a UUID | `400` with `BadRequest`. |
+| `enable_snat` or `external_fixed_ips` | `403` with `PolicyNotAuthorized`. Neutron reserves these options for administrators. |
+| External subnet overlaps a router interface subnet | `400`. The reverse order, attaching an overlapping interface after the gateway, also returns `400`. |
+| Clearing a gateway that a static route uses for its next hop | `400` with `InvalidRoutes`. The gateway remains. |
+| External allocation pool is exhausted | `409` with `IpAddressGenerationFailure`. A router creation request creates nothing. |
+
+See the [Neutron gateway attribute], [Neutron gateway mode attribute],
+[Neutron router gateway policy], [Neutron router gateway update policy],
+[Neutron gateway validation], and [Neutron gateway subnet checks]. With a
+gateway, a static route can use a next hop on the external subnet other
+than the router's own gateway address. See [Neutron route validation].
+
+SandStack hides the external subnet from subnet reads and lists, although
+Neutron lets every project read subnets of external networks. Its ID
+appears in the network's `subnets` and in `external_fixed_ips`. Floating
+IPs, multiple external gateways, and packet forwarding are outside this
+section. See [Neutron subnet read policy].
+
 ## Attach and remove an IPv4 router interface
 
 Use the project token for both interface actions. The router and its subnet
@@ -181,8 +237,8 @@ Interface removal returns `409` while a route uses that interface's subnet
 for its next hop. Replace or clear those routes before removing the
 interface. See [Neutron extra route validation].
 
-Each interface has one IPv4 fixed IP. External gateways and packet
-forwarding are outside this scope.
+Each interface has one IPv4 fixed IP. Packet forwarding is outside this
+scope.
 [Reset the sandbox](reset.md) to clear the created routers, interfaces, and
 ports.
 
@@ -195,7 +251,9 @@ The router tests use the [router create reference], [router list reference],
 and removal, validation, and blocked interface removal. Interface tests
 cover both attachment selectors, port identity, allocation reuse, and
 blocked deletions using the [add interface reference] and
-[remove interface reference].
+[remove interface reference]. Gateway tests cover external network
+discovery and ownership, address allocation and release, administrator-only
+options, overlap and route checks, and reset.
 
 [router create reference]: https://docs.openstack.org/api-ref/network/v2/#create-router
 [router list reference]: https://docs.openstack.org/api-ref/network/v2/#list-routers
@@ -223,3 +281,22 @@ blocked deletions using the [add interface reference] and
 [Neutron removal by port]: https://github.com/openstack/neutron/blob/master/neutron/db/l3_db.py#L1061-L1080
 [Neutron subnet mismatch exception]: https://github.com/openstack/neutron-lib/blob/master/neutron_lib/exceptions/__init__.py#L349-L357
 [Neutron HTTP fault mapping]: https://github.com/openstack/neutron-lib/blob/master/neutron_lib/api/faults.py#L16-L20
+[Neutron response attribute filtering]: https://github.com/openstack/neutron/blob/ba84fbf374cc7f5055eb2ff4ebc34d2a19cbbc3d/neutron/api/v2/base.py#L159-L192
+[Neutron external network definition]: https://github.com/openstack/neutron-lib/blob/5.0.0/neutron_lib/api/definitions/external_net.py#L37-L50
+[Neutron network read policy]: https://github.com/openstack/neutron/blob/ba84fbf374cc7f5055eb2ff4ebc34d2a19cbbc3d/neutron/conf/policies/network.py#L195-L216
+[Neutron network write policy]: https://github.com/openstack/neutron/blob/ba84fbf374cc7f5055eb2ff4ebc34d2a19cbbc3d/neutron/conf/policies/network.py#L283-L294
+[Neutron update and delete authorization]: https://github.com/openstack/neutron/blob/ba84fbf374cc7f5055eb2ff4ebc34d2a19cbbc3d/neutron/api/v2/base.py#L577-L598
+[Neutron network ownership check]: https://github.com/openstack/neutron/blob/ba84fbf374cc7f5055eb2ff4ebc34d2a19cbbc3d/neutron/api/v2/base.py#L777-L796
+[Neutron gateway response]: https://github.com/openstack/neutron/blob/ba84fbf374cc7f5055eb2ff4ebc34d2a19cbbc3d/neutron/db/l3_db.py#L237-L256
+[Neutron gateway mode response]: https://github.com/openstack/neutron/blob/ba84fbf374cc7f5055eb2ff4ebc34d2a19cbbc3d/neutron/db/l3_gwmode_db.py#L35-L76
+[Neutron SNAT default]: https://github.com/openstack/neutron/blob/ba84fbf374cc7f5055eb2ff4ebc34d2a19cbbc3d/neutron/conf/db/l3_gwmode_db.py#L19-L23
+[Neutron gateway replacement]: https://github.com/openstack/neutron/blob/ba84fbf374cc7f5055eb2ff4ebc34d2a19cbbc3d/neutron/db/l3_db.py#L464-L586
+[Neutron router deletion]: https://github.com/openstack/neutron/blob/ba84fbf374cc7f5055eb2ff4ebc34d2a19cbbc3d/neutron/db/l3_db.py#L639-L681
+[Neutron gateway attribute]: https://github.com/openstack/neutron-lib/blob/5.0.0/neutron_lib/api/definitions/l3.py#L92-L104
+[Neutron gateway mode attribute]: https://github.com/openstack/neutron-lib/blob/5.0.0/neutron_lib/api/definitions/l3_ext_gw_mode.py#L39-L50
+[Neutron router gateway policy]: https://github.com/openstack/neutron/blob/ba84fbf374cc7f5055eb2ff4ebc34d2a19cbbc3d/neutron/conf/policies/router.py#L105-L157
+[Neutron router gateway update policy]: https://github.com/openstack/neutron/blob/ba84fbf374cc7f5055eb2ff4ebc34d2a19cbbc3d/neutron/conf/policies/router.py#L272-L322
+[Neutron gateway validation]: https://github.com/openstack/neutron/blob/ba84fbf374cc7f5055eb2ff4ebc34d2a19cbbc3d/neutron/db/l3_db.py#L413-L457
+[Neutron route validation]: https://github.com/openstack/neutron/blob/ba84fbf374cc7f5055eb2ff4ebc34d2a19cbbc3d/neutron/db/extraroute_db.py#L83-L124
+[Neutron subnet read policy]: https://github.com/openstack/neutron/blob/ba84fbf374cc7f5055eb2ff4ebc34d2a19cbbc3d/neutron/conf/policies/subnet.py#L123-L144
+[Neutron gateway subnet checks]: https://github.com/openstack/neutron/blob/ba84fbf374cc7f5055eb2ff4ebc34d2a19cbbc3d/neutron/db/l3_db.py#L709-L738

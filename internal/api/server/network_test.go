@@ -61,7 +61,7 @@ func TestNetworkWire(t *testing.T) {
 	auth := map[string]string{"X-Auth-Token": provider.Token()}
 
 	// https://docs.openstack.org/api-ref/network/v2/#list-networks
-	status, headers, body := request(t, instance, http.MethodGet, networksPath, "", auth)
+	status, headers, body := request(t, instance, http.MethodGet, networksPath+"?router:external=false", "", auth)
 
 	require.Equal(t, http.StatusOK, status, "%s", body)
 	requireJSON(t, headers)
@@ -135,7 +135,7 @@ func TestGophercloudDiscoversNetworkAndObservesFaultAndReset(t *testing.T) {
 	service := discover(provider)
 	readList := func(client *gophercloud.ServiceClient) []networks.Network {
 		t.Helper()
-		pages, err := networks.List(client, nil).AllPages(t.Context())
+		pages, err := networks.List(client, privateNetworks()).AllPages(t.Context())
 		require.NoError(t, err)
 		items, err := networks.ExtractNetworks(pages)
 		require.NoError(t, err)

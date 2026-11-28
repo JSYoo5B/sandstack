@@ -10,15 +10,18 @@ resource requests.
 | Request | Behavior |
 | --- | --- |
 | `GET /network/` | Discovers the current v2.0 API without credentials. |
-| `GET /network/v2.0/networks` | Lists the project's private networks, including any networks the client has created. Use `networks.List` in Gophercloud. |
+| `GET /network/v2.0/networks` | Lists the project's private networks, including any networks the client has created, and the fixture external network. Use `networks.List` in Gophercloud. |
 | `GET /network/v2.0/networks/{network_id}` | Returns one network. Use `networks.Get` in Gophercloud. Unknown network IDs return `404`. |
 | `POST /network/v2.0/networks` | Creates a private network for the token's project and returns `201`. Use `networks.Create` in Gophercloud. |
 | `PUT /network/v2.0/networks/{network_id}` | Updates a network owned by the token's project and returns `200`. Use `networks.Update` in Gophercloud. |
 | `DELETE /network/v2.0/networks/{network_id}` | Removes a network owned by the token's project and returns `204`. Use `networks.Delete` in Gophercloud. |
 
-Use project-scoped `X-Auth-Token` credentials. All networks are private and
-start with no subnets. [Reset the sandbox](reset.md) to restore the seed and
-remove networks, subnets, and ports created by the client.
+Use project-scoped `X-Auth-Token` credentials. Networks the project creates
+are private and start with no subnets. The fixture also provides a
+read-only external network, `public`, owned by a separate administrative
+project. See [Set an external gateway](network-routers.md#set-an-external-gateway).
+[Reset the sandbox](reset.md) to restore the seeds and remove networks,
+subnets, and ports created by the client.
 
 ## Discover the default security group
 
@@ -62,7 +65,7 @@ outage is clear.
 
 ## Filter the network list
 
-Filter by `name`, `status`, or `admin_state_up`. Name and status matches
+Filter by `name`, `status`, `admin_state_up`, or `router:external`. Name and status matches
 are exact. A repeated key matches any of its values, and different keys
 must all match. For example,
 `?status=ACTIVE&status=DOWN` selects either status. Omit a key to leave it
@@ -75,7 +78,10 @@ networks, including any that also have an injected outage. Use
 `?status=DOWN&admin_state_up=true` to find enabled networks with an
 injected outage. With Gophercloud v2.15.0, set `Name`, `Status`, or
 `AdminStateUp` in `networks.ListOpts`. Pass a pointer to `false` to
-select disabled networks. A nil pointer omits the filter.
+select disabled networks. A nil pointer omits the filter. To filter by
+`router:external`, wrap the options in `external.ListOptsExt`. Use
+`router:external=false` to list only the project's private networks. See
+the [Neutron external network definition].
 
 The list also accepts the pagination parameters below. SandStack returns
 `400` for invalid boolean filter values, unsupported list parameters, and
@@ -121,6 +127,11 @@ for automatic and explicit allocation, updates, and fixed IP searches.
 Use the [router guide](network-routers.md#manage-a-router) for router
 metadata, list filters, and static routes.
 
+### Set an external gateway
+
+Use the [router gateway guide](network-routers.md#set-an-external-gateway)
+to discover the external network and connect a router to it.
+
 ### Attach and remove an IPv4 router interface
 
 Use the [router interface guide](network-routers.md#attach-and-remove-an-ipv4-router-interface)
@@ -155,6 +166,7 @@ deletion, rule defaults, and project scoping over HTTP.
 [Neutron filtering reference]: https://docs.openstack.org/api-ref/network/v2/#filtering-and-column-selection
 [Neutron list reference]: https://docs.openstack.org/api-ref/network/v2/#list-networks
 [Neutron network filter schema]: https://github.com/openstack/neutron-lib/blob/master/neutron_lib/api/definitions/network.py#L48-L61
+[Neutron external network definition]: https://github.com/openstack/neutron-lib/blob/5.0.0/neutron_lib/api/definitions/external_net.py#L37-L50
 [Neutron detail reference]: https://docs.openstack.org/api-ref/network/v2/#show-network-details
 [Neutron create reference]: https://docs.openstack.org/api-ref/network/v2/#create-network
 [Neutron update reference]: https://docs.openstack.org/api-ref/network/v2/#update-network

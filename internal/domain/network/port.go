@@ -2,7 +2,10 @@ package network
 
 import "net/netip"
 
-const DeviceOwnerRouterInterface = "network:router_interface"
+const (
+	DeviceOwnerRouterInterface = "network:router_interface"
+	DeviceOwnerRouterGateway   = "network:router_gateway"
+)
 
 type Port struct {
 	ID                   string

@@ -6,6 +6,7 @@ type Network struct {
 	ProjectID string
 	AdminDown bool
 	Down      bool
+	External  bool
 	SubnetIDs []string
 }
 

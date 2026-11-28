@@ -40,13 +40,13 @@ func TestNetworkListFilterWire(t *testing.T) {
 		query string
 		want  []string
 	}{
-		{name: "no filter", want: []string{fixtureNetworkID, active, disabled, red, unnamed}},
+		{name: "no filter", want: []string{fixtureNetworkID, externalNetworkID, active, disabled, red, unnamed}},
 		{name: "encoded exact name", query: blueFilter, want: []string{active, disabled}},
 		{name: "repeated names use OR", query: blueFilter + "&name=red", want: []string{active, disabled, red}},
 		{
 			name:  "repeated statuses use OR",
 			query: "status=DOWN&status=ACTIVE",
-			want:  []string{fixtureNetworkID, active, disabled, red, unnamed},
+			want:  []string{fixtureNetworkID, externalNetworkID, active, disabled, red, unnamed},
 		},
 		{name: "one matching status", query: "status=unknown&status=DOWN", want: []string{disabled, red}},
 		{name: "name and status use AND", query: blueFilter + "&status=DOWN", want: []string{disabled}},

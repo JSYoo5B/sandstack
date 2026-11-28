@@ -42,7 +42,7 @@ func TestPrivateRouterLifecycleWire(t *testing.T) {
 	}{
 		{"foreign project", `{"router":{"project_id":"00000000-0000-0000-0000-000000000000"}}`},
 		{"foreign tenant", `{"router":{"tenant_id":"00000000-0000-0000-0000-000000000000"}}`},
-		{"external gateway", `{"router":{"external_gateway_info":{"network_id":"00000000-0000-0000-0000-000000000000"}}}`},
+		{"malformed external gateway", `{"router":{"external_gateway_info":{"network_id":"public"}}}`},
 	} {
 		t.Run(invalid.name, func(t *testing.T) {
 			status, headers, body := request(t, instance, http.MethodPost, routersPath, invalid.body, auth)
@@ -70,7 +70,7 @@ func TestPrivateRouterLifecycleWire(t *testing.T) {
 	require.NotNil(t, created.AdminStateUp)
 	assert.True(t, *created.AdminStateUp)
 	assert.JSONEq(t, "null", string(created.ExternalGatewayInfo))
-	assert.JSONEq(t, "null", string(created.GatewayPortID))
+	assert.Nil(t, created.GatewayPortID)
 	assert.JSONEq(t, "[]", string(created.Routes))
 	assert.Equal(t, []wireRouter{created}, readList())
 

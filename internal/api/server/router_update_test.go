@@ -101,7 +101,7 @@ func TestRouterUpdateWire(t *testing.T) {
 	assert.False(t, *afterAdminChange.Router.AdminStateUp)
 	assert.Equal(t, "ACTIVE", afterAdminChange.Router.Status)
 	assert.JSONEq(t, "null", string(afterAdminChange.Router.ExternalGatewayInfo))
-	assert.JSONEq(t, "null", string(afterAdminChange.Router.GatewayPortID))
+	assert.Nil(t, afterAdminChange.Router.GatewayPortID)
 	assert.JSONEq(t, "[]", string(afterAdminChange.Router.Routes))
 
 	clearText := `{"router":{"name":"","description":""}}`
@@ -130,7 +130,7 @@ func TestRouterUpdateWire(t *testing.T) {
 		{"null name", `{"router":{"name":null}}`},
 		{"null description", `{"router":{"description":null}}`},
 		{"null administrative state", `{"router":{"admin_state_up":null}}`},
-		{"external gateway", `{"router":{"external_gateway_info":{"network_id":"00000000-0000-0000-0000-000000000000"}}}`},
+		{"malformed external gateway", `{"router":{"external_gateway_info":{"network_id":"public"}}}`},
 		{"unexpected field", `{"router":{"name":"must not be applied","unexpected":true}}`},
 		{"own project field", fmt.Sprintf(`{"router":{"project_id":%q}}`, projectID)},
 		{"own tenant field", fmt.Sprintf(`{"router":{"tenant_id":%q}}`, projectID)},
