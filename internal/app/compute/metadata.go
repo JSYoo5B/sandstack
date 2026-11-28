@@ -3,11 +3,14 @@ package compute
 import (
 	"errors"
 	"maps"
+	"slices"
 
 	domain "github.com/JSYoo5B/sandstack/internal/domain/compute"
 )
 
 const maxMetadataItems = 128
+
+var metadataWriteStates = []domain.Status{domain.StatusActive, domain.StatusPaused, domain.StatusShutoff}
 
 var (
 	ErrServerMetadataState = errors.New("the server cannot update metadata in its current state")
@@ -44,8 +47,7 @@ func (s *Service) writeMetadata(
 	if s.server.ProjectID != projectID || s.server.ID != serverID {
 		return nil, ErrServerNotFound
 	}
-	status := s.server.Status()
-	if status != domain.StatusActive && status != domain.StatusShutoff {
+	if !slices.Contains(metadataWriteStates, s.server.Status()) {
 		return nil, ErrServerMetadataState
 	}
 	if !replace {

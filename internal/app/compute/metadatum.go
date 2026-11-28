@@ -3,8 +3,7 @@ package compute
 import (
 	"errors"
 	"maps"
-
-	domain "github.com/JSYoo5B/sandstack/internal/domain/compute"
+	"slices"
 )
 
 var ErrServerMetadatumNotFound = errors.New("server metadata key not found")
@@ -39,8 +38,7 @@ func (s *Service) DeleteMetadatum(projectID, serverID, key string) error {
 	if _, found := s.server.Metadata[key]; !found {
 		return ErrServerMetadatumNotFound
 	}
-	status := s.server.Status()
-	if status != domain.StatusActive && status != domain.StatusShutoff {
+	if !slices.Contains(metadataWriteStates, s.server.Status()) {
 		return ErrServerMetadataState
 	}
 	metadata := maps.Clone(s.server.Metadata)

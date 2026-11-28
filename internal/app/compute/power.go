@@ -2,48 +2,51 @@ package compute
 
 import (
 	"errors"
+	"slices"
 
 	domain "github.com/JSYoo5B/sandstack/internal/domain/compute"
 )
 
 var ErrServerPowerState = errors.New("the server cannot perform this action in its current state")
 
-func (s *Service) SetPower(projectID, serverID string, powered bool) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+var hardRebootStates = []domain.Status{
+	domain.StatusActive, domain.StatusShutoff, domain.StatusPaused, domain.StatusError,
+}
 
-	if s.server.ProjectID != projectID || s.server.ID != serverID {
-		return ErrServerNotFound
+func (s *Service) SetPower(projectID, serverID string, powered bool) error {
+	if powered {
+		return s.transition(projectID, serverID, domain.StatusActive, domain.StatusShutoff)
 	}
-	status := s.server.Status()
-	canStart := powered && status == domain.StatusShutoff
-	canStop := !powered && (status == domain.StatusActive || status == domain.StatusError)
-	if !canStart && !canStop {
-		return ErrServerPowerState
-	}
-	s.applyPowerState(powered)
-	return nil
+	return s.transition(projectID, serverID, domain.StatusShutoff, domain.StatusActive, domain.StatusError)
 }
 
 func (s *Service) Reboot(projectID, serverID string, hard bool) error {
+	if hard {
+		return s.transition(projectID, serverID, domain.StatusActive, hardRebootStates...)
+	}
+	return s.transition(projectID, serverID, domain.StatusActive, domain.StatusActive)
+}
+
+func (s *Service) Pause(projectID, serverID string) error {
+	return s.transition(projectID, serverID, domain.StatusPaused, domain.StatusActive)
+}
+
+func (s *Service) Unpause(projectID, serverID string) error {
+	return s.transition(projectID, serverID, domain.StatusActive, domain.StatusPaused)
+}
+
+func (s *Service) transition(projectID, serverID string, target domain.Status, allowed ...domain.Status) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	if s.server.ProjectID != projectID || s.server.ID != serverID {
 		return ErrServerNotFound
 	}
-	status := s.server.Status()
-	canReboot := status == domain.StatusActive || (hard && (status == domain.StatusShutoff || status == domain.StatusError))
-	if !canReboot {
+	if !slices.Contains(allowed, s.server.Status()) {
 		return ErrServerPowerState
 	}
-	s.applyPowerState(true)
-	return nil
-}
-
-// applyPowerState records the completed transition with the write lock held.
-func (s *Service) applyPowerState(powered bool) {
-	s.server.Stopped = !powered
+	s.server.State = target
 	s.server.Fault = nil
 	s.server.UpdatedAt = s.now().UTC()
+	return nil
 }

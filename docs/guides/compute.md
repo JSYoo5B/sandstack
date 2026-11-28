@@ -53,7 +53,7 @@ summary schema] and [Gophercloud basic list].
 The same filters apply to basic and detailed lists.
 
 The detailed list supports a single `status` filter. Use `?status=ACTIVE`,
-`?status=ERROR`, or `?status=SHUTOFF` to select a state. Values match
+`?status=ERROR`, `?status=SHUTOFF`, or `?status=PAUSED` to select a state. Values match
 without regard to case. An empty, nonmatching, or unknown status produces
 an empty `servers` array.
 
@@ -125,13 +125,35 @@ See the [Nova reboot reference], [Nova reboot schema], and [Gophercloud
 reboot options].
 
 Soft reboot requires `ACTIVE`. Hard reboot accepts `ACTIVE`, `SHUTOFF`,
-or `ERROR`. A soft reboot in either of the latter states returns `409`
-and preserves the state. A successful hard reboot can recover the
+`PAUSED`, or `ERROR`. A soft reboot in any of the latter states returns
+`409` and preserves the state. A successful hard reboot can recover the
 injected instance fault. SandStack completes the reboot before
 responding, so live detail and detailed list show `ACTIVE` immediately.
 Nova runs reboots asynchronously. Existing attachments, stale detail
 snapshots, and scheduled detail failures remain in place. See the
 [Nova reboot state checks].
+
+## Pause and unpause a server
+
+Use `servers.Pause` and `servers.Unpause` with the fixture server ID in
+Gophercloud v2.15.0. They send `POST /servers/{server_id}/action` with
+`{"pause":null}` or `{"unpause":null}`. Nova v2.1 accepts any value for
+the action key. A second action key or an extra field returns `400`. An
+accepted action returns `202` with an empty body. See the [Nova pause
+reference], [Nova pause schema], and [Gophercloud pause operations].
+
+Pause requires `ACTIVE` and unpause requires `PAUSED`. Any other state,
+including an injected `ERROR`, returns `409`. A paused server reports
+`OS-EXT-STS:vm_state` as `paused` and `OS-EXT-STS:power_state` as `3`.
+Stop, start, and soft reboot return `409` while it is paused. Hard reboot
+returns it to `ACTIVE`. See the [Nova pause state checks], [Nova status
+mapping], and [Nova power states].
+
+SandStack completes each accepted transition before it responds, so live
+detail and the detailed list show the new state immediately. Nova pauses
+asynchronously. A paused server accepts volume attachment and metadata
+writes. Existing attachments, stale detail snapshots, and scheduled detail
+failures remain in place.
 
 ## Attach and detach a Cinder volume
 
@@ -142,7 +164,7 @@ attachment. Use `volumeattach.List` and `volumeattach.Get` to read the
 collection and a particular attachment. At Nova v2.1 the attachment `id`
 and the last segment of the item URL are the volume ID.
 
-The fixture server must be `ACTIVE` or `SHUTOFF` to attach. See the
+The fixture server must be `ACTIVE`, `PAUSED`, or `SHUTOFF` to attach. See the
 [Nova attachment state checks]. Each volume can have one attachment.
 The device can be `/dev/vdb` through `/dev/vdz`. Omitting it picks the first
 free device on the server. An unavailable volume, server reporting `ERROR`,
@@ -188,6 +210,11 @@ conflicts. The [Nova stop reference] and [Nova start reference] describe
 the request bodies and response status codes.
 The reboot tests use the SDK to check state conflicts and hard reboot
 recovery and HTTP to check accepted requests and empty responses.
+The pause tests use the SDK to check the paused state through detail and
+the `PAUSED` filter, conflicts with other power actions, attachment while
+paused, and hard reboot recovery. Raw HTTP checks the action schema,
+`202` empty responses, `409` conflicts, and the extended state fields
+against the pinned Nova source.
 The rename tests compare the Nova v2.1 update response with SDK detail and
 list reads and check that a pending detail outage still fires.
 The name filter test uses Gophercloud to find the renamed fixture and
@@ -216,9 +243,15 @@ The raw HTTP checks follow the [Compute list reference] and
 [Nova update response]: https://github.com/openstack/nova/blob/master/nova/api/openstack/compute/servers.py#L955-L994
 [Nova reboot reference]: https://docs.openstack.org/api-ref/compute/#reboot-server-reboot-action
 [Nova reboot schema]: https://github.com/openstack/nova/blob/master/nova/api/openstack/compute/schemas/servers.py#L495-L512
-[Nova reboot state checks]: https://github.com/openstack/nova/blob/master/nova/compute/vm_states.py#L62-L67
+[Nova reboot state checks]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/compute/vm_states.py#L69-L73
 [Gophercloud reboot options]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/compute/v2/servers/requests.go#L699-L750
+[Nova pause reference]: https://docs.openstack.org/api-ref/compute/#pause-server-pause-action
+[Nova pause schema]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/api/openstack/compute/schemas/pause_server.py#L13-L31
+[Nova pause state checks]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/compute/api.py#L4851-L4867
+[Nova status mapping]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/api/openstack/common.py#L83-L89
+[Nova power states]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/objects/fields.py#L1112-L1131
+[Gophercloud pause operations]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/compute/v2/servers/requests.go#L1235-L1247
 [Gophercloud server actions]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/compute/v2/servers/requests.go#L1379-L1391
 [Nova volume attachment reference]: https://docs.openstack.org/api-ref/compute/#attach-a-volume-to-an-instance
-[Nova attachment state checks]: https://github.com/openstack/nova/blob/master/nova/compute/api.py#L4786-L4796
+[Nova attachment state checks]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/compute/api.py#L5229-L5233
 [Nova attachment representation]: https://github.com/openstack/nova/blob/master/nova/api/openstack/compute/views/servers.py#L709-L727

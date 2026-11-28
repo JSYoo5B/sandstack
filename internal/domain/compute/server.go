@@ -8,6 +8,7 @@ const (
 	StatusActive  Status = "active"
 	StatusError   Status = "error"
 	StatusShutoff Status = "shutoff"
+	StatusPaused  Status = "paused"
 )
 
 type Server struct {
@@ -18,7 +19,7 @@ type Server struct {
 	ImageID   string
 	CreatedAt time.Time
 	UpdatedAt time.Time
-	Stopped   bool
+	State     Status
 	Fault     *Fault
 	Metadata  map[string]string
 }
@@ -27,10 +28,10 @@ func (s Server) Status() Status {
 	if s.Fault != nil {
 		return StatusError
 	}
-	if s.Stopped {
-		return StatusShutoff
+	if s.State == "" {
+		return StatusActive
 	}
-	return StatusActive
+	return s.State
 }
 
 type Fault struct {

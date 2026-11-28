@@ -15,6 +15,7 @@ import (
 const (
 	computeRoot   = "/compute"
 	powerRunning  = 1
+	powerPaused   = 3
 	powerShutdown = 4
 	powerCrashed  = 6
 )
@@ -102,6 +103,8 @@ func (h handler) serverBody(r *http.Request, server appcompute.ServerDetail, pat
 	case domaincompute.StatusShutoff:
 		body.VMState = "stopped"
 		body.PowerState = powerShutdown
+	case domaincompute.StatusPaused:
+		body.PowerState = powerPaused
 	case domaincompute.StatusError:
 		body.PowerState = powerCrashed
 	}

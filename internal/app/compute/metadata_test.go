@@ -64,7 +64,7 @@ func TestReplaceServerMetadataKeepsSnapshotsAndDetailControls(t *testing.T) {
 }
 
 func TestServerMetadataScopeQuotaAndWriteState(t *testing.T) {
-	seed := domain.Server{ID: "server", ProjectID: "project", Stopped: true}
+	seed := domain.Server{ID: "server", ProjectID: "project", State: domain.StatusShutoff}
 	service := app.New(seed, time.Now, nil)
 	baseline, err := service.GetMetadata(seed.ProjectID, seed.ID)
 	require.NoError(t, err)

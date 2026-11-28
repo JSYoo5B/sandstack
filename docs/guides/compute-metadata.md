@@ -20,7 +20,7 @@ Nova's default limit of 128 entries per server. Exceeding it returns
 `403` and preserves the existing map. See the [Nova metadata quota].
 
 Read metadata in any fixture state. Replace it while the server is
-`ACTIVE` or `SHUTOFF`. A replacement while the server reports an injected
+`ACTIVE`, `PAUSED`, or `SHUTOFF`. A replacement while the server reports an injected
 `ERROR` returns `409`. Use the detailed list or ordinary detail to read
 the same metadata fields. A stale detail snapshot keeps the earlier map.
 The metadata endpoint operates on live state and leaves a scheduled
@@ -61,7 +61,7 @@ validation, quota, and encoded item keys.
 [Nova metadata reference]: https://docs.openstack.org/api-ref/compute/#server-metadata-servers-metadata
 [Nova metadata merge reference]: https://docs.openstack.org/api-ref/compute/#create-or-update-metadata-items
 [Nova metadata schema]: https://github.com/openstack/nova/blob/master/nova/api/openstack/compute/schemas/server_metadata.py#L42-L49
-[Nova metadata state checks]: https://github.com/openstack/nova/blob/master/nova/compute/api.py#L5091-L5122
+[Nova metadata state checks]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/compute/api.py#L5560-L5575
 [Nova metadata quota]: https://docs.openstack.org/nova/latest/configuration/config.html#quota.metadata_items
 [Gophercloud metadata operations]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/compute/v2/servers/requests.go#L886-L930
 [Gophercloud metadata merge operation]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/compute/v2/servers/requests.go#L934-L949

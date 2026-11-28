@@ -2,12 +2,17 @@ package compute
 
 import (
 	"errors"
+	"slices"
 
 	computedomain "github.com/JSYoo5B/sandstack/internal/domain/compute"
 	volumedomain "github.com/JSYoo5B/sandstack/internal/domain/volume"
 )
 
-var ErrServerAttachmentState = errors.New("volume attachment requires an active or stopped server")
+var ErrServerAttachmentState = errors.New("volume attachment requires an active, paused, or stopped server")
+
+var attachStates = []computedomain.Status{
+	computedomain.StatusActive, computedomain.StatusPaused, computedomain.StatusShutoff,
+}
 
 type attachmentVolumes interface {
 	attachmentLookup
@@ -34,8 +39,7 @@ func (a *Attachments) Attach(projectID, serverID, volumeID, device string) (volu
 	// Hold the live server state steady until the volume mutation completes.
 	a.compute.mu.RLock()
 	defer a.compute.mu.RUnlock()
-	status := a.compute.server.Status()
-	if status != computedomain.StatusActive && status != computedomain.StatusShutoff {
+	if !slices.Contains(attachStates, a.compute.server.Status()) {
 		return volumedomain.Attachment{}, ErrServerAttachmentState
 	}
 	return a.volumes.Attach(projectID, serverID, volumeID, device)

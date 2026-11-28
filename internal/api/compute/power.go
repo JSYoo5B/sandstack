@@ -11,6 +11,8 @@ import (
 	appcompute "github.com/JSYoo5B/sandstack/internal/app/compute"
 )
 
+const actionFault = "Expected a single os-start, os-stop, reboot, pause, or unpause action."
+
 func (h handler) changeServerPower(w http.ResponseWriter, r *http.Request, scope requestScope) {
 	data, ok := readRequestBody(w, r, "server action")
 	if !ok {
@@ -18,7 +20,7 @@ func (h handler) changeServerPower(w http.ResponseWriter, r *http.Request, scope
 	}
 	actions, err := readUniqueObject(data)
 	if err != nil || !utf8.Valid(data) || len(actions) != 1 {
-		writeFault(w, http.StatusBadRequest, "badRequest", "Expected a single os-start, os-stop, or reboot action.")
+		writeFault(w, http.StatusBadRequest, "badRequest", actionFault)
 		return
 	}
 
@@ -35,8 +37,12 @@ func (h handler) changeServerPower(w http.ResponseWriter, r *http.Request, scope
 			return
 		}
 		err = h.service.Reboot(scope.projectID, serverID, hard)
+	case actions["pause"] != nil:
+		err = h.service.Pause(scope.projectID, serverID)
+	case actions["unpause"] != nil:
+		err = h.service.Unpause(scope.projectID, serverID)
 	default:
-		writeFault(w, http.StatusBadRequest, "badRequest", "Expected a single os-start, os-stop, or reboot action.")
+		writeFault(w, http.StatusBadRequest, "badRequest", actionFault)
 		return
 	}
 	switch {
