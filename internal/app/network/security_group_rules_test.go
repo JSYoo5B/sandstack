@@ -23,9 +23,10 @@ func TestSecurityGroupRuleMutationsUpdateEmbeddedRulesAndResetDefaults(t *testin
 	group := defaults[0]
 	require.Len(t, group.Rules, 4)
 	original := group.Rules[0]
+	ssh := 22
 	rule := domain.SecurityGroupRule{
 		Description: "SSH", Direction: "ingress", EtherType: "IPv4", Protocol: "tcp",
-		PortRangeMin: 22, PortRangeMax: 22, RemoteIPPrefix: netip.MustParsePrefix("198.51.100.7/24"),
+		PortRangeMin: &ssh, PortRangeMax: &ssh, RemoteIPPrefix: netip.MustParsePrefix("198.51.100.7/24"),
 	}
 
 	_, err := service.CreateSecurityGroupRule("foreign", group.ID, rule)
@@ -110,4 +111,66 @@ func TestStandaloneSecurityGroupRulesStayScopedAndTrackParentDeletion(t *testing
 	assert.Empty(t, service.ListSecurityGroupRules("foreign", app.SecurityGroupRuleFilter{}))
 	_, err = service.GetSecurityGroupRule("foreign", foreign.Rules[0].ID)
 	assert.ErrorIs(t, err, app.ErrSecurityGroupRuleNotFound)
+}
+
+func TestSecurityGroupRulesReferenceRemoteGroupsAndCompareProtocolNumbers(t *testing.T) {
+	const projectID = "owner"
+	sequence := 0
+	service := app.New(domain.Network{ID: "network", ProjectID: projectID}, func() string {
+		sequence++
+		return fixtureID(sequence)
+	})
+	web, err := service.CreateSecurityGroup(projectID, "web", "", true)
+	require.NoError(t, err)
+	database, err := service.CreateSecurityGroup(projectID, "database", "", true)
+	require.NoError(t, err)
+	foreign, err := service.CreateSecurityGroup("foreign", "web", "", true)
+	require.NoError(t, err)
+	postgres, echo := 5432, 8
+	fromWeb := domain.SecurityGroupRule{
+		Direction: "ingress", EtherType: "IPv4", Protocol: "tcp",
+		PortRangeMin: &postgres, PortRangeMax: &postgres, RemoteGroupID: web.ID,
+	}
+	ping := domain.SecurityGroupRule{Direction: "ingress", EtherType: "IPv4", Protocol: "icmp", PortRangeMin: &echo}
+
+	// https://github.com/openstack/neutron/blob/ba84fbf374cc7f5055eb2ff4ebc34d2a19cbbc3d/neutron/db/securitygroups_db.py#L890-L913
+	created, err := service.CreateSecurityGroupRule(projectID, database.ID, fromWeb)
+	require.NoError(t, err)
+	icmp, err := service.CreateSecurityGroupRule(projectID, database.ID, ping)
+	require.NoError(t, err)
+
+	assert.Equal(t, web.ID, created.Rule.RemoteGroupID)
+	assert.False(t, created.Rule.RemoteIPPrefix.IsValid())
+	assert.Equal(t, ping.PortRangeMin, icmp.Rule.PortRangeMin)
+	assert.Nil(t, icmp.Rule.PortRangeMax)
+	for _, remoteGroupID := range []string{"missing", foreign.ID} {
+		rule := fromWeb
+		rule.RemoteGroupID = remoteGroupID
+		_, err := service.CreateSecurityGroupRule(projectID, database.ID, rule)
+		var missing *app.SecurityGroupNotFoundError
+		require.ErrorAs(t, err, &missing)
+		assert.Equal(t, remoteGroupID, missing.ID)
+	}
+
+	// https://github.com/openstack/neutron/blob/ba84fbf374cc7f5055eb2ff4ebc34d2a19cbbc3d/neutron/db/securitygroups_db.py#L965-L1014
+	byNumber := fromWeb
+	byNumber.Protocol = "6"
+	_, err = service.CreateSecurityGroupRule(projectID, database.ID, byNumber)
+	assert.ErrorIs(t, err, app.ErrSecurityGroupRuleExists)
+	ping.Protocol = "1"
+	_, err = service.CreateSecurityGroupRule(projectID, database.ID, ping)
+	assert.ErrorIs(t, err, app.ErrSecurityGroupRuleExists)
+	anyAddress := domain.SecurityGroupRule{
+		Direction: "egress", EtherType: "IPv4", RemoteIPPrefix: netip.MustParsePrefix("0.0.0.0/0"),
+	}
+	_, err = service.CreateSecurityGroupRule(projectID, database.ID, anyAddress)
+	assert.ErrorIs(t, err, app.ErrSecurityGroupRuleExists)
+
+	// https://github.com/openstack/neutron/blob/ba84fbf374cc7f5055eb2ff4ebc34d2a19cbbc3d/neutron/db/models/securitygroup.py#L73-L101
+	require.NoError(t, service.DeleteSecurityGroup(projectID, web.ID))
+	_, err = service.GetSecurityGroupRule(projectID, created.Rule.ID)
+	assert.ErrorIs(t, err, app.ErrSecurityGroupRuleNotFound)
+	remaining, err := service.GetSecurityGroup(projectID, database.ID)
+	require.NoError(t, err)
+	assert.Equal(t, append(database.Rules, icmp.Rule), remaining.Rules)
 }

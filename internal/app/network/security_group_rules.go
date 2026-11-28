@@ -3,6 +3,7 @@ package network
 import (
 	"errors"
 	"fmt"
+	"net/netip"
 	"slices"
 	"strings"
 
@@ -79,6 +80,12 @@ func (s *Service) CreateSecurityGroupRule(projectID, groupID string, rule domain
 	if group.ProjectID != projectID {
 		return SecurityGroupRuleDetail{}, ErrSecurityGroupRuleForbidden
 	}
+	if rule.RemoteGroupID != "" {
+		remote, found := s.securityGroups[rule.RemoteGroupID]
+		if !found || remote.ProjectID != projectID {
+			return SecurityGroupRuleDetail{}, &SecurityGroupNotFoundError{ID: rule.RemoteGroupID}
+		}
+	}
 	signature := securityGroupRuleSignature(rule)
 	for _, existing := range group.Rules {
 		if securityGroupRuleSignature(existing) == signature {
@@ -120,10 +127,40 @@ func (s *Service) findOwnedSecurityGroupRule(projectID, ruleID string) (domain.S
 	})
 }
 
-func securityGroupRuleSignature(rule domain.SecurityGroupRule) domain.SecurityGroupRule {
-	rule.ID = ""
-	rule.Description = ""
-	return rule
+type securityGroupRuleKey struct {
+	direction      string
+	etherType      string
+	protocol       string
+	portRangeMin   int
+	portRangeMax   int
+	remoteGroupID  string
+	remoteIPPrefix netip.Prefix
+}
+
+var (
+	ruleProtocolNumbers = map[string]string{"icmp": "1", "tcp": "6", "udp": "17", "ipv6-icmp": "58"}
+	anyIPv4Prefix       = netip.MustParsePrefix("0.0.0.0/0")
+	anyIPv6Prefix       = netip.MustParsePrefix("::/0")
+)
+
+func securityGroupRuleSignature(rule domain.SecurityGroupRule) securityGroupRuleKey {
+	key := securityGroupRuleKey{
+		direction: rule.Direction, etherType: rule.EtherType, protocol: rule.Protocol,
+		portRangeMin: -1, portRangeMax: -1, remoteGroupID: rule.RemoteGroupID, remoteIPPrefix: rule.RemoteIPPrefix,
+	}
+	if number, found := ruleProtocolNumbers[rule.Protocol]; found {
+		key.protocol = number
+	}
+	if rule.PortRangeMin != nil {
+		key.portRangeMin = *rule.PortRangeMin
+	}
+	if rule.PortRangeMax != nil {
+		key.portRangeMax = *rule.PortRangeMax
+	}
+	if key.remoteIPPrefix == anyIPv4Prefix || key.remoteIPPrefix == anyIPv6Prefix {
+		key.remoteIPPrefix = netip.Prefix{}
+	}
+	return key
 }
 
 func describeSecurityGroupRule(group domain.SecurityGroup, rule domain.SecurityGroupRule) SecurityGroupRuleDetail {

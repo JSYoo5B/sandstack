@@ -143,6 +143,16 @@ func (s *Service) DeleteSecurityGroup(projectID, groupID string) error {
 	for _, rule := range group.Rules {
 		delete(s.securityGroupRuleGroups, rule.ID)
 	}
+	for id, other := range s.securityGroups {
+		other.Rules = slices.DeleteFunc(other.Rules, func(rule domain.SecurityGroupRule) bool {
+			if rule.RemoteGroupID != groupID {
+				return false
+			}
+			delete(s.securityGroupRuleGroups, rule.ID)
+			return true
+		})
+		s.securityGroups[id] = other
+	}
 	return nil
 }
 

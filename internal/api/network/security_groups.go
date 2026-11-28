@@ -118,10 +118,8 @@ func describeSecurityGroupRule(rule domain.SecurityGroupRule, groupID, projectID
 	if rule.Protocol != "" {
 		body.Protocol = &rule.Protocol
 	}
-	if rule.PortRangeMin != 0 {
-		body.PortRangeMin = &rule.PortRangeMin
-		body.PortRangeMax = &rule.PortRangeMax
-	}
+	body.PortRangeMin = rule.PortRangeMin
+	body.PortRangeMax = rule.PortRangeMax
 	if rule.RemoteIPPrefix.IsValid() {
 		prefix := rule.RemoteIPPrefix.String()
 		normalized := rule.RemoteIPPrefix.Masked().String()

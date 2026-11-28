@@ -77,28 +77,52 @@ an empty `security_group_rules` array.
 
 ## Create and delete a security group rule
 
-Use `rules.Create` for a TCP or UDP rule on an owned group. Supply its
-ID, an ingress or egress direction, an IPv4 or IPv6 EtherType, and a
-matching remote address or CIDR. A standalone address uses a host mask.
-The request returns `201` with a `security_group_rule` object. Use the
-returned ID in standalone lookups or read the rule through the group's
-detail. See the [Neutron rule creation] and [Gophercloud rule create options].
+Use `rules.Create` on an owned group. Supply its ID, an ingress or egress
+direction, and an IPv4 or IPv6 EtherType. The request returns `201` with a
+`security_group_rule` object. Use the returned ID in standalone lookups or
+read the rule through the group's detail. See the [Neutron rule creation]
+and [Gophercloud rule create options].
 
-For a port restriction, supply both endpoints in the range 1 to 65535.
-Omitting both, or supplying the full range, stores null port bounds.
+The protocol can be TCP, UDP, ICMP, or IPv6 ICMP, by case-insensitive
+name or by number (`6`, `17`, `1`, or `58`). Omit it, or send null or `any`,
+to match any protocol. The response keeps the name or number as sent. An
+IPv6 rule stores `icmp` and `icmpv6` as `ipv6-icmp` and `1` as `58`. IPv6
+ICMP on an IPv4 rule returns `400`. Other protocols that Neutron accepts
+are not supported and return `400`. See the [Neutron rule protocols] and
+[Neutron IPv6 ICMP normalization].
+
+Restrict the remote end with an address or CIDR of the rule's IP version,
+or with `remote_group_id` naming a group in the same project. A
+standalone address uses a host mask. Supplying both returns `400
+SecurityGroupMultipleRemoteEntites`. A missing or foreign remote group
+returns `404 SecurityGroupNotFound`. Deleting a group also deletes the
+rules in other groups that use it as their remote group. See the [Neutron
+remote validation] and [Neutron remote group cascade].
+
+For TCP and UDP, supply both port endpoints in the range 1 to 65535. For
+ICMP and IPv6 ICMP, `port_range_min` is the type and `port_range_max` is
+the code, each from 0 to 255. A code without a type returns `400
+SecurityGroupMissingIcmpType`. Ports without a protocol return `400`.
+Omitting both bounds, or supplying 1 to 65535 for any protocol, stores
+null bounds. See the [Neutron rule port ranges].
+
 The response preserves host bits in `remote_ip_prefix` and exposes the
-masked network in `normalized_cidr`. An existing rule with the same
-selectors returns `409`, regardless of description. Use `rules.Delete`
-to remove an owned rule, including rules in the default group. It
-returns `204` with an empty body. Reset restores the default rules.
-See the [Neutron rule port ranges] and [Neutron rule deletion].
+masked network in `normalized_cidr`. Both are null for a remote group
+rule, and `remote_group_id` is null for an address rule. An existing rule
+with the same selectors returns `409`, regardless of description. The
+comparison treats a protocol name and its number as equal, and
+`0.0.0.0/0` or `::/0` as no remote address. Use `rules.Delete` to remove
+an owned rule, including rules in the default group. It returns `204`
+with an empty body. Reset restores the default rules. See the [Neutron
+rule deletion].
 
 ## Verification
 
 Run `go test ./...` to exercise default discovery, custom group and
-rule lifecycles, group updates, and the standalone and inline rule views with
-Gophercloud v2.15.0. Raw HTTP tests cover project scoping, invalid
-selectors, CIDR normalization, and deletion responses.
+rule lifecycles, remote group and ICMP rules, group updates, and the
+standalone and inline rule views with Gophercloud v2.15.0. Raw HTTP tests
+cover project scoping, invalid selectors, protocol and ICMP validation,
+CIDR normalization, duplicate detection, and deletion responses.
 
 [Neutron group update]: https://github.com/openstack/neutron/blob/ba84fbf374cc7f5055eb2ff4ebc34d2a19cbbc3d/neutron/db/securitygroups_db.py#L303-L344
 [Neutron default group]: https://github.com/openstack/neutron/blob/ba84fbf374cc7f5055eb2ff4ebc34d2a19cbbc3d/neutron/db/securitygroups_db.py#L166-L231
@@ -113,3 +137,7 @@ selectors, CIDR normalization, and deletion responses.
 [Neutron rule port ranges]: https://github.com/openstack/neutron/blob/ba84fbf374cc7f5055eb2ff4ebc34d2a19cbbc3d/neutron/db/securitygroups_db.py#L770-L819
 [Neutron rule deletion]: https://github.com/openstack/neutron/blob/ba84fbf374cc7f5055eb2ff4ebc34d2a19cbbc3d/neutron/db/securitygroups_db.py#L1101-L1120
 [Gophercloud rule create options]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/networking/v2/extensions/security/rules/requests.go#L109-L175
+[Neutron rule protocols]: https://github.com/openstack/neutron/blob/ba84fbf374cc7f5055eb2ff4ebc34d2a19cbbc3d/neutron/extensions/securitygroup.py#L151-L167
+[Neutron IPv6 ICMP normalization]: https://github.com/openstack/neutron/blob/ba84fbf374cc7f5055eb2ff4ebc34d2a19cbbc3d/neutron/db/securitygroups_db.py#L821-L888
+[Neutron remote validation]: https://github.com/openstack/neutron/blob/ba84fbf374cc7f5055eb2ff4ebc34d2a19cbbc3d/neutron/db/securitygroups_db.py#L890-L913
+[Neutron remote group cascade]: https://github.com/openstack/neutron/blob/ba84fbf374cc7f5055eb2ff4ebc34d2a19cbbc3d/neutron/db/models/securitygroup.py#L73-L101

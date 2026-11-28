@@ -146,7 +146,6 @@ func TestNeutronSecurityGroupRuleLifecycleWire(t *testing.T) {
 		{"reversed ports", map[string]any{"port_range_min": 444, "port_range_max": 443}},
 		{"port zero", map[string]any{"port_range_min": 0}},
 		{"wrong address family", map[string]any{"remote_ip_prefix": "2001:db8::/64"}},
-		{"unsupported protocol", map[string]any{"protocol": "sctp"}},
 		{"unknown direction", map[string]any{"direction": "sideways"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

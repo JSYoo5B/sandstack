@@ -17,8 +17,8 @@ type SecurityGroupRule struct {
 	Direction      string
 	EtherType      string
 	Protocol       string
-	PortRangeMin   int
-	PortRangeMax   int
+	PortRangeMin   *int
+	PortRangeMax   *int
 	RemoteGroupID  string
 	RemoteIPPrefix netip.Prefix
 }
