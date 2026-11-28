@@ -12,7 +12,7 @@ import (
 )
 
 const actionFault = "Expected a single os-start, os-stop, reboot, pause, unpause, suspend, resume, lock, unlock, " +
-	"createImage, resize, confirmResize, revertResize, or os-getConsoleOutput action."
+	"createImage, rebuild, resize, confirmResize, revertResize, or os-getConsoleOutput action."
 
 func (h handler) changeServerPower(w http.ResponseWriter, r *http.Request, scope requestScope) {
 	data, ok := readRequestBody(w, r, "server action")
@@ -31,6 +31,10 @@ func (h handler) changeServerPower(w http.ResponseWriter, r *http.Request, scope
 	}
 	if snapshot, ok := actions["createImage"]; ok {
 		h.createServerImage(w, r, scope, snapshot)
+		return
+	}
+	if rebuild, ok := actions["rebuild"]; ok {
+		h.rebuildServer(w, r, scope, rebuild)
 		return
 	}
 	if resize, ok := actions["resize"]; ok {

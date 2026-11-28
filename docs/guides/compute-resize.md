@@ -87,9 +87,9 @@ report these transient statuses. See [Gophercloud WaitForStatus].
 
 A server in `VERIFY_RESIZE` accepts volume attachment and detachment,
 lock and unlock, rename, and deletion. `os-stop`, `os-start`, soft and
-hard `reboot`, `pause`, `suspend`, `createImage`, another `resize`, and
-metadata writes return `409`. Use `?status=VERIFY_RESIZE` to find
-resized servers in lists. See the [Nova stop state check], [Nova reboot
+hard `reboot`, `pause`, `suspend`, `createImage`, `rebuild`, another
+`resize`, and metadata writes return `409`. Use `?status=VERIFY_RESIZE`
+to find resized servers in lists. See the [Nova stop state check], [Nova reboot
 state checks], [Nova snapshot state check], and [Nova attachment state
 checks].
 

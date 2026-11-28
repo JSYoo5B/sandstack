@@ -19,6 +19,7 @@ const (
 	ActionResize        = "resize"
 	ActionConfirmResize = "confirmResize"
 	ActionRevertResize  = "revertResize"
+	ActionRebuild       = "rebuild"
 )
 
 // Action is a server action record keyed by the request that started it.

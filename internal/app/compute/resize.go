@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"slices"
-	"strings"
 
 	domain "github.com/JSYoo5B/sandstack/internal/domain/compute"
 )
@@ -55,8 +54,7 @@ func (s *Servers) Resize(request ActionRequest, serverID, flavorID string, autoD
 		return err
 	}
 	imageMeta := s.snapshotImageMeta(projectID, *server)
-	if autoDiskConfig != nil && *autoDiskConfig &&
-		strings.ToLower(strings.TrimSpace(imageMeta.Properties["auto_disk_config"])) == "disabled" {
+	if autoDiskConfig != nil && *autoDiskConfig && autoDiskConfigDisabled(imageMeta.Properties) {
 		return resizeError("Requested image %s has automatic disk resize disabled.",
 			imageMeta.Properties[baseImageRefProperty])
 	}

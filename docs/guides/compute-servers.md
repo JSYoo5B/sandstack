@@ -256,7 +256,72 @@ A created server supports the same actions, metadata, volume attachments,
 and [fault controls](compute-faults.md) as the fixture server. Its
 [console log](compute-console.md) starts empty. To snapshot a server into
 an image and boot from it, see [Snapshot servers](compute-snapshots.md).
-To change its flavor, see [Resize servers](compute-resize.md).
+To change its flavor, see [Resize servers](compute-resize.md). To replace
+its image, see [Rebuild a server](#rebuild-a-server).
+
+## Rebuild a server
+
+Use `servers.Rebuild` with `servers.RebuildOpts{ImageRef: imageID}` in
+Gophercloud v2.15.0. It sends `POST /servers/{server_id}/action` with
+`{"rebuild":{"imageRef":"..."}}`. `imageRef` is required and must be a
+UUID. `name`, `adminPass`, `metadata`, and `OS-DCF:diskConfig` (`AUTO` or
+`MANUAL`) are optional. Other fields return `400`. See the [Nova rebuild
+schema], [Nova rebuild handler], and [Gophercloud rebuild].
+
+Rebuild requires an `ACTIVE`, `SHUTOFF`, or `ERROR` server with no task in
+progress. The server takes the new image and its `min_ram`, `min_disk`, and
+properties. A supplied `name` replaces the name, and a supplied `metadata`
+object replaces all server metadata. Omitted fields keep their values.
+Without `OS-DCF:diskConfig`, the image's `auto_disk_config` property sets
+the disk config. A running or failed server becomes `ACTIVE` with no
+fault, and a stopped server stays `SHUTOFF`. The request records a
+`rebuild` [server action](compute-actions.md). See the [Nova rebuild
+API], [Nova rebuild image properties], and [Nova rebuild completion].
+
+A successful request returns `202` with `Location` set to the server's
+`self` link and a `server` object in the v2.1 rename shape: `accessIPv4`,
+`accessIPv6`, `hostId`, `OS-DCF:diskConfig`, and `progress` are present
+with `addresses` reduced to `version` and `addr`. `adminPass` holds the
+supplied password, or a generated 12-character password when the request
+omits it, because Nova returns it by default. See the [Nova rebuild
+response schema], [Nova instance password option], and [Nova password
+generation].
+
+A server that boots from a volume can only be rebuilt with the image its
+root volume was created from. Its `image` stays `""`. See the [Nova
+volume-backed rebuild check].
+
+### Rejected rebuild requests
+
+Nova checks the request in this order:
+
+| Condition | Status and message |
+| --- | --- |
+| Invalid request body | `400` |
+| Unknown server | `404` |
+| Locked server | `409` `Instance {server_id} is locked` |
+| Server not `ACTIVE`, `SHUTOFF`, or `ERROR` | `409` `Cannot 'rebuild' instance {server_id} while it is in vm_state {state}` |
+| A task in progress, such as a held snapshot | `409` with `task_state {task}` |
+| Unknown or invisible image | `400` `Cannot find image for rebuild` |
+| `AUTO` disk config on an image with `auto_disk_config` `disabled` | `400` `Requested image {image_id} has automatic disk resize disabled.` |
+| Another image for a volume-backed server | `400` `Image {image_id} is unacceptable: Unable to rebuild with a different image for a volume-backed server.` |
+| More than 128 metadata items | `403` `Maximum number of metadata items exceeds 128` |
+| Image not `active` | `400` `Image {image_id} is not active.` |
+| Flavor RAM below the image `min_ram` | `400` `Flavor's memory is too small for requested image.` |
+| Image size or `min_disk` above the flavor's root disk | `400` with both sizes in bytes |
+
+A volume-backed server compares the image `min_disk` with its root volume
+size instead of the flavor. A rejected request leaves the server unchanged
+and records no action. See the [Nova rebuild errors], [Nova state check],
+[Nova rebuild checks], and [Nova rebuild image checks].
+
+SandStack completes the rebuild before it answers, as it does for
+[builds](#wait-for-the-server) and [resizes](compute-resize.md). The
+response and later reads report the final `ACTIVE` or `SHUTOFF` status.
+Nova reports `REBUILD` with task state `rebuilding` while its compute
+service works, so its response shows `REBUILD`. SandStack does not report
+this transient status. Wait with `servers.WaitForStatus` for `ACTIVE` or
+`SHUTOFF`.
 
 ## Delete a server
 
@@ -299,6 +364,13 @@ volume, which has not been checked against a reference deployment. Server detail
 `OS-EXT-AZ:availability_zone`, `config_drive`, `OS-SRV-USG` timestamps,
 `OS-DCF:diskConfig`, `hostId`, or the access IP fields.
 
+Rebuild does not support `preserve_ephemeral`, `accessIPv4`,
+`accessIPv6`, or `personality`. These fields return `400`. Fields added
+after v2.1, such as `description`, `key_name`, `user_data`, and
+`hostname`, also return `400`, as Nova v2.1 does. SandStack does not
+reimage boot volumes, reject images uploaded from encrypted volumes, or
+check image architecture, NUMA, or trusted certificates on rebuild.
+
 ## Verification
 
 Run `go test ./internal/api/server -run 'Boots|ServerCreateAndDelete|BuildControls|BootFromVolume|HeldVolume' -count=1`
@@ -317,6 +389,18 @@ root detach, and `delete_on_termination` on delete. Raw HTTP checks the
 block device `400` cases, `"image": ""`, and the reserved volume of a
 held build. The application tests check the validation order, build
 failures, and port and volume release against the pinned Nova source.
+
+For rebuild, run `go test ./internal/api/server -run Rebuild -count=1`
+and `go test ./internal/app/compute -run 'TestServersSuite/.*Rebuild' -count=1`.
+The Gophercloud test snapshots a server, rebuilds it from the snapshot
+with a new name, metadata, and password, and checks the response, the
+detail, and the `rebuild` action. Raw HTTP checks the schema `400` cases,
+the unknown image `400`, the unknown server `404`, the `409` messages for
+paused and locked servers, and the `202` response fields, `Location`,
+generated password, disk config, and action record for a stopped server
+that stays `SHUTOFF`. The application tests check the validation order,
+metadata replacement, the image properties, stopped and failed servers,
+and the volume-backed image check against the pinned Nova source.
 
 [Nova create schema]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/api/openstack/compute/schemas/servers.py#L154-L230
 [Nova create handler]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/api/openstack/compute/servers.py#L700-L923
@@ -353,6 +437,19 @@ failures, and port and volume release against the pinned Nova source.
 [Nova address view]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/api/openstack/compute/views/ips.py#L27-L53
 [Nova security group bindings]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/network/security_group_api.py#L521-L563
 [Nova update view]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/api/openstack/compute/servers.py#L1046-L1076
+[Nova rebuild schema]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/api/openstack/compute/schemas/servers.py#L408-L430
+[Nova rebuild handler]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/api/openstack/compute/servers.py#L1239-L1423
+[Gophercloud rebuild]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/compute/v2/servers/requests.go#L751-L815
+[Nova rebuild API]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/compute/api.py#L3694-L3913
+[Nova rebuild image properties]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/compute/api.py#L691-L706
+[Nova rebuild completion]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/compute/manager.py#L4082-L4094
+[Nova rebuild response schema]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/api/openstack/compute/schemas/servers.py#L1798-L1919
+[Nova instance password option]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/conf/api.py#L351-L358
+[Nova volume-backed rebuild check]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/compute/api.py#L3758-L3800
+[Nova rebuild errors]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/api/openstack/compute/servers.py#L1338-L1371
+[Nova state check]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/compute/api.py#L142-L180
+[Nova rebuild checks]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/compute/api.py#L1077-L1092
+[Nova rebuild image checks]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/compute/api.py#L723-L894
 [Nova delete handler]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/api/openstack/compute/servers.py#L925-L957
 [Nova delete checks]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/compute/api.py#L2818-L2824
 [Nova network deallocation]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/network/neutron.py#L1841-L1876

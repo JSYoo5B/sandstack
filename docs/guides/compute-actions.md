@@ -57,6 +57,7 @@ A successful request records one of these actions:
 | Volume attachment create | `attach_volume` |
 | Volume attachment delete | `detach_volume` |
 | [`createImage`](compute-snapshots.md) | `createImage` |
+| [`rebuild`](compute-servers.md#rebuild-a-server) | `rebuild` |
 | [`resize`](compute-resize.md) | `resize` |
 | [`confirmResize` and `revertResize`](compute-resize.md#confirm-or-revert) | `confirmResize` and `revertResize` |
 

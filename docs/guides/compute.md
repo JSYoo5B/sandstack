@@ -264,6 +264,10 @@ See [Boot and delete servers in the Compute sandbox](compute-servers.md).
 
 See [Snapshot servers in the Compute sandbox](compute-snapshots.md).
 
+## Rebuild a server
+
+See [Rebuild a server](compute-servers.md#rebuild-a-server).
+
 ## Resize a server
 
 See [Resize servers in the Compute sandbox](compute-resize.md).

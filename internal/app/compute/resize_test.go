@@ -193,6 +193,7 @@ func (s *ServersSuite) TestResizeActionsCheckLockThenState() {
 
 // https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/compute/api.py#L2882-L2885
 // https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/compute/api.py#L3454-L3460
+// https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/compute/api.py#L3696-L3700
 // https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/compute/api.py#L5225-L5230
 // https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/compute/vm_states.py#L69-L73
 func (s *ServersSuite) TestResizedServerAcceptsOnlyUpstreamActions() {
@@ -204,11 +205,13 @@ func (s *ServersSuite) TestResizedServerAcceptsOnlyUpstreamActions() {
 	stopErr := s.compute.SetPower(s.request("req-stop"), serverID, false)
 	rebootErr := s.compute.Reboot(s.request("req-reboot"), serverID, true)
 	_, imageErr := s.servers.CreateImage(s.request("req-image"), serverID, "snap", nil)
+	_, rebuildErr := s.servers.Rebuild(s.request("req-rebuild"), serverID, app.ServerRebuild{ImageID: serverImage})
 	_, attachErr := attachments.Attach(s.request("req-attach"), serverID, serverVolume, "")
 
 	s.ErrorIs(stopErr, app.ErrServerPowerState)
 	s.ErrorIs(rebootErr, app.ErrServerPowerState)
 	s.EqualError(imageErr, "Cannot 'createImage' instance "+serverID+" while it is in vm_state resized")
+	s.EqualError(rebuildErr, "Cannot 'rebuild' instance "+serverID+" while it is in vm_state resized")
 	s.NoError(attachErr)
 	detail, err := s.servers.Get(serverProject, serverID)
 	s.Require().NoError(err)
