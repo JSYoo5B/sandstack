@@ -4,9 +4,11 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
+	"math/big"
 	"net/http"
 	"net/netip"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -148,8 +150,11 @@ func New(config Config) (http.Handler, error) {
 		Name:       "cinder",
 		Path:       apivolume.Path + "/" + fixture.Project.ID,
 	})
+	servers := appcompute.NewServers(
+		computeService, imageService, networkService, volumeService, keyPairs, randomUUID, randomPassword,
+	)
 	apicompute.Register(
-		services, computeService, appcompute.NewAttachments(computeService, volumeService), keyPairs,
+		services, computeService, servers, appcompute.NewAttachments(computeService, volumeService), keyPairs,
 		identityService.ProjectForToken, identityService.UserForToken, endpointURL, computeRequestID,
 	)
 	apinetwork.Register(services, networkService, identityService.ProjectForToken, endpointURL)
@@ -181,6 +186,35 @@ func randomID() string {
 	var entropy [16]byte
 	rand.Read(entropy[:])
 	return base64.RawURLEncoding.EncodeToString(entropy[:])
+}
+
+// passwordSymbols are the groups Nova draws generated admin passwords from.
+var passwordSymbols = []string{"23456789", "ABCDEFGHJKLMNPQRSTUVWXYZ", "abcdefghijkmnopqrstuvwxyz"}
+
+const passwordLength = 12
+
+func randomPassword() string {
+	symbols := strings.Join(passwordSymbols, "")
+	password := make([]byte, 0, passwordLength)
+	for _, group := range passwordSymbols {
+		password = append(password, group[randomIndex(len(group))])
+	}
+	for len(password) < passwordLength {
+		password = append(password, symbols[randomIndex(len(symbols))])
+	}
+	for i := len(password) - 1; i > 0; i-- {
+		j := randomIndex(i + 1)
+		password[i], password[j] = password[j], password[i]
+	}
+	return string(password)
+}
+
+func randomIndex(n int) int {
+	value, err := rand.Int(rand.Reader, big.NewInt(int64(n)))
+	if err != nil {
+		return 0
+	}
+	return int(value.Int64())
 }
 
 func computeRequestID() string {

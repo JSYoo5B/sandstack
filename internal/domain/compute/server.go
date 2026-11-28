@@ -5,6 +5,7 @@ import "time"
 type Status string
 
 const (
+	StatusBuild     Status = "build"
 	StatusActive    Status = "active"
 	StatusError     Status = "error"
 	StatusShutoff   Status = "shutoff"
@@ -13,17 +14,27 @@ const (
 )
 
 type Server struct {
-	ID        string
-	Name      string
-	ProjectID string
-	UserID    string
-	ImageID   string
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	State     Status
-	Locked    bool
-	Fault     *Fault
-	Metadata  map[string]string
+	ID             string
+	Name           string
+	ProjectID      string
+	UserID         string
+	ImageID        string
+	KeyName        string
+	AutoDiskConfig bool
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+	State          Status
+	Locked         bool
+	Fault          *Fault
+	Metadata       map[string]string
+	Ports          []ServerPort
+}
+
+// ServerPort is a Neutron port bound to the server. Nova unbinds preserved
+// ports on deletion and deletes the ports it created.
+type ServerPort struct {
+	ID       string
+	Preserve bool
 }
 
 func (s Server) Status() Status {

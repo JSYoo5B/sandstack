@@ -14,6 +14,7 @@ const Path = "/compute/v2.1"
 
 type handler struct {
 	service         *appcompute.Service
+	servers         *appcompute.Servers
 	attachments     *appcompute.Attachments
 	keyPairs        *appcompute.KeyPairs
 	projectForToken func(string) (string, error)
@@ -32,6 +33,7 @@ type requestScope struct {
 func Register(
 	router chi.Router,
 	service *appcompute.Service,
+	servers *appcompute.Servers,
 	attachments *appcompute.Attachments,
 	keyPairs *appcompute.KeyPairs,
 	projectForToken func(string) (string, error),
@@ -41,10 +43,12 @@ func Register(
 ) {
 	router = router.With(assignRequestIDs(newRequestID))
 	h := handler{
-		service: service, attachments: attachments, keyPairs: keyPairs,
+		service: service, servers: servers, attachments: attachments, keyPairs: keyPairs,
 		projectForToken: projectForToken, userForToken: userForToken, endpointURL: endpointURL,
 	}
 	show := h.withProject(h.showServer)
+	create := h.withProject(h.createServer)
+	remove := h.withProject(h.deleteServer)
 	update := h.withProject(h.updateServer)
 	list := h.withProject(h.listServersDetailed)
 	listBasic := h.withProject(h.listServersBasic)
@@ -71,6 +75,7 @@ func Register(
 		server := prefix + "/servers/{serverID}"
 		router.Get(server, show)
 		router.Put(server, update)
+		router.Delete(server, remove)
 		router.Post(server+"/action", power)
 		router.Get(server+"/metadata", showMetadata)
 		router.Put(server+"/metadata", replaceMetadata)
@@ -82,6 +87,7 @@ func Register(
 		router.Get(server+"/os-instance-actions", listActions)
 		router.Get(server+"/os-instance-actions/{requestID}", showAction)
 		router.Get(prefix+"/servers", listBasic)
+		router.Post(prefix+"/servers", create)
 		router.Get(prefix+"/servers/detail", list)
 		router.Get(prefix+"/flavors/{flavorID}", showFlavor)
 		router.Get(prefix+"/flavors/detail", listFlavors)

@@ -12,10 +12,11 @@ var ErrServerMetadatumNotFound = errors.New("server metadata key not found")
 func (s *Service) GetMetadatum(projectID, serverID, key string) (string, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	if s.server.ProjectID != projectID || s.server.ID != serverID {
+	record, ok := s.find(projectID, serverID)
+	if !ok {
 		return "", ErrServerNotFound
 	}
-	value, found := s.server.Metadata[key]
+	value, found := record.server.Metadata[key]
 	if !found {
 		return "", ErrServerMetadatumNotFound
 	}
@@ -32,20 +33,22 @@ func (s *Service) PutMetadatum(projectID, serverID, key, value string) error {
 func (s *Service) DeleteMetadatum(projectID, serverID, key string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.server.ProjectID != projectID || s.server.ID != serverID {
+	record, ok := s.find(projectID, serverID)
+	if !ok {
 		return ErrServerNotFound
 	}
-	if _, found := s.server.Metadata[key]; !found {
+	server := &record.server
+	if _, found := server.Metadata[key]; !found {
 		return ErrServerMetadatumNotFound
 	}
-	if s.server.Locked {
+	if server.Locked {
 		return ErrServerLocked
 	}
-	if !slices.Contains(metadataWriteStates, s.server.Status()) {
+	if !slices.Contains(metadataWriteStates, server.Status()) {
 		return ErrServerMetadataState
 	}
-	metadata := maps.Clone(s.server.Metadata)
+	metadata := maps.Clone(server.Metadata)
 	delete(metadata, key)
-	s.server.Metadata = metadata
+	server.Metadata = metadata
 	return nil
 }

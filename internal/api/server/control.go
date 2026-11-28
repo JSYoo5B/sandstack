@@ -86,6 +86,29 @@ func registerComputeControls(router chi.Router, service *appcompute.Service) {
 	}
 	router.Put(serverPath+"/console-output", setConsole)
 	router.Delete(serverPath+"/console-output", setConsole)
+	holdBuilds := func(w http.ResponseWriter, r *http.Request) {
+		service.SetHoldBuilds(r.Method == http.MethodPut)
+		noContent(w, r)
+	}
+	router.Put("/compute/hold-builds", holdBuilds)
+	router.Delete("/compute/hold-builds", holdBuilds)
+	finishBuild := func(failed bool) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			err := service.FinishBuild(chi.URLParam(r, "resourceID"), failed)
+			switch {
+			case errors.Is(err, appcompute.ErrServerNotFound):
+				http.Error(w, "Server not found", http.StatusNotFound)
+			case errors.Is(err, appcompute.ErrBuildNotPending):
+				http.Error(w, "Server build cannot change to the requested outcome", http.StatusConflict)
+			case err != nil:
+				http.Error(w, "Unable to finish the server build", http.StatusInternalServerError)
+			default:
+				noContent(w, r)
+			}
+		}
+	}
+	router.Put(serverPath+"/complete-create", finishBuild(false))
+	router.Put(serverPath+"/fail-create", finishBuild(true))
 }
 
 func registerNetworkControls(router chi.Router, service *appnetwork.Service) {

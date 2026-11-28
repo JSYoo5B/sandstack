@@ -18,29 +18,31 @@ func (s *Service) ConsoleOutput(projectID, serverID string, length *int64) (stri
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	if s.server.ProjectID != projectID || s.server.ID != serverID {
+	record, ok := s.find(projectID, serverID)
+	if !ok {
 		return "", ErrServerNotFound
 	}
-	output := s.console
+	output := record.console
 	if length != nil {
 		output = tailLines(output, *length)
 	}
 	return decodeASCII(output), nil
 }
 
-// SetConsoleOutput replaces the console log, or restores the fixture log when output is nil.
+// SetConsoleOutput replaces the console log, or restores the initial log when output is nil.
 func (s *Service) SetConsoleOutput(serverID string, output []byte) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if s.server.ID != serverID {
+	record, ok := s.servers[serverID]
+	if !ok {
 		return ErrServerNotFound
 	}
 	if output == nil {
-		s.console = []byte(FixtureConsoleOutput)
+		record.console = s.initialConsole(record.server.ID)
 		return nil
 	}
-	s.console = bytes.Clone(output)
+	record.console = bytes.Clone(output)
 	return nil
 }
 
@@ -68,4 +70,12 @@ func decodeASCII(output []byte) string {
 		}
 	}
 	return decoded.String()
+}
+
+// initialConsole returns the startup log of the seeded server and an empty log otherwise.
+func (s *Service) initialConsole(serverID string) []byte {
+	if serverID == s.seed.ID {
+		return []byte(FixtureConsoleOutput)
+	}
+	return []byte{}
 }

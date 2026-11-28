@@ -67,7 +67,11 @@ func parseMetadata(data []byte, wrapper string) (map[string]string, error) {
 	if err != nil || !utf8.Valid(data) || len(envelope) != 1 {
 		return nil, errInvalidMetadata
 	}
-	fields, err := readUniqueObject(envelope[wrapper])
+	return parseMetadataObject(envelope[wrapper])
+}
+
+func parseMetadataObject(raw json.RawMessage) (map[string]string, error) {
+	fields, err := readUniqueObject(raw)
 	if err != nil {
 		return nil, errInvalidMetadata
 	}

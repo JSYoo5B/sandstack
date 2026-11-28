@@ -4,8 +4,8 @@
 
 Use the project token from the [Identity fixture](identity.md) to manage
 the fixture user's SSH key pairs with Nova v2.1. Key pairs belong to the
-authenticated user, not to the project. SandStack does not create servers,
-so a key pair cannot be injected into one.
+authenticated user, not to the project. Pass a key pair name as `key_name`
+when you [create a server](compute-servers.md#create-a-server).
 
 ## Create or import a key pair
 

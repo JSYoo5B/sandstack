@@ -4,8 +4,9 @@ SandStack is a lightweight OpenStack test sandbox with programmable faults.
 It runs as an ephemeral dependency for automated tests of OpenStack clients.
 The fixture supports Keystone password and application credential
 authentication, application credential management, and catalog discovery.
-Nova covers server reads, power actions, locks, action history, console
-output, metadata, flavor lookup, volume attachment, and key pairs. Glance covers image creation, upload, download, deletion, and sharing.
+Nova covers server creation and deletion, server reads, power actions,
+locks, action history, console output, metadata, flavor lookup, volume
+attachment, and key pairs. Glance covers image creation, upload, download, deletion, and sharing.
 Lifecycle operations cover Neutron networks, IPv4 subnets, ports, logical
 routers with external gateways, and floating IPs, as well as Cinder volumes,
 snapshots, and backups with restore.
@@ -33,7 +34,8 @@ for the user and project. The [Identity guide](docs/guides/identity.md)
 covers token invalidation, reauthentication, and
 [application credentials](docs/guides/identity-application-credentials.md). The
 [Compute guide](docs/guides/compute.md) covers Nova server operations and
-links to the [fault controls](docs/guides/compute-faults.md),
+links to the [server boot guide](docs/guides/compute-servers.md),
+[fault controls](docs/guides/compute-faults.md),
 [metadata guide](docs/guides/compute-metadata.md),
 [key pair guide](docs/guides/compute-keypairs.md),
 [action history guide](docs/guides/compute-actions.md), and

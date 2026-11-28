@@ -35,7 +35,7 @@ func (h handler) updateServer(w http.ResponseWriter, r *http.Request, scope requ
 		writeFault(w, http.StatusBadRequest, "badRequest", err.Error())
 		return
 	}
-	server, err := h.service.UpdateName(scope.projectID, chi.URLParam(r, "serverID"), name)
+	server, err := h.servers.UpdateName(scope.projectID, chi.URLParam(r, "serverID"), name)
 	switch {
 	case errors.Is(err, appcompute.ErrServerNotFound):
 		writeFault(w, http.StatusNotFound, "itemNotFound", "The server could not be found.")
@@ -69,15 +69,21 @@ func parseServerNameUpdate(data []byte) (*string, error) {
 		return nil, nil
 	}
 	var name string
-	if len(fields) != 1 || json.Unmarshal(fields["name"], &name) != nil ||
-		name == "" || utf8.RuneCountInString(name) > 255 || strings.TrimSpace(name) != name {
+	if len(fields) != 1 || json.Unmarshal(fields["name"], &name) != nil || !validServerName(name) {
 		return nil, errInvalidServerUpdate
+	}
+	return &name, nil
+}
+
+func validServerName(name string) bool {
+	if name == "" || utf8.RuneCountInString(name) > 255 || strings.TrimSpace(name) != name {
+		return false
 	}
 	// Nova builds its printable name character ranges from code points below U+FFFF.
 	for _, char := range name {
 		if char >= 0xFFFF || !unicode.IsGraphic(char) {
-			return nil, errInvalidServerUpdate
+			return false
 		}
 	}
-	return &name, nil
+	return true
 }

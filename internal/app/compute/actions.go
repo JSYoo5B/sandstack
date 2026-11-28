@@ -21,10 +21,11 @@ func (s *Service) ListActions(projectID, serverID string) ([]domain.Action, erro
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	if s.server.ProjectID != projectID || s.server.ID != serverID {
+	record, ok := s.find(projectID, serverID)
+	if !ok {
 		return nil, ErrServerNotFound
 	}
-	actions := slices.Clone(s.actions)
+	actions := slices.Clone(record.actions)
 	slices.Reverse(actions)
 	return actions, nil
 }
@@ -34,10 +35,11 @@ func (s *Service) GetAction(projectID, serverID, requestID string) (domain.Actio
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	if s.server.ProjectID != projectID || s.server.ID != serverID {
+	record, ok := s.find(projectID, serverID)
+	if !ok {
 		return domain.Action{}, ErrServerNotFound
 	}
-	for _, action := range slices.Backward(s.actions) {
+	for _, action := range slices.Backward(record.actions) {
 		if action.RequestID == requestID {
 			return action, nil
 		}
@@ -46,10 +48,10 @@ func (s *Service) GetAction(projectID, serverID, requestID string) (domain.Actio
 }
 
 // recordAction appends a record with the compute lock already held.
-func (s *Service) recordAction(request ActionRequest, name string) {
-	s.actions = append(s.actions, domain.Action{
+func (s *Service) recordAction(record *serverRecord, request ActionRequest, name string) {
+	record.actions = append(record.actions, domain.Action{
 		Name:      name,
-		ServerID:  s.server.ID,
+		ServerID:  record.server.ID,
 		RequestID: request.RequestID,
 		ProjectID: request.ProjectID,
 		UserID:    request.UserID,

@@ -5,6 +5,7 @@ import "net/netip"
 const (
 	DeviceOwnerRouterInterface = "network:router_interface"
 	DeviceOwnerRouterGateway   = "network:router_gateway"
+	DeviceOwnerCompute         = "compute:nova"
 )
 
 type Port struct {
@@ -20,4 +21,12 @@ type Port struct {
 	AdminDown            bool
 	SecurityGroups       []string
 	PortSecurityDisabled bool
+}
+
+// DeviceInterface describes a port as the device it is bound to reports it.
+type DeviceInterface struct {
+	Port               Port
+	NetworkName        string
+	FloatingAddresses  []netip.Addr
+	SecurityGroupNames []string
 }

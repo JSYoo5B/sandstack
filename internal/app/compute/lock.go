@@ -12,15 +12,16 @@ func (s *Service) Lock(request ActionRequest, serverID string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if s.server.ProjectID != request.ProjectID || s.server.ID != serverID {
+	record, ok := s.find(request.ProjectID, serverID)
+	if !ok {
 		return ErrServerNotFound
 	}
-	if s.server.Locked {
+	if record.server.Locked {
 		return nil
 	}
-	s.server.Locked = true
-	s.server.UpdatedAt = s.now().UTC()
-	s.recordAction(request, domain.ActionLock)
+	record.server.Locked = true
+	record.server.UpdatedAt = s.now().UTC()
+	s.recordAction(record, request, domain.ActionLock)
 	return nil
 }
 
@@ -28,11 +29,12 @@ func (s *Service) Unlock(request ActionRequest, serverID string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if s.server.ProjectID != request.ProjectID || s.server.ID != serverID {
+	record, ok := s.find(request.ProjectID, serverID)
+	if !ok {
 		return ErrServerNotFound
 	}
-	s.server.Locked = false
-	s.server.UpdatedAt = s.now().UTC()
-	s.recordAction(request, domain.ActionUnlock)
+	record.server.Locked = false
+	record.server.UpdatedAt = s.now().UTC()
+	s.recordAction(record, request, domain.ActionUnlock)
 	return nil
 }

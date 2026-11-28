@@ -20,20 +20,26 @@ func (s *Service) ListBasic(projectID string, filter ListFilter) []ServerSummary
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	if !filter.matches(projectID, s.server) {
-		return []ServerSummary{}
+	summaries := []ServerSummary{}
+	for _, record := range s.sortedRecords() {
+		if filter.matches(projectID, record.server) {
+			summaries = append(summaries, ServerSummary{ID: record.server.ID, Name: record.server.Name})
+		}
 	}
-	return []ServerSummary{{ID: s.server.ID, Name: s.server.Name}}
+	return summaries
 }
 
 func (s *Service) List(projectID string, filter ListFilter) []ServerDetail {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	if !filter.matches(projectID, s.server) {
-		return []ServerDetail{}
+	details := []ServerDetail{}
+	for _, record := range s.sortedRecords() {
+		if filter.matches(projectID, record.server) {
+			details = append(details, s.liveDetail(record))
+		}
 	}
-	return []ServerDetail{s.liveDetail()}
+	return details
 }
 
 func (f ListFilter) matches(projectID string, server domain.Server) bool {

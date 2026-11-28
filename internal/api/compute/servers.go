@@ -14,6 +14,7 @@ import (
 
 const (
 	computeRoot   = "/compute"
+	powerNoState  = 0
 	powerRunning  = 1
 	powerPaused   = 3
 	powerShutdown = 4
@@ -26,26 +27,39 @@ type serverResponse struct {
 
 type serverBody struct {
 	serverCore
-	VMState    string           `json:"OS-EXT-STS:vm_state"`
-	PowerState int              `json:"OS-EXT-STS:power_state"`
-	TaskState  *string          `json:"OS-EXT-STS:task_state"`
-	Volumes    []attachedVolume `json:"os-extended-volumes:volumes_attached"`
+	KeyName        *string             `json:"key_name"`
+	SecurityGroups []securityGroupName `json:"security_groups,omitempty"`
+	VMState        string              `json:"OS-EXT-STS:vm_state"`
+	PowerState     int                 `json:"OS-EXT-STS:power_state"`
+	TaskState      *string             `json:"OS-EXT-STS:task_state"`
+	Volumes        []attachedVolume    `json:"os-extended-volumes:volumes_attached"`
 }
 
 type serverCore struct {
-	ID        string            `json:"id"`
-	Name      string            `json:"name"`
-	ProjectID string            `json:"tenant_id"`
-	UserID    string            `json:"user_id"`
-	Created   time.Time         `json:"created"`
-	Updated   time.Time         `json:"updated"`
-	Status    string            `json:"status"`
-	Fault     *instanceFault    `json:"fault,omitempty"`
-	Links     []resourceLink    `json:"links"`
-	Flavor    resourceRef       `json:"flavor"`
-	Image     resourceRef       `json:"image"`
-	Metadata  map[string]string `json:"metadata"`
-	Addresses map[string]any    `json:"addresses"`
+	ID        string                     `json:"id"`
+	Name      string                     `json:"name"`
+	ProjectID string                     `json:"tenant_id"`
+	UserID    string                     `json:"user_id"`
+	Created   time.Time                  `json:"created"`
+	Updated   time.Time                  `json:"updated"`
+	Status    string                     `json:"status"`
+	Fault     *instanceFault             `json:"fault,omitempty"`
+	Links     []resourceLink             `json:"links"`
+	Flavor    resourceRef                `json:"flavor"`
+	Image     resourceRef                `json:"image"`
+	Metadata  map[string]string          `json:"metadata"`
+	Addresses map[string][]serverAddress `json:"addresses"`
+}
+
+type securityGroupName struct {
+	Name string `json:"name"`
+}
+
+type serverAddress struct {
+	Version int    `json:"version"`
+	Address string `json:"addr"`
+	Type    string `json:"OS-EXT-IPS:type,omitempty"`
+	MAC     string `json:"OS-EXT-IPS-MAC:mac_addr,omitempty"`
 }
 
 type attachedVolume struct {
@@ -69,7 +83,7 @@ type resourceRef struct {
 }
 
 func (h handler) showServer(w http.ResponseWriter, r *http.Request, scope requestScope) {
-	server, err := h.service.Get(scope.projectID, chi.URLParam(r, "serverID"))
+	server, err := h.servers.Get(scope.projectID, chi.URLParam(r, "serverID"))
 	if errors.Is(err, appcompute.ErrDetailUnavailable) {
 		writeFault(w, http.StatusServiceUnavailable, "serviceUnavailable",
 			"Server details are temporarily unavailable.")
@@ -99,6 +113,14 @@ func (h handler) serverBody(r *http.Request, server appcompute.ServerDetail, pat
 		PowerState: powerRunning,
 		Volumes:    volumes,
 	}
+	body.Addresses = serverAddresses(server.Networks, true)
+	if server.KeyName != "" {
+		keyName := server.KeyName
+		body.KeyName = &keyName
+	}
+	for _, name := range server.SecurityGroups {
+		body.SecurityGroups = append(body.SecurityGroups, securityGroupName{Name: name})
+	}
 	switch status {
 	case domaincompute.StatusShutoff:
 		body.VMState = "stopped"
@@ -109,6 +131,11 @@ func (h handler) serverBody(r *http.Request, server appcompute.ServerDetail, pat
 		body.PowerState = powerPaused
 	case domaincompute.StatusError:
 		body.PowerState = powerCrashed
+	case domaincompute.StatusBuild:
+		taskState := "scheduling"
+		body.VMState = "building"
+		body.PowerState = powerNoState
+		body.TaskState = &taskState
 	}
 	return body
 }
@@ -143,7 +170,7 @@ func (h handler) serverCore(r *http.Request, server appcompute.ServerDetail, pat
 			}},
 		},
 		Metadata:  metadata,
-		Addresses: map[string]any{},
+		Addresses: serverAddresses(server.Networks, false),
 	}
 	if status == domaincompute.StatusError {
 		body.Fault = &instanceFault{
@@ -168,4 +195,26 @@ func (h handler) serverLinks(r *http.Request, serverID, projectPath string) []re
 		{Rel: "self", Href: h.endpointURL(r, Path+resourcePath)},
 		{Rel: "bookmark", Href: h.endpointURL(r, computeRoot+resourcePath)},
 	}
+}
+
+func serverAddresses(networks []appcompute.ServerNetwork, extended bool) map[string][]serverAddress {
+	addresses := make(map[string][]serverAddress, len(networks))
+	for _, network := range networks {
+		entries := make([]serverAddress, len(network.Addresses))
+		for i, address := range network.Addresses {
+			entries[i] = serverAddress{Version: 4, Address: address.Address.String()}
+			if address.Address.Is6() {
+				entries[i].Version = 6
+			}
+			if extended {
+				entries[i].Type = "fixed"
+				entries[i].MAC = address.MAC
+			}
+			if extended && address.Floating {
+				entries[i].Type = "floating"
+			}
+		}
+		addresses[network.Label] = entries
+	}
+	return addresses
 }

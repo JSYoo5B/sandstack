@@ -50,18 +50,20 @@ func (s *Service) transition(
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if s.server.ProjectID != request.ProjectID || s.server.ID != serverID {
+	record, ok := s.find(request.ProjectID, serverID)
+	if !ok {
 		return ErrServerNotFound
 	}
-	if s.server.Locked {
+	server := &record.server
+	if server.Locked {
 		return ErrServerLocked
 	}
-	if !slices.Contains(allowed, s.server.Status()) {
+	if !slices.Contains(allowed, server.Status()) {
 		return ErrServerPowerState
 	}
-	s.server.State = target
-	s.server.Fault = nil
-	s.server.UpdatedAt = s.now().UTC()
-	s.recordAction(request, action)
+	server.State = target
+	server.Fault = nil
+	server.UpdatedAt = s.now().UTC()
+	s.recordAction(record, request, action)
 	return nil
 }

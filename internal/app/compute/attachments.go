@@ -34,24 +34,24 @@ func NewAttachments(compute *Service, volumes attachmentVolumes) *Attachments {
 func (a *Attachments) Attach(
 	request ActionRequest, serverID, volumeID, device string,
 ) (volumedomain.Attachment, error) {
-	if !a.ownsServer(request.ProjectID, serverID) {
-		return volumedomain.Attachment{}, ErrServerNotFound
-	}
-
 	// Hold the live server state steady until the volume mutation completes.
 	a.compute.mu.Lock()
 	defer a.compute.mu.Unlock()
-	if a.compute.server.Locked {
+	record, ok := a.compute.find(request.ProjectID, serverID)
+	if !ok {
+		return volumedomain.Attachment{}, ErrServerNotFound
+	}
+	if record.server.Locked {
 		return volumedomain.Attachment{}, ErrServerLocked
 	}
-	if !slices.Contains(attachStates, a.compute.server.Status()) {
+	if !slices.Contains(attachStates, record.server.Status()) {
 		return volumedomain.Attachment{}, ErrServerAttachmentState
 	}
 	attachment, err := a.volumes.Attach(request.ProjectID, serverID, volumeID, device)
 	if err != nil {
 		return volumedomain.Attachment{}, err
 	}
-	a.compute.recordAction(request, computedomain.ActionAttachVolume)
+	a.compute.recordAction(record, request, computedomain.ActionAttachVolume)
 	return attachment, nil
 }
 
@@ -71,13 +71,13 @@ func (a *Attachments) List(projectID, serverID string) ([]volumedomain.Attachmen
 
 func (a *Attachments) Detach(request ActionRequest, serverID, volumeID string) error {
 	projectID := request.ProjectID
-	if !a.ownsServer(projectID, serverID) {
-		return ErrServerNotFound
-	}
-
 	a.compute.mu.Lock()
 	defer a.compute.mu.Unlock()
-	server := a.compute.server
+	record, ok := a.compute.find(projectID, serverID)
+	if !ok {
+		return ErrServerNotFound
+	}
+	server := record.server
 	if server.Locked || server.Status() == computedomain.StatusSuspended {
 		if _, err := a.volumes.GetAttachment(projectID, serverID, volumeID); err != nil {
 			return err
@@ -90,11 +90,13 @@ func (a *Attachments) Detach(request ActionRequest, serverID, volumeID string) e
 	if err := a.volumes.Detach(projectID, serverID, volumeID); err != nil {
 		return err
 	}
-	a.compute.recordAction(request, computedomain.ActionDetachVolume)
+	a.compute.recordAction(record, request, computedomain.ActionDetachVolume)
 	return nil
 }
 
 func (a *Attachments) ownsServer(projectID, serverID string) bool {
-	// The seeded server identity stays fixed through faults and resets.
-	return a.compute.seed.ProjectID == projectID && a.compute.seed.ID == serverID
+	a.compute.mu.RLock()
+	defer a.compute.mu.RUnlock()
+	_, ok := a.compute.find(projectID, serverID)
+	return ok
 }

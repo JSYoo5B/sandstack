@@ -48,7 +48,7 @@ func (h handler) listServersDetailed(w http.ResponseWriter, r *http.Request, sco
 		writeFault(w, http.StatusBadRequest, "badRequest", fault)
 		return
 	}
-	servers := h.service.List(scope.projectID, filter)
+	servers := h.servers.List(scope.projectID, filter)
 	response := serversResponse{Servers: make([]serverBody, len(servers))}
 	for i, server := range servers {
 		response.Servers[i] = h.serverBody(r, server, scope.pathProject)

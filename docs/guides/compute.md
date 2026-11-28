@@ -251,6 +251,10 @@ Server detail and detailed-list responses both include
 array. Gophercloud reads the field as `Server.AttachedVolumes`. See the
 [Nova attachment representation].
 
+## Boot and delete a server
+
+See [Boot and delete servers in the Compute sandbox](compute-servers.md).
+
 ## Manage key pairs
 
 See [Key pairs in the Compute sandbox](compute-keypairs.md).
