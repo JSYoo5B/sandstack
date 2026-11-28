@@ -36,6 +36,7 @@ covers token invalidation, reauthentication, and
 [Compute guide](docs/guides/compute.md) covers Nova server operations and
 links to the [server boot guide](docs/guides/compute-servers.md),
 [snapshot guide](docs/guides/compute-snapshots.md),
+[resize guide](docs/guides/compute-resize.md),
 [fault controls](docs/guides/compute-faults.md),
 [metadata guide](docs/guides/compute-metadata.md),
 [key pair guide](docs/guides/compute-keypairs.md),

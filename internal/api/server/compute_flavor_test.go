@@ -51,12 +51,21 @@ func TestNovaFlavorDetailWire(t *testing.T) {
 
 	// https://docs.openstack.org/api-ref/compute/#show-flavor-details
 	// https://github.com/openstack/nova/blob/master/nova/api/openstack/compute/views/flavors.py#L39-L68
+	// https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/doc/api_samples/flavors/flavors-detail-resp.json#L1-L46
 	for _, tt := range []struct {
-		name string
-		path string
+		name   string
+		path   string
+		id     string
+		flavor string
+		ram    float64
+		disk   float64
 	}{
-		{name: "project scoped", path: projectScoped},
-		{name: "projectless", path: projectless},
+		{name: "project scoped", path: projectScoped, id: "1", flavor: "m1.tiny", ram: 512, disk: 1},
+		{name: "projectless", path: projectless, id: "1", flavor: "m1.tiny", ram: 512, disk: 1},
+		{
+			name: "small", path: "/" + projectID + "/flavors/2",
+			id: "2", flavor: "m1.small", ram: 2048, disk: 20,
+		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			status, headers, body := request(t, instance, http.MethodGet, computePath+tt.path, "", auth)
@@ -70,10 +79,10 @@ func TestNovaFlavorDetailWire(t *testing.T) {
 			require.Len(t, response, 1)
 			require.Contains(t, response, "flavor")
 			assert.Equal(t, map[string]any{
-				"id":                         "1",
-				"name":                       "m1.tiny",
-				"ram":                        float64(512),
-				"disk":                       float64(1),
+				"id":                         tt.id,
+				"name":                       tt.flavor,
+				"ram":                        tt.ram,
+				"disk":                       tt.disk,
 				"vcpus":                      float64(1),
 				"OS-FLV-EXT-DATA:ephemeral":  float64(0),
 				"OS-FLV-DISABLED:disabled":   false,

@@ -217,5 +217,9 @@ func cloneServer(server domain.Server) domain.Server {
 		fault := *server.Fault
 		server.Fault = &fault
 	}
+	if server.Resize != nil {
+		origin := *server.Resize
+		server.Resize = &origin
+	}
 	return server
 }

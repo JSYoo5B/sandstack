@@ -57,6 +57,8 @@ A successful request records one of these actions:
 | Volume attachment create | `attach_volume` |
 | Volume attachment delete | `detach_volume` |
 | [`createImage`](compute-snapshots.md) | `createImage` |
+| [`resize`](compute-resize.md) | `resize` |
+| [`confirmResize` and `revertResize`](compute-resize.md#confirm-or-revert) | `confirmResize` and `revertResize` |
 
 Nova checks the lock, server state, and volume state before it records an
 action, so a request that returns `400`, `404`, or `409` adds no record.

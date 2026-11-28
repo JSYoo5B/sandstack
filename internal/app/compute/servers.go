@@ -228,6 +228,7 @@ func (s *Servers) Create(request ActionRequest, spec ServerCreate) (CreatedServe
 		ProjectID:      projectID,
 		UserID:         request.UserID,
 		ImageID:        source.imageID,
+		FlavorID:       flavor.ID,
 		KeyName:        spec.KeyName,
 		AutoDiskConfig: spec.AutoDiskConfig,
 		CreatedAt:      now,

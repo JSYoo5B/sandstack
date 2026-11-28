@@ -20,10 +20,13 @@ After `servers.Get`, pass the returned `Flavor["id"]` to `flavors.Get`
 using the same authenticated Compute client. Nova v2.1 answers
 `GET /flavors/{flavor_id}` with `200` and a `flavor` object. Fixture
 flavor `1` is the public, enabled `m1.tiny` with one vCPU, 512 MiB RAM,
-and 1 GiB root disk. It has no ephemeral disk or swap. Nova v2.1 serializes
-zero swap as an empty string, which Gophercloud decodes as zero. Unknown
-flavors return `404`. See the [Nova flavor reference], [Nova flavor
-response], and [Gophercloud flavor lookup].
+and 1 GiB root disk. Flavor `2` is `m1.small` with one vCPU, 2048 MiB
+RAM, and 20 GiB root disk, as in Nova's API samples. Use it as a
+[resize](compute-resize.md) target. Neither has ephemeral disk or swap.
+Nova v2.1 serializes zero swap as an empty string, which Gophercloud
+decodes as zero. Unknown flavors return `404`. See the [Nova flavor
+reference], [Nova flavor response], [Nova flavor samples], and
+[Gophercloud flavor lookup].
 
 ### Select a flavor by minimum capacity
 
@@ -31,12 +34,14 @@ Use `flavors.ListDetail` with `flavors.ListOpts{MinRAM: 512, MinDisk: 1}`
 to select flavors through `GET /flavors/detail`. RAM is measured in MiB
 and disk in GiB. Each supplied minimum is inclusive. A flavor must meet
 both when they are supplied together. The list uses the same fields as
-the detail response. When the fixture falls below a minimum, the response
-is `200` with an empty `flavors` array.
+the detail response and orders flavors by ID, as Nova's default sort
+does. `minRam=513` returns only `m1.small`. When every flavor falls below
+a minimum, the response is `200` with an empty `flavors` array. See the
+[Nova flavor list sort].
 
 SandStack accepts one `minRam` and one `minDisk` integer query value.
 Other query keys, repeated keys, and malformed values return `400`.
-The single-fixture list returns at most one row in one page. See the
+The list returns both fixture flavors in one page. See the
 [Nova detailed flavor list] and [Gophercloud flavor list options].
 
 ## List server summaries
@@ -229,12 +234,12 @@ attachment. Use `volumeattach.List` and `volumeattach.Get` to read the
 collection and a particular attachment. At Nova v2.1 the attachment `id`
 and the last segment of the item URL are the volume ID.
 
-The fixture server must be `ACTIVE`, `PAUSED`, or `SHUTOFF` to attach. See
-the [Nova attachment state checks]. Each volume can have one attachment.
-The device can be `/dev/vdb` through `/dev/vdz`. Omitting it picks the
-first free device on the server. An unavailable volume, server reporting
-`ERROR`, or occupied device returns `409`. Server and volume IDs are
-scoped to the authenticated project.
+The fixture server must be `ACTIVE`, `PAUSED`, `SHUTOFF`, or
+`VERIFY_RESIZE` to attach. See the [Nova attachment state checks]. Each
+volume can have one attachment. The device can be `/dev/vdb` through
+`/dev/vdz`. Omitting it picks the first free device on the server. An
+unavailable volume, server reporting `ERROR`, or occupied device returns
+`409`. Server and volume IDs are scoped to the authenticated project.
 
 The fixture completes attachment immediately in either supported state and
 shows the corresponding `in-use` state in Cinder. A stopped server stays
@@ -258,6 +263,10 @@ See [Boot and delete servers in the Compute sandbox](compute-servers.md).
 ## Snapshot a server
 
 See [Snapshot servers in the Compute sandbox](compute-snapshots.md).
+
+## Resize a server
+
+See [Resize servers in the Compute sandbox](compute-resize.md).
 
 ## Manage key pairs
 
@@ -315,7 +324,8 @@ list reads and check that a pending detail outage still fires.
 The name filter test uses Gophercloud to find the renamed fixture and
 checks the intersection with the status filter.
 The flavor test follows the SDK server's flavor ID and checks the v2.1
-swap and link fields over HTTP.
+swap and link fields over HTTP. The flavor list tests check both fixture
+flavors against each minimum through the SDK and HTTP.
 The raw HTTP checks follow the [Compute list reference] and
 [Compute detail reference] for the OpenStack response shapes.
 
@@ -326,6 +336,8 @@ The raw HTTP checks follow the [Compute list reference] and
 [Compute detail reference]: https://docs.openstack.org/api-ref/compute/#show-server-details
 [Nova flavor reference]: https://docs.openstack.org/api-ref/compute/#show-flavor-details
 [Nova flavor response]: https://github.com/openstack/nova/blob/master/nova/api/openstack/compute/views/flavors.py#L39-L68
+[Nova flavor samples]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/doc/api_samples/flavors/flavors-detail-resp.json#L1-L46
+[Nova flavor list sort]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/api/openstack/compute/flavors.py#L215-L216
 [Gophercloud flavor lookup]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/compute/v2/flavors/requests.go#L191-L197
 [Nova detailed flavor list]: https://docs.openstack.org/api-ref/compute/#list-flavors-with-details
 [Gophercloud flavor list options]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/compute/v2/flavors/requests.go#L43-L94

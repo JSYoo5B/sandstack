@@ -8,10 +8,11 @@ import (
 	volumedomain "github.com/JSYoo5B/sandstack/internal/domain/volume"
 )
 
-var ErrServerAttachmentState = errors.New("volume attachment changes require an active, paused, or stopped server")
+var ErrServerAttachmentState = errors.New(
+	"volume attachment changes require an active, paused, stopped, or resized server")
 
 var attachStates = []computedomain.Status{
-	computedomain.StatusActive, computedomain.StatusPaused, computedomain.StatusShutoff,
+	computedomain.StatusActive, computedomain.StatusPaused, computedomain.StatusShutoff, computedomain.StatusResized,
 }
 
 type attachmentVolumes interface {

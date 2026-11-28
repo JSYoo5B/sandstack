@@ -244,31 +244,15 @@ func snapshotMapping(
 }
 
 func checkSnapshotState(server domain.Server) error {
-	vmState := ""
-	switch server.Status() {
-	case domain.StatusActive, domain.StatusPaused, domain.StatusSuspended:
-	case domain.StatusShutoff:
-	case domain.StatusBuild:
-		vmState = "building"
-	default:
-		vmState = string(server.Status())
-	}
-	if vmState != "" {
-		return &InvalidStateError{Message: fmt.Sprintf(
-			"Cannot 'createImage' instance %s while it is in vm_state %s", server.ID, vmState)}
-	}
-	if server.TaskState != "" {
-		return &InvalidStateError{Message: fmt.Sprintf(
-			"Cannot 'createImage' instance %s while it is in task_state %s", server.ID, server.TaskState)}
-	}
-	return nil
+	return checkInstanceState("createImage", server,
+		domain.StatusActive, domain.StatusPaused, domain.StatusSuspended, domain.StatusShutoff)
 }
 
 func (s *Servers) snapshotImageMeta(projectID string, server domain.Server) domain.ImageMeta {
 	if server.ImageMeta != nil {
 		return *server.ImageMeta
 	}
-	flavor, _ := s.compute.GetFlavor(projectID, FixtureFlavorID)
+	flavor, _ := s.compute.GetFlavor(projectID, server.FlavorID)
 	if image, err := s.images.Get(projectID, server.ImageID); err == nil {
 		return imageMetaFromImage(image, flavor.DiskGiB, server.ImageID)
 	}

@@ -101,6 +101,7 @@ func New(config Config) (http.Handler, error) {
 		ProjectID: fixture.Project.ID,
 		UserID:    fixture.User.ID,
 		ImageID:   imageFixture.ID,
+		FlavorID:  appcompute.FixtureFlavorID,
 		CreatedAt: created,
 		UpdatedAt: created,
 	}

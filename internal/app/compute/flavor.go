@@ -6,35 +6,60 @@ import (
 	domain "github.com/JSYoo5B/sandstack/internal/domain/compute"
 )
 
-const FixtureFlavorID = "1"
+const (
+	FixtureFlavorID      = "1"
+	FixtureSmallFlavorID = "2"
+)
 
 var ErrFlavorNotFound = errors.New("compute flavor not found")
 
-// GetFlavor returns the startup server's immutable flavor.
+// GetFlavor returns one of the immutable fixture flavors.
 func (s *Service) GetFlavor(projectID, flavorID string) (domain.Flavor, error) {
-	if projectID != s.seed.ProjectID || flavorID != FixtureFlavorID {
+	if projectID != s.seed.ProjectID {
 		return domain.Flavor{}, ErrFlavorNotFound
 	}
-	return fixtureFlavor(), nil
-}
-
-// ListFlavors returns the available fixture flavor when it meets both minima.
-func (s *Service) ListFlavors(projectID string, minRAM, minDisk int) []domain.Flavor {
-	flavor := fixtureFlavor()
-	if projectID != s.seed.ProjectID || flavor.RAMMiB < minRAM || flavor.DiskGiB < minDisk {
-		return []domain.Flavor{}
+	for _, flavor := range fixtureFlavors() {
+		if flavor.ID == flavorID {
+			return flavor, nil
+		}
 	}
-	return []domain.Flavor{flavor}
+	return domain.Flavor{}, ErrFlavorNotFound
 }
 
-func fixtureFlavor() domain.Flavor {
-	return domain.Flavor{
-		ID:         FixtureFlavorID,
-		Name:       "m1.tiny",
-		RAMMiB:     512,
-		DiskGiB:    1,
-		VCPUs:      1,
-		Public:     true,
-		RxTxFactor: 1,
+// ListFlavors returns the fixture flavors that meet both minima in flavor ID
+// order, as Nova's default flavor sort does.
+func (s *Service) ListFlavors(projectID string, minRAM, minDisk int) []domain.Flavor {
+	flavors := []domain.Flavor{}
+	if projectID != s.seed.ProjectID {
+		return flavors
+	}
+	for _, flavor := range fixtureFlavors() {
+		if flavor.RAMMiB >= minRAM && flavor.DiskGiB >= minDisk {
+			flavors = append(flavors, flavor)
+		}
+	}
+	return flavors
+}
+
+func fixtureFlavors() []domain.Flavor {
+	return []domain.Flavor{
+		{
+			ID:         FixtureFlavorID,
+			Name:       "m1.tiny",
+			RAMMiB:     512,
+			DiskGiB:    1,
+			VCPUs:      1,
+			Public:     true,
+			RxTxFactor: 1,
+		},
+		{
+			ID:         FixtureSmallFlavorID,
+			Name:       "m1.small",
+			RAMMiB:     2048,
+			DiskGiB:    20,
+			VCPUs:      1,
+			Public:     true,
+			RxTxFactor: 1,
+		},
 	}
 }

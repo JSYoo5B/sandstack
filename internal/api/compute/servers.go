@@ -131,6 +131,11 @@ func (h handler) serverBody(r *http.Request, server appcompute.ServerDetail, pat
 		body.PowerState = powerPaused
 	case domaincompute.StatusError:
 		body.PowerState = powerCrashed
+	case domaincompute.StatusResized:
+		body.VMState = "resized"
+		if server.Resize != nil && server.Resize.State == domaincompute.StatusShutoff {
+			body.PowerState = powerShutdown
+		}
 	case domaincompute.StatusBuild:
 		taskState := "scheduling"
 		body.VMState = "building"
@@ -162,9 +167,9 @@ func (h handler) serverCore(r *http.Request, server appcompute.ServerDetail, pat
 		Status:    strings.ToUpper(string(status)),
 		Links:     h.serverLinks(r, server.ID, projectPath),
 		Flavor: resourceRef{
-			ID: appcompute.FixtureFlavorID,
+			ID: server.FlavorID,
 			Links: []resourceLink{{
-				Rel: "bookmark", Href: h.endpointURL(r, bookmark+"/flavors/"+appcompute.FixtureFlavorID),
+				Rel: "bookmark", Href: h.endpointURL(r, bookmark+"/flavors/"+server.FlavorID),
 			}},
 		},
 		Image:     "",

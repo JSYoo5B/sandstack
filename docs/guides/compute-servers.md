@@ -3,7 +3,7 @@
 [Compute sandbox](compute.md)
 
 Use the project token from the [Identity fixture](identity.md) to boot a
-server from the [Glance fixture image](image.md) with the
+server from the [Glance fixture image](image.md) with a
 [fixture flavor](compute.md#read-the-server-flavor), wait until it is
 `ACTIVE`, and delete it with Nova v2.1. SandStack creates or binds the
 server's Neutron ports in the [Networking sandbox](network.md).
@@ -256,6 +256,7 @@ A created server supports the same actions, metadata, volume attachments,
 and [fault controls](compute-faults.md) as the fixture server. Its
 [console log](compute-console.md) starts empty. To snapshot a server into
 an image and boot from it, see [Snapshot servers](compute-snapshots.md).
+To change its flavor, see [Resize servers](compute-resize.md).
 
 ## Delete a server
 

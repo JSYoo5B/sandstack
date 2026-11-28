@@ -11,6 +11,7 @@ const (
 	StatusShutoff   Status = "shutoff"
 	StatusPaused    Status = "paused"
 	StatusSuspended Status = "suspended"
+	StatusResized   Status = "verify_resize"
 )
 
 const TaskImageSnapshotPending = "image_snapshot_pending"
@@ -21,6 +22,7 @@ type Server struct {
 	ProjectID      string
 	UserID         string
 	ImageID        string
+	FlavorID       string
 	KeyName        string
 	AutoDiskConfig bool
 	CreatedAt      time.Time
@@ -34,6 +36,13 @@ type Server struct {
 	ImageMeta      *ImageMeta
 	TaskState      string
 	PendingImageID string
+	Resize         *ResizeOrigin
+}
+
+// ResizeOrigin is the flavor and state a resized server returns to on revert.
+type ResizeOrigin struct {
+	FlavorID string
+	State    Status
 }
 
 type ImageMeta struct {
