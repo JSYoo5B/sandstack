@@ -246,3 +246,17 @@ func decodeWireComputeServer(t *testing.T, body []byte) wireComputeServer {
 	require.NoError(t, json.Unmarshal(body, &result))
 	return result.Server
 }
+
+func requireNovaFault(t *testing.T, wantStatus int, kind string, status int, headers http.Header, body []byte) {
+	t.Helper()
+	require.Equal(t, wantStatus, status, "%s", body)
+	requireJSON(t, headers)
+	var faults map[string]struct {
+		Code    int    `json:"code"`
+		Message string `json:"message"`
+	}
+	require.NoError(t, json.Unmarshal(body, &faults))
+	require.Contains(t, faults, kind)
+	assert.Equal(t, wantStatus, faults[kind].Code)
+	assert.NotEmpty(t, faults[kind].Message)
+}

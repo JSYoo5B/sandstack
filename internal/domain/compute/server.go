@@ -5,10 +5,11 @@ import "time"
 type Status string
 
 const (
-	StatusActive  Status = "active"
-	StatusError   Status = "error"
-	StatusShutoff Status = "shutoff"
-	StatusPaused  Status = "paused"
+	StatusActive    Status = "active"
+	StatusError     Status = "error"
+	StatusShutoff   Status = "shutoff"
+	StatusPaused    Status = "paused"
+	StatusSuspended Status = "suspended"
 )
 
 type Server struct {

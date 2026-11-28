@@ -25,10 +25,12 @@ func TestRebootAcceptsOnlySupportedStates(t *testing.T) {
 		{name: "soft active"},
 		{name: "soft stopped", state: domain.StatusShutoff, wantErr: app.ErrServerPowerState},
 		{name: "soft paused", state: domain.StatusPaused, wantErr: app.ErrServerPowerState},
+		{name: "soft suspended", state: domain.StatusSuspended, wantErr: app.ErrServerPowerState},
 		{name: "soft error", fault: fault, wantErr: app.ErrServerPowerState},
 		{name: "hard active", hard: true},
 		{name: "hard stopped", state: domain.StatusShutoff, hard: true},
 		{name: "hard paused", state: domain.StatusPaused, hard: true},
+		{name: "hard suspended", state: domain.StatusSuspended, hard: true},
 		{name: "hard error", fault: fault, hard: true},
 	} {
 		t.Run(test.name, func(t *testing.T) {

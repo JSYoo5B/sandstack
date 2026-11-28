@@ -103,6 +103,8 @@ func (h handler) serverBody(r *http.Request, server appcompute.ServerDetail, pat
 	case domaincompute.StatusShutoff:
 		body.VMState = "stopped"
 		body.PowerState = powerShutdown
+	case domaincompute.StatusSuspended:
+		body.PowerState = powerShutdown
 	case domaincompute.StatusPaused:
 		body.PowerState = powerPaused
 	case domaincompute.StatusError:

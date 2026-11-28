@@ -8,7 +8,7 @@ import (
 	volumedomain "github.com/JSYoo5B/sandstack/internal/domain/volume"
 )
 
-var ErrServerAttachmentState = errors.New("volume attachment requires an active, paused, or stopped server")
+var ErrServerAttachmentState = errors.New("volume attachment changes require an active, paused, or stopped server")
 
 var attachStates = []computedomain.Status{
 	computedomain.StatusActive, computedomain.StatusPaused, computedomain.StatusShutoff,
@@ -62,6 +62,15 @@ func (a *Attachments) List(projectID, serverID string) ([]volumedomain.Attachmen
 func (a *Attachments) Detach(projectID, serverID, volumeID string) error {
 	if !a.ownsServer(projectID, serverID) {
 		return ErrServerNotFound
+	}
+
+	a.compute.mu.RLock()
+	defer a.compute.mu.RUnlock()
+	if a.compute.server.Status() == computedomain.StatusSuspended {
+		if _, err := a.volumes.GetAttachment(projectID, serverID, volumeID); err != nil {
+			return err
+		}
+		return ErrServerAttachmentState
 	}
 	return a.volumes.Detach(projectID, serverID, volumeID)
 }

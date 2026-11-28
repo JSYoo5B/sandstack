@@ -10,7 +10,7 @@ import (
 var ErrServerPowerState = errors.New("the server cannot perform this action in its current state")
 
 var hardRebootStates = []domain.Status{
-	domain.StatusActive, domain.StatusShutoff, domain.StatusPaused, domain.StatusError,
+	domain.StatusActive, domain.StatusShutoff, domain.StatusPaused, domain.StatusSuspended, domain.StatusError,
 }
 
 func (s *Service) SetPower(projectID, serverID string, powered bool) error {
@@ -33,6 +33,14 @@ func (s *Service) Pause(projectID, serverID string) error {
 
 func (s *Service) Unpause(projectID, serverID string) error {
 	return s.transition(projectID, serverID, domain.StatusActive, domain.StatusPaused)
+}
+
+func (s *Service) Suspend(projectID, serverID string) error {
+	return s.transition(projectID, serverID, domain.StatusSuspended, domain.StatusActive)
+}
+
+func (s *Service) Resume(projectID, serverID string) error {
+	return s.transition(projectID, serverID, domain.StatusActive, domain.StatusSuspended)
 }
 
 func (s *Service) transition(projectID, serverID string, target domain.Status, allowed ...domain.Status) error {

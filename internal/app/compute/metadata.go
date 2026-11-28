@@ -10,7 +10,9 @@ import (
 
 const maxMetadataItems = 128
 
-var metadataWriteStates = []domain.Status{domain.StatusActive, domain.StatusPaused, domain.StatusShutoff}
+var metadataWriteStates = []domain.Status{
+	domain.StatusActive, domain.StatusPaused, domain.StatusSuspended, domain.StatusShutoff,
+}
 
 var (
 	ErrServerMetadataState = errors.New("the server cannot update metadata in its current state")

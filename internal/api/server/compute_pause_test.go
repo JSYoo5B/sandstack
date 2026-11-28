@@ -1,7 +1,6 @@
 package server_test
 
 import (
-	"encoding/json"
 	"net/http"
 	"testing"
 
@@ -81,19 +80,6 @@ func TestNovaPauseActionsWire(t *testing.T) {
 	path := computePath + "/" + routerProjectID(t, provider) + "/servers/" + fixtureServerID
 	action := path + "/action"
 	auth := map[string]string{"X-Auth-Token": provider.Token(), "OpenStack-API-Version": "compute 2.1"}
-	checkFault := func(wantStatus int, kind string, status int, headers http.Header, body []byte) {
-		t.Helper()
-		require.Equal(t, wantStatus, status, "%s", body)
-		requireJSON(t, headers)
-		var faults map[string]struct {
-			Code    int    `json:"code"`
-			Message string `json:"message"`
-		}
-		require.NoError(t, json.Unmarshal(body, &faults))
-		require.Contains(t, faults, kind)
-		assert.Equal(t, wantStatus, faults[kind].Code)
-		assert.NotEmpty(t, faults[kind].Message)
-	}
 	read := func() wireComputeServer {
 		t.Helper()
 		status, headers, body := request(t, instance, http.MethodGet, path, "", auth)
@@ -109,14 +95,14 @@ func TestNovaPauseActionsWire(t *testing.T) {
 		`{"pause":null,"pause":null}`,
 	} {
 		status, headers, response := request(t, instance, http.MethodPost, action, body, auth)
-		checkFault(http.StatusBadRequest, "badRequest", status, headers, response)
+		requireNovaFault(t, http.StatusBadRequest, "badRequest", status, headers, response)
 	}
 	const missing = "00000000-0000-0000-0000-000000000000"
 	status, headers, body := request(t, instance, http.MethodPost,
 		computePath+"/servers/"+missing+"/action", `{"pause":null}`, auth)
-	checkFault(http.StatusNotFound, "itemNotFound", status, headers, body)
+	requireNovaFault(t, http.StatusNotFound, "itemNotFound", status, headers, body)
 	status, headers, body = request(t, instance, http.MethodPost, action, `{"unpause":null}`, auth)
-	checkFault(http.StatusConflict, "conflictingRequest", status, headers, body)
+	requireNovaFault(t, http.StatusConflict, "conflictingRequest", status, headers, body)
 
 	// https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/compute/api.py#L4851-L4867
 	status, headers, body = request(t, instance, http.MethodPost, action, `{"pause":{}}`, auth)
@@ -133,9 +119,9 @@ func TestNovaPauseActionsWire(t *testing.T) {
 
 	status, headers, body = request(t, instance, http.MethodPost, action, `{"pause":null}`, auth)
 
-	checkFault(http.StatusConflict, "conflictingRequest", status, headers, body)
+	requireNovaFault(t, http.StatusConflict, "conflictingRequest", status, headers, body)
 	status, headers, body = request(t, instance, http.MethodPost, action, `{"os-stop":null}`, auth)
-	checkFault(http.StatusConflict, "conflictingRequest", status, headers, body)
+	requireNovaFault(t, http.StatusConflict, "conflictingRequest", status, headers, body)
 
 	projectless := computePath + "/servers/" + fixtureServerID + "/action"
 	status, headers, body = request(t, instance, http.MethodPost, projectless, `{"unpause":null}`, auth)

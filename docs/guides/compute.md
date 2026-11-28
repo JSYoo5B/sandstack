@@ -53,9 +53,10 @@ summary schema] and [Gophercloud basic list].
 The same filters apply to basic and detailed lists.
 
 The detailed list supports a single `status` filter. Use `?status=ACTIVE`,
-`?status=ERROR`, `?status=SHUTOFF`, or `?status=PAUSED` to select a state. Values match
-without regard to case. An empty, nonmatching, or unknown status produces
-an empty `servers` array.
+`?status=ERROR`, `?status=SHUTOFF`, `?status=PAUSED`, or
+`?status=SUSPENDED` to select a state. Values match without regard to
+case. An empty, nonmatching, or unknown status produces an empty `servers`
+array.
 
 Set `servers.ListOpts.Name` to a regular expression. An unanchored pattern
 matches a substring of the current display name. Use `^fixture-server$`
@@ -125,13 +126,13 @@ See the [Nova reboot reference], [Nova reboot schema], and [Gophercloud
 reboot options].
 
 Soft reboot requires `ACTIVE`. Hard reboot accepts `ACTIVE`, `SHUTOFF`,
-`PAUSED`, or `ERROR`. A soft reboot in any of the latter states returns
-`409` and preserves the state. A successful hard reboot can recover the
-injected instance fault. SandStack completes the reboot before
+`PAUSED`, `SUSPENDED`, or `ERROR`. A soft reboot in any of the latter
+states returns `409` and preserves the state. A successful hard reboot can
+recover the injected instance fault. SandStack completes the reboot before
 responding, so live detail and detailed list show `ACTIVE` immediately.
 Nova runs reboots asynchronously. Existing attachments, stale detail
-snapshots, and scheduled detail failures remain in place. See the
-[Nova reboot state checks].
+snapshots, and scheduled detail failures remain in place. See the [Nova
+reboot state checks].
 
 ## Pause and unpause a server
 
@@ -155,6 +156,33 @@ asynchronously. A paused server accepts volume attachment and metadata
 writes. Existing attachments, stale detail snapshots, and scheduled detail
 failures remain in place.
 
+## Suspend and resume a server
+
+Use `servers.Suspend` and `servers.Resume` with the fixture server ID in
+Gophercloud v2.15.0. They send `POST /servers/{server_id}/action` with
+`{"suspend":null}` or `{"resume":null}`. The body rules and responses
+match pause: any value for the action key, `400` for a second key or an
+extra field, and `202` with an empty body. See the [Nova suspend
+reference], [Nova resume reference], [Nova suspend schema], and
+[Gophercloud suspend operations].
+
+Suspend requires `ACTIVE` and resume requires `SUSPENDED`. Any other state,
+including `PAUSED` or an injected `ERROR`, returns `409`. A suspended
+server reports `OS-EXT-STS:vm_state` as `suspended`. Nova stores the
+power state reported by the hypervisor driver. SandStack reports `4`,
+the shutdown value the libvirt driver reports after it saves the guest
+memory state. Stop, start, pause, and soft reboot return `409` while the
+server is suspended. Hard reboot returns it to `ACTIVE`. See the [Nova
+suspend state checks], [Nova suspend completion], [libvirt suspend], and
+[libvirt power states].
+
+SandStack completes each accepted transition before it responds. A
+suspended server accepts metadata writes but rejects volume attachment and
+detachment with `409`. Detaching a volume that is not attached returns
+`404` before the state check. See the [Nova detach state checks] and
+[Nova detach request order]. Existing attachments, stale detail
+snapshots, and scheduled detail failures remain in place.
+
 ## Attach and detach a Cinder volume
 
 Use Gophercloud's `volumeattach.Create` with the fixture server ID and an
@@ -164,18 +192,19 @@ attachment. Use `volumeattach.List` and `volumeattach.Get` to read the
 collection and a particular attachment. At Nova v2.1 the attachment `id`
 and the last segment of the item URL are the volume ID.
 
-The fixture server must be `ACTIVE`, `PAUSED`, or `SHUTOFF` to attach. See the
-[Nova attachment state checks]. Each volume can have one attachment.
-The device can be `/dev/vdb` through `/dev/vdz`. Omitting it picks the first
-free device on the server. An unavailable volume, server reporting `ERROR`,
-or occupied device returns `409`. Server and volume IDs are scoped to the
-authenticated project.
+The fixture server must be `ACTIVE`, `PAUSED`, or `SHUTOFF` to attach. See
+the [Nova attachment state checks]. Each volume can have one attachment.
+The device can be `/dev/vdb` through `/dev/vdz`. Omitting it picks the
+first free device on the server. An unavailable volume, server reporting
+`ERROR`, or occupied device returns `409`. Server and volume IDs are
+scoped to the authenticated project.
 
 The fixture completes attachment immediately in either supported state and
 shows the corresponding `in-use` state in Cinder. A stopped server stays
 `SHUTOFF` after attachment. `volumeattach.Delete` returns `202` and removes
 the attachment immediately, making the volume `available` again. Existing
 attachments remain readable and detachable while the server reports `ERROR`.
+Detaching from a `SUSPENDED` server returns `409`.
 Attachment operations leave server detail faults pending. Reset clears the
 attachments. See the [Nova volume attachment reference].
 
@@ -215,6 +244,10 @@ the `PAUSED` filter, conflicts with other power actions, attachment while
 paused, and hard reboot recovery. Raw HTTP checks the action schema,
 `202` empty responses, `409` conflicts, and the extended state fields
 against the pinned Nova source.
+The suspend tests use the SDK to check the suspended state through detail
+and the `SUSPENDED` filter, conflicts with power and detach actions, and
+hard reboot recovery. Raw HTTP also checks the attachment conflict and the
+`404` for detaching a volume that is not attached.
 The rename tests compare the Nova v2.1 update response with SDK detail and
 list reads and check that a pending detail outage still fires.
 The name filter test uses Gophercloud to find the renamed fixture and
@@ -251,7 +284,17 @@ The raw HTTP checks follow the [Compute list reference] and
 [Nova status mapping]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/api/openstack/common.py#L83-L89
 [Nova power states]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/objects/fields.py#L1112-L1131
 [Gophercloud pause operations]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/compute/v2/servers/requests.go#L1235-L1247
+[Nova suspend reference]: https://docs.openstack.org/api-ref/compute/#suspend-server-suspend-action
+[Nova resume reference]: https://docs.openstack.org/api-ref/compute/#resume-suspended-server-resume-action
+[Nova suspend schema]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/api/openstack/compute/schemas/suspend_server.py#L13-L31
+[Nova suspend state checks]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/compute/api.py#L4880-L4908
+[Nova suspend completion]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/compute/manager.py#L7138-L7162
+[libvirt suspend]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/virt/libvirt/driver.py#L4505-L4517
+[libvirt power states]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/virt/libvirt/guest.py#L67-L83
+[Nova detach state checks]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/compute/api.py#L5328-L5333
+[Nova detach request order]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/api/openstack/compute/volume_attachments.py#L394-L440
+[Gophercloud suspend operations]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/compute/v2/servers/requests.go#L1393-L1405
 [Gophercloud server actions]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/compute/v2/servers/requests.go#L1379-L1391
 [Nova volume attachment reference]: https://docs.openstack.org/api-ref/compute/#attach-a-volume-to-an-instance
-[Nova attachment state checks]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/compute/api.py#L5229-L5233
+[Nova attachment state checks]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/compute/api.py#L5225-L5230
 [Nova attachment representation]: https://github.com/openstack/nova/blob/master/nova/api/openstack/compute/views/servers.py#L709-L727
