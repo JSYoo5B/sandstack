@@ -87,10 +87,11 @@ func New(config Config) (http.Handler, error) {
 		CreatedAt: created,
 		UpdatedAt: created,
 	}, now, volumeService)
+	keyPairs := appcompute.NewKeyPairs(now, rand.Reader)
 	journal := sandbox.NewRequestJournal(128)
 	state := sandbox.NewState(
 		identityService.InvalidateTokens,
-		computeService.Reset, networkService.Reset, imageService.Reset, volumeService.Reset,
+		computeService.Reset, keyPairs.Reset, networkService.Reset, imageService.Reset, volumeService.Reset,
 		journal.Reset,
 	)
 
@@ -125,8 +126,8 @@ func New(config Config) (http.Handler, error) {
 		Path:       apivolume.Path + "/" + fixture.Project.ID,
 	})
 	apicompute.Register(
-		services, computeService, appcompute.NewAttachments(computeService, volumeService),
-		identityService.ProjectForToken, endpointURL,
+		services, computeService, appcompute.NewAttachments(computeService, volumeService), keyPairs,
+		identityService.ProjectForToken, identityService.UserForToken, endpointURL,
 	)
 	apinetwork.Register(services, networkService, identityService.ProjectForToken, endpointURL)
 	apiimage.Register(services, imageService, identityService.ProjectForToken, endpointURL)

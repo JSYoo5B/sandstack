@@ -15,12 +15,15 @@ const Path = "/compute/v2.1"
 type handler struct {
 	service         *appcompute.Service
 	attachments     *appcompute.Attachments
+	keyPairs        *appcompute.KeyPairs
 	projectForToken func(string) (string, error)
+	userForToken    func(string) (string, error)
 	endpointURL     func(*http.Request, string) string
 }
 
 type requestScope struct {
 	projectID   string
+	userID      string
 	pathProject string
 }
 
@@ -29,11 +32,14 @@ func Register(
 	router chi.Router,
 	service *appcompute.Service,
 	attachments *appcompute.Attachments,
+	keyPairs *appcompute.KeyPairs,
 	projectForToken func(string) (string, error),
+	userForToken func(string) (string, error),
 	endpointURL func(*http.Request, string) string,
 ) {
 	h := handler{
-		service: service, attachments: attachments, projectForToken: projectForToken, endpointURL: endpointURL,
+		service: service, attachments: attachments, keyPairs: keyPairs,
+		projectForToken: projectForToken, userForToken: userForToken, endpointURL: endpointURL,
 	}
 	show := h.withProject(h.showServer)
 	update := h.withProject(h.updateServer)
@@ -52,6 +58,10 @@ func Register(
 	createAttachment := h.withAttachmentProject(h.createAttachment)
 	showAttachment := h.withAttachmentProject(h.showAttachment)
 	deleteAttachment := h.withAttachmentProject(h.deleteAttachment)
+	listKeyPairs := h.withProject(h.listKeyPairs)
+	createKeyPair := h.withProject(h.createKeyPair)
+	showKeyPair := h.withProject(h.showKeyPair)
+	deleteKeyPair := h.withProject(h.deleteKeyPair)
 	for _, prefix := range []string{Path, Path + "/{projectID}"} {
 		server := prefix + "/servers/{serverID}"
 		router.Get(server, show)
@@ -73,6 +83,11 @@ func Register(
 		router.Post(collection, createAttachment)
 		router.Get(collection+"/{volumeID}", showAttachment)
 		router.Delete(collection+"/{volumeID}", deleteAttachment)
+		keyPairs := prefix + "/os-keypairs"
+		router.Get(keyPairs, listKeyPairs)
+		router.Post(keyPairs, createKeyPair)
+		router.Get(keyPairs+"/{keyPairName}", showKeyPair)
+		router.Delete(keyPairs+"/{keyPairName}", deleteKeyPair)
 	}
 }
 
@@ -84,7 +99,8 @@ func (h handler) withProject(next func(http.ResponseWriter, *http.Request, reque
 			return
 		}
 		projectID, err := h.projectForToken(tokens[0])
-		if err != nil || projectID == "" {
+		userID, userErr := h.userForToken(tokens[0])
+		if err != nil || userErr != nil || projectID == "" || userID == "" {
 			writeFault(w, http.StatusUnauthorized, "unauthorized", "A valid authentication token is required.")
 			return
 		}
@@ -98,7 +114,7 @@ func (h handler) withProject(next func(http.ResponseWriter, *http.Request, reque
 				"The URL project does not match the token's project.")
 			return
 		}
-		next(w, r, requestScope{projectID: projectID, pathProject: pathProject})
+		next(w, r, requestScope{projectID: projectID, userID: userID, pathProject: pathProject})
 	}
 }
 

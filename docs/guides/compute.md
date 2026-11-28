@@ -251,6 +251,10 @@ Server detail and detailed-list responses both include
 array. Gophercloud reads the field as `Server.AttachedVolumes`. See the
 [Nova attachment representation].
 
+## Manage key pairs
+
+See [Key pairs in the Compute sandbox](compute-keypairs.md).
+
 ## Inject and clear an instance fault
 
 See [Inject and clear an instance fault](compute-faults.md#inject-and-clear-an-instance-fault).

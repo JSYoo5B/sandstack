@@ -108,6 +108,16 @@ func (s *Service) ProjectForToken(token string) (string, error) {
 	return s.fixture.Project.ID, nil
 }
 
+func (s *Service) UserForToken(token string) (string, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if !s.store.Valid(token, s.now()) {
+		return "", ErrInvalidToken
+	}
+	return s.fixture.User.ID, nil
+}
+
 func (s *Service) InvalidateTokens() {
 	s.mu.Lock()
 	defer s.mu.Unlock()

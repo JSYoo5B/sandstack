@@ -123,9 +123,14 @@ func TestTokenExpiresAtTTLBoundary(t *testing.T) {
 
 	now = token.ExpiresAt.Add(-time.Nanosecond)
 	assert.NoError(t, service.Validate(token.ID))
+	userID, err := service.UserForToken(token.ID)
+	assert.NoError(t, err)
+	assert.Equal(t, fixture.User.ID, userID)
 
 	now = token.ExpiresAt
 	assert.ErrorIs(t, service.Validate(token.ID), app.ErrInvalidToken)
+	_, err = service.UserForToken(token.ID)
+	assert.ErrorIs(t, err, app.ErrInvalidToken)
 }
 
 func TestInvalidateTokensDoesNotReuseTokenIDs(t *testing.T) {

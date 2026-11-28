@@ -45,10 +45,14 @@ func (h handler) deleteServerMetadatum(w http.ResponseWriter, r *http.Request, s
 }
 
 func metadataPathKey(r *http.Request) string {
-	key := chi.URLParam(r, "metadataKey")
+	return pathParam(r, "metadataKey")
+}
+
+func pathParam(r *http.Request, name string) string {
+	value := chi.URLParam(r, name)
 	// Chi captures escaped parameters when it uses RawPath for routing.
 	if r.URL.RawPath != "" {
-		key, _ = url.PathUnescape(key)
+		value, _ = url.PathUnescape(value)
 	}
-	return key
+	return value
 }
