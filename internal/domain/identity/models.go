@@ -36,6 +36,8 @@ type Token struct {
 	IssuedAt  time.Time
 	ExpiresAt time.Time
 	Fixture   Fixture
+
+	ApplicationCredential *ApplicationCredential
 }
 
 type Selector struct {
@@ -49,4 +51,37 @@ type Credentials struct {
 	User     Selector
 	Project  Selector
 	Password string
+}
+
+type ApplicationCredential struct {
+	ID           string
+	Name         string
+	Description  *string
+	UserID       string
+	ProjectID    string
+	Roles        []Role
+	ExpiresAt    *time.Time
+	Unrestricted *bool
+	SecretSalt   []byte
+	SecretHash   []byte
+}
+
+func (c ApplicationCredential) Restricted() bool {
+	return c.Unrestricted == nil || !*c.Unrestricted
+}
+
+type ApplicationCredentialRequest struct {
+	Name         string
+	Description  *string
+	Secret       string
+	ExpiresAt    *time.Time
+	Unrestricted *bool
+	Roles        []Selector
+}
+
+type ApplicationCredentialAuth struct {
+	ID     string
+	Name   string
+	User   Selector
+	Secret string
 }

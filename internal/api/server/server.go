@@ -53,6 +53,7 @@ func New(config Config) (http.Handler, error) {
 	now := time.Now
 	identityService := appidentity.New(
 		fixture, config.Password, time.Hour, now, randomID, memoryidentity.New(),
+		memoryidentity.NewApplicationCredentials(), rand.Reader,
 	)
 	created := now().UTC()
 	imageFixture := image.Image{
@@ -112,7 +113,7 @@ func New(config Config) (http.Handler, error) {
 	keyPairs := appcompute.NewKeyPairs(now, rand.Reader)
 	journal := sandbox.NewRequestJournal(128)
 	state := sandbox.NewState(
-		identityService.InvalidateTokens,
+		identityService.Reset,
 		computeService.Reset, keyPairs.Reset, networkService.Reset, imageService.Reset, volumeService.Reset,
 		journal.Reset,
 	)

@@ -24,14 +24,16 @@ the server is running.
 
 | Request | Behavior |
 | --- | --- |
-| `POST /identity/v3/auth/tokens` | Project-scoped password authentication. A user or project can be selected by ID or by name with a domain. Success returns `201` and `X-Subject-Token`. Wrong credentials return `401`. The `nocatalog` parameter omits the catalog from the token document. |
+| `POST /identity/v3/auth/tokens` | Project-scoped password authentication or application credential authentication. A user or project can be selected by ID or by name with a domain. Success returns `201` and `X-Subject-Token`. Wrong credentials return `401`. The `nocatalog` parameter omits the catalog from the token document. |
 | `GET /identity/v3/auth/catalog` | Returns the public endpoints of the implemented services in `RegionOne` for a valid `X-Auth-Token`. Missing, expired, and invalidated tokens receive `401`. |
 | `HEAD /identity/v3/auth/catalog` | Returns the catalog request status and headers with an empty body. |
-| `POST /_sandstack/identity/invalidate-tokens` | Requires `X-SandStack-Admin-Token`. Invalidates all tokens issued by that server and returns `204`. Fresh authentication issues a usable token. |
+| `/identity/v3/users/{user_id}/application_credentials` | Creates, lists, reads, and deletes the fixture user's application credentials. See [Application credentials](identity-application-credentials.md). |
+| `POST /_sandstack/identity/invalidate-tokens` | Requires `X-SandStack-Admin-Token`. Invalidates all tokens issued by that server and returns `204`. Application credentials remain. Fresh authentication issues a usable token. |
 | `POST /_sandstack/identity/invalidate-token` | Requires `X-SandStack-Admin-Token` and one nonempty `X-Subject-Token` header. Invalidates the selected token and returns `204`, including when the token is already absent. |
 
-Use a versioned Identity URL. This scenario is limited to password
-authentication, a single project scope, and catalog reads.
+Use a versioned Identity URL. This scenario is limited to password and
+application credential authentication, a single project scope, catalog
+reads, and the fixture user's application credentials.
 
 After a successful catalog read, invalidate the sandbox's tokens to exercise
 the client's recovery path.

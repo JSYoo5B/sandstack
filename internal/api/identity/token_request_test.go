@@ -25,11 +25,12 @@ func TestTokenRequestBodyBoundaries(t *testing.T) {
 	t.Run("at size limit", func(t *testing.T) {
 		r := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(limit))
 
-		credentials, err := readTokenRequest(httptest.NewRecorder(), r)
+		grant, err := readTokenRequest(httptest.NewRecorder(), r)
 
 		require.NoError(t, err)
-		assert.Equal(t, "fixture-user", credentials.User.ID)
-		assert.Equal(t, "fixture-project", credentials.Project.ID)
+		require.NotNil(t, grant.password)
+		assert.Equal(t, "fixture-user", grant.password.User.ID)
+		assert.Equal(t, "fixture-project", grant.password.Project.ID)
 	})
 
 	t.Run("padding exceeds size limit", func(t *testing.T) {

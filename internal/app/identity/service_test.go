@@ -18,7 +18,7 @@ func TestAuthenticateSelectors(t *testing.T) {
 	expiresIn := time.Hour
 	now := time.Date(2026, time.November, 25, 0, 0, 0, 0, time.UTC)
 	service := app.New(fixture, "password", expiresIn,
-		func() time.Time { return now }, func() string { return "entropy" }, store.New(),
+		func() time.Time { return now }, func() string { return "entropy" }, store.New(), store.NewApplicationCredentials(), nil,
 	)
 
 	tests := map[string]domain.Credentials{
@@ -56,7 +56,7 @@ func TestAuthenticateRejectsInvalidCredentials(t *testing.T) {
 			t.Fatal("invalid credentials reached token generation")
 			return ""
 		},
-		store.New(),
+		store.New(), store.NewApplicationCredentials(), nil,
 	)
 
 	tests := map[string]domain.Credentials{
@@ -116,7 +116,7 @@ func TestTokenExpiresAtTTLBoundary(t *testing.T) {
 	fixture, credentials := testIdentity()
 	now := time.Date(2026, time.November, 25, 0, 0, 0, 0, time.UTC)
 	service := app.New(fixture, "password", time.Hour,
-		func() time.Time { return now }, func() string { return "entropy" }, store.New(),
+		func() time.Time { return now }, func() string { return "entropy" }, store.New(), store.NewApplicationCredentials(), nil,
 	)
 	token, err := service.Authenticate(credentials)
 	require.NoError(t, err)
@@ -136,7 +136,7 @@ func TestTokenExpiresAtTTLBoundary(t *testing.T) {
 func TestInvalidateTokensDoesNotReuseTokenIDs(t *testing.T) {
 	fixture, credentials := testIdentity()
 	service := app.New(fixture, "password", time.Hour, time.Now,
-		func() string { return "repeated entropy" }, store.New(),
+		func() string { return "repeated entropy" }, store.New(), store.NewApplicationCredentials(), nil,
 	)
 	first, err := service.Authenticate(credentials)
 	require.NoError(t, err)
@@ -155,7 +155,7 @@ func TestInvalidateTokensDoesNotReuseTokenIDs(t *testing.T) {
 func TestConcurrentAuthenticationIssuesDistinctTokens(t *testing.T) {
 	fixture, credentials := testIdentity()
 	service := app.New(fixture, "password", time.Hour, time.Now,
-		func() string { return "repeated entropy" }, store.New(),
+		func() string { return "repeated entropy" }, store.New(), store.NewApplicationCredentials(), nil,
 	)
 	const attempts = 20
 	var wait sync.WaitGroup

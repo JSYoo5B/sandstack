@@ -36,6 +36,13 @@ func Register(
 	router.Post(authPath+"/tokens", h.issueToken)
 	router.Get(authPath+"/catalog", h.getCatalog)
 	router.Head(authPath+"/catalog", h.getCatalog)
+	credentialsPath := identityPath + "/users/{userID}/application_credentials"
+	router.Post(credentialsPath, h.createApplicationCredential)
+	router.Get(credentialsPath, h.listApplicationCredentials)
+	router.Head(credentialsPath, h.listApplicationCredentials)
+	router.Get(credentialsPath+"/{credentialID}", h.getApplicationCredential)
+	router.Head(credentialsPath+"/{credentialID}", h.getApplicationCredential)
+	router.Delete(credentialsPath+"/{credentialID}", h.deleteApplicationCredential)
 }
 
 type errorResponse struct {

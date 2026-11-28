@@ -7,6 +7,7 @@ import (
 	"time"
 
 	appidentity "github.com/JSYoo5B/sandstack/internal/app/identity"
+	domainidentity "github.com/JSYoo5B/sandstack/internal/domain/identity"
 )
 
 type tokenResponse struct {
@@ -22,6 +23,14 @@ type tokenBody struct {
 	Project   scopedResource   `json:"project"`
 	Roles     []namedResource  `json:"roles"`
 	Catalog   []catalogService `json:"catalog,omitempty"`
+
+	ApplicationCredential *tokenApplicationCredential `json:"application_credential,omitempty"`
+}
+
+type tokenApplicationCredential struct {
+	ID         string `json:"id"`
+	Name       string `json:"name"`
+	Restricted bool   `json:"restricted"`
 }
 
 type namedResource struct {
@@ -47,23 +56,37 @@ func (h handler) issueToken(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	credentials, err := readTokenRequest(w, r)
+	grant, err := readTokenRequest(w, r)
 	if err != nil {
 		var tooLarge *http.MaxBytesError
-		if errors.As(err, &tooLarge) {
+		switch {
+		case errors.As(err, &tooLarge):
 			h.writeError(w, r, http.StatusRequestEntityTooLarge, "The authentication request is too large.")
-			return
+		case errors.Is(err, errScopedApplicationCredentialAuth):
+			h.writeError(w, r, http.StatusUnauthorized,
+				"Error authenticating with application credential: Application credentials cannot request a scope.")
+		default:
+			h.writeError(w, r, http.StatusBadRequest,
+				"Expected a project-scoped password or application credential authentication request.")
 		}
-		h.writeError(w, r, http.StatusBadRequest, "Expected a project-scoped password authentication request.")
 		return
 	}
 
-	token, err := h.service.Authenticate(credentials)
-	if err != nil {
-		if errors.Is(err, appidentity.ErrInvalidCredentials) {
-			h.writeError(w, r, http.StatusUnauthorized, "Invalid authentication credentials or project scope.")
-			return
-		}
+	var token domainidentity.Token
+	if grant.password != nil {
+		token, err = h.service.Authenticate(*grant.password)
+	} else {
+		token, err = h.service.AuthenticateApplicationCredential(*grant.applicationCredential)
+	}
+	switch {
+	case errors.Is(err, appidentity.ErrInvalidCredentials):
+		h.writeError(w, r, http.StatusUnauthorized, "Invalid authentication credentials or project scope.")
+		return
+	case errors.Is(err, appidentity.ErrApplicationCredentialNotFound):
+		h.writeError(w, r, http.StatusNotFound,
+			"Could not find Application Credential: "+grant.applicationCredential.ID+".")
+		return
+	case err != nil:
 		h.writeError(w, r, http.StatusInternalServerError, "Unable to issue an authentication token.")
 		return
 	}
@@ -84,6 +107,12 @@ func (h handler) issueToken(w http.ResponseWriter, r *http.Request) {
 		},
 		Roles: []namedResource{{ID: role.ID, Name: role.Name}},
 	}}
+	if credential := token.ApplicationCredential; credential != nil {
+		response.Token.Methods = []string{"application_credential"}
+		response.Token.ApplicationCredential = &tokenApplicationCredential{
+			ID: credential.ID, Name: credential.Name, Restricted: credential.Restricted(),
+		}
+	}
 	if !r.URL.Query().Has("nocatalog") {
 		response.Token.Catalog = h.catalog(r)
 	}
