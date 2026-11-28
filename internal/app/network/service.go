@@ -32,6 +32,7 @@ type Service struct {
 	routers                 map[string]domain.Router
 	securityGroups          map[string]domain.SecurityGroup
 	securityGroupRuleGroups map[string]string
+	floatingIPs             map[string]domain.FloatingIP
 	newID                   func() string
 }
 
@@ -80,6 +81,7 @@ func (s *Service) restoreFixtures() {
 	}
 	s.ports = make(map[string]domain.Port)
 	s.routers = make(map[string]domain.Router)
+	s.floatingIPs = make(map[string]domain.FloatingIP)
 	s.resetSecurityGroups()
 }
 
@@ -198,9 +200,10 @@ func (s *Service) allocateID(available func(string) bool) (string, error) {
 		_, routerExists := s.routers[id]
 		_, groupExists := s.securityGroups[id]
 		_, ruleExists := s.securityGroupRuleGroups[id]
+		_, floatingIPExists := s.floatingIPs[id]
 		if networkExists || subnetExists || portExists || routerExists || id == s.seed.ID ||
 			id == s.external.ID || id == s.externalSubnet.ID ||
-			groupExists || ruleExists || isDefaultSecurityGroupID(id) ||
+			groupExists || ruleExists || floatingIPExists || isDefaultSecurityGroupID(id) ||
 			(available != nil && !available(id)) {
 			continue
 		}

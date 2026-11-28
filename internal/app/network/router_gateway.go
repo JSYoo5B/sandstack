@@ -40,6 +40,9 @@ func (s *Service) applyRouterGateway(router *domain.Router, change RouterGateway
 
 	var removed *domain.Port
 	if current != nil {
+		if s.routerGatewayServesFloatingIPs(router.ID) {
+			return nil, ErrRouterGatewayInUseByFloatingIP
+		}
 		port := s.ports[current.PortID]
 		removed = &port
 		delete(s.ports, current.PortID)

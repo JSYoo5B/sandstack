@@ -147,6 +147,7 @@ func (s *Service) DeletePort(projectID, portID string) error {
 	if port.DeviceOwner == domain.DeviceOwnerRouterInterface {
 		return ErrServicePortInUse
 	}
+	s.disassociatePortFloatingIPs(portID)
 	delete(s.ports, portID)
 	return nil
 }

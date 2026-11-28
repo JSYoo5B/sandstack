@@ -124,6 +124,8 @@ func writePortAddressError(w http.ResponseWriter, err error) bool {
 		writeError(w, http.StatusBadRequest, "InvalidIpForSubnet", err.Error())
 	case errors.Is(err, app.ErrPortIPAlreadyAllocated):
 		writeError(w, http.StatusConflict, "IpAddressAlreadyAllocated", err.Error())
+	case errors.Is(err, app.ErrPortFixedIPHasFloatingIP):
+		writeError(w, http.StatusBadRequest, "BadRequest", err.Error())
 	default:
 		return false
 	}

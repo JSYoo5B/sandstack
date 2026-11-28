@@ -163,6 +163,7 @@ also releases its gateway address. See [Neutron gateway replacement] and
 | External subnet overlaps a router interface subnet | `400`. The reverse order, attaching an overlapping interface after the gateway, also returns `400`. |
 | Clearing a gateway that a static route uses for its next hop | `400` with `InvalidRoutes`. The gateway remains. |
 | External allocation pool is exhausted | `409` with `IpAddressGenerationFailure`. A router creation request creates nothing. |
+| Clearing or replacing a gateway that serves floating IPs | `409` with `RouterExternalGatewayInUseByFloatingIp`. See [Dependent resources](network-floating-ips.md#dependent-resources). |
 
 See the [Neutron gateway attribute], [Neutron gateway mode attribute],
 [Neutron router gateway policy], [Neutron router gateway update policy],
@@ -172,9 +173,10 @@ than the router's own gateway address. See [Neutron route validation].
 
 SandStack hides the external subnet from subnet reads and lists, although
 Neutron lets every project read subnets of external networks. Its ID
-appears in the network's `subnets` and in `external_fixed_ips`. Floating
-IPs, multiple external gateways, and packet forwarding are outside this
-section. See [Neutron subnet read policy].
+appears in the network's `subnets` and in `external_fixed_ips`. Multiple
+external gateways and packet forwarding are outside this section. See
+[Neutron subnet read policy]. To give a port a public address through the
+gateway, see [Floating IPs](network-floating-ips.md).
 
 ## Attach and remove an IPv4 router interface
 
@@ -236,6 +238,9 @@ other dependencies are clear. See [Neutron interface removal] and
 Interface removal returns `409` while a route uses that interface's subnet
 for its next hop. Replace or clear those routes before removing the
 interface. See [Neutron extra route validation].
+Interface removal also returns `409` while a floating IP is associated
+through that interface. See [Dependent
+resources](network-floating-ips.md#dependent-resources).
 
 Each interface has one IPv4 fixed IP. Packet forwarding is outside this
 scope.

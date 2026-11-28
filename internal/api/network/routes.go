@@ -64,6 +64,11 @@ func Register(
 	router.Get(Path+"/routers/{routerID}", h.withProject(withEmptyQuery(h.showRouter)))
 	router.Put(Path+"/routers/{routerID}", h.withProject(withEmptyQuery(h.updateRouter)))
 	router.Delete(Path+"/routers/{routerID}", h.withProject(withEmptyQuery(h.deleteRouter)))
+	router.Get(Path+"/floatingips", h.withProject(h.listFloatingIPs))
+	router.Post(Path+"/floatingips", h.withProject(withEmptyQuery(h.createFloatingIP)))
+	router.Get(Path+"/floatingips/{floatingIPID}", h.withProject(withEmptyQuery(h.showFloatingIP)))
+	router.Put(Path+"/floatingips/{floatingIPID}", h.withProject(withEmptyQuery(h.updateFloatingIP)))
+	router.Delete(Path+"/floatingips/{floatingIPID}", h.withProject(withEmptyQuery(h.deleteFloatingIP)))
 	router.Put(Path+"/routers/{routerID}/add_router_interface",
 		h.withProject(withEmptyQuery(h.changeRouterInterface(addRouterInterface))))
 	router.Put(Path+"/routers/{routerID}/remove_router_interface",

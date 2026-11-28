@@ -214,6 +214,8 @@ func writeRouterGatewayError(w http.ResponseWriter, err error) bool {
 		writeError(w, http.StatusBadRequest, "BadRequest", err.Error())
 	case errors.Is(err, app.ErrRouterSubnetAttached), errors.Is(err, app.ErrRouterSubnetOverlap):
 		writeError(w, http.StatusBadRequest, "BadRequest", err.Error())
+	case errors.Is(err, app.ErrRouterGatewayInUseByFloatingIP):
+		writeError(w, http.StatusConflict, "RouterExternalGatewayInUseByFloatingIp", err.Error())
 	case errors.Is(err, app.ErrPortIPExhausted):
 		writeError(w, http.StatusConflict, "IpAddressGenerationFailure", "The external subnet has no available addresses.")
 	default:

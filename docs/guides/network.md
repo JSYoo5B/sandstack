@@ -132,6 +132,11 @@ metadata, list filters, and static routes.
 Use the [router gateway guide](network-routers.md#set-an-external-gateway)
 to discover the external network and connect a router to it.
 
+### Give a port a floating IP
+
+Use the [floating IP guide](network-floating-ips.md) to allocate a public
+address from the external network and associate it with a port.
+
 ### Attach and remove an IPv4 router interface
 
 Use the [router interface guide](network-routers.md#attach-and-remove-an-ipv4-router-interface)

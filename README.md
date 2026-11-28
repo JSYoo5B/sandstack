@@ -5,9 +5,9 @@ It runs as an ephemeral dependency for automated tests of OpenStack clients.
 The fixture supports Keystone authentication and catalog discovery.
 Nova covers server reads, power actions, locks, action history, console
 output, metadata, flavor lookup, volume attachment, and key pairs. Glance covers image creation, upload, download, deletion, and sharing.
-Lifecycle operations cover Neutron networks, IPv4 subnets, ports, and
-logical routers with external gateways, as well as Cinder volumes and
-snapshots.
+Lifecycle operations cover Neutron networks, IPv4 subnets, ports, logical
+routers with external gateways, and floating IPs, as well as Cinder volumes
+and snapshots.
 Tests can alter fixture state, observe stale reads, and reset the sandbox
 between cases.
 

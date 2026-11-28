@@ -38,6 +38,9 @@ func (s *Service) UpdatePort(projectID, portID string, changes PortUpdate) (doma
 		if err != nil {
 			return domain.Port{}, err
 		}
+		if floatingFixedIP, ok := s.portFloatingIPAddress(portID); ok && address != floatingFixedIP {
+			return domain.Port{}, ErrPortFixedIPHasFloatingIP
+		}
 		port.SubnetID = subnetID
 		port.FixedIP = address
 	}

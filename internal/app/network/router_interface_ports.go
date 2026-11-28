@@ -59,6 +59,9 @@ func (s *Service) RemoveRouterInterfaceByPort(projectID, routerID, portID, subne
 	if s.routerRoutesUseSubnet(routerID, port.SubnetID) {
 		return domain.Port{}, ErrRouterInterfaceInUseByRoute
 	}
+	if s.routerInterfaceServesFloatingIPs(routerID, port.SubnetID) {
+		return domain.Port{}, ErrRouterInterfaceInUseByFloatingIP
+	}
 	delete(s.ports, portID)
 	return clonePort(port), nil
 }
