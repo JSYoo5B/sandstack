@@ -148,7 +148,8 @@ func TestRouterExternalGatewayWire(t *testing.T) {
 	require.Equal(t, http.StatusOK, status, "%s", body)
 	assert.JSONEq(t, fmt.Sprintf(`{"networks":[{
 		"id":%q,"name":"public","project_id":%q,"tenant_id":%q,"status":"ACTIVE",
-		"admin_state_up":true,"shared":false,"router:external":true,"subnets":[%q]
+		"admin_state_up":true,"shared":false,"router:external":true,"subnets":[%q],
+		"port_security_enabled":true
 	}]}`, externalNetworkID, externalProjectID, externalProjectID, externalSubnetID), string(body))
 	status, body = send(http.MethodGet, networksPath+"?router:external=maybe", "")
 	assert.Equal(t, http.StatusBadRequest, status, "%s", body)

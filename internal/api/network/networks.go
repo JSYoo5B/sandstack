@@ -22,6 +22,7 @@ type networkBody struct {
 	Shared       bool     `json:"shared"`
 	External     bool     `json:"router:external"`
 	Subnets      []string `json:"subnets"`
+	PortSecurity bool     `json:"port_security_enabled"`
 }
 
 type networkResponse struct {
@@ -43,6 +44,7 @@ func describeNetwork(network domain.Network) networkBody {
 		Shared:       false,
 		External:     network.External,
 		Subnets:      subnets,
+		PortSecurity: !network.PortSecurityDisabled,
 	}
 }
 

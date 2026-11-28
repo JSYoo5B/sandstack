@@ -10,10 +10,12 @@ import (
 var ErrPortSecurityRequired = errors.New("port security is required to assign security groups")
 
 type PortUpdate struct {
-	Name           *string
-	AdminStateUp   *bool
-	FixedIPs       *PortFixedIPUpdate
-	SecurityGroups *[]string
+	Name                *string
+	AdminStateUp        *bool
+	FixedIPs            *PortFixedIPUpdate
+	SecurityGroups      *[]string
+	PortSecurityEnabled *bool
+	AllowedAddressPairs *[]domain.AddressPair
 }
 
 // PortFixedIPUpdate replaces the port's address. Its zero value clears it.
@@ -44,10 +46,17 @@ func (s *Service) UpdatePort(projectID, portID string, changes PortUpdate) (doma
 		port.SubnetID = subnetID
 		port.FixedIP = address
 	}
-	if changes.SecurityGroups != nil {
-		if port.PortSecurityDisabled && len(*changes.SecurityGroups) != 0 {
-			return domain.Port{}, ErrPortSecurityRequired
+	if err := checkUpdatePortSecurity(port, changes); err != nil {
+		return domain.Port{}, err
+	}
+	if changes.AllowedAddressPairs != nil {
+		pairs, err := resolveAddressPairs(*changes.AllowedAddressPairs, port.MACAddress)
+		if err != nil {
+			return domain.Port{}, err
 		}
+		port.AllowedAddressPairs = pairs
+	}
+	if changes.SecurityGroups != nil {
 		groupIDs, err := s.portSecurityGroups(port.ProjectID, changes.SecurityGroups)
 		if err != nil {
 			return domain.Port{}, err
@@ -59,6 +68,9 @@ func (s *Service) UpdatePort(projectID, portID string, changes PortUpdate) (doma
 	}
 	if changes.AdminStateUp != nil {
 		port.AdminDown = !*changes.AdminStateUp
+	}
+	if changes.PortSecurityEnabled != nil {
+		port.PortSecurityDisabled = !*changes.PortSecurityEnabled
 	}
 	s.ports[portID] = port
 	return clonePort(port), nil

@@ -32,11 +32,12 @@ type createNetworkParams struct {
 	name         string
 	adminStateUp bool
 	shared       bool
+	portSecurity bool
 	requestOwnership
 }
 
 func parseCreateNetwork(data []byte) (createNetworkParams, error) {
-	params := createNetworkParams{adminStateUp: true}
+	params := createNetworkParams{adminStateUp: true, portSecurity: true}
 	if len(bytes.Trim(data, " \t\r\n")) == 0 {
 		return params, nil
 	}
@@ -53,6 +54,8 @@ func parseCreateNetwork(data []byte) (createNetworkParams, error) {
 			target = &params.adminStateUp
 		case "shared":
 			target = &params.shared
+		case "port_security_enabled":
+			target = &params.portSecurity
 		case "project_id":
 			target = &params.projectID
 		case "tenant_id":

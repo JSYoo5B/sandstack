@@ -15,6 +15,8 @@ func parseUpdateNetwork(data []byte) (app.NetworkUpdate, error) {
 			target = &changes.Name
 		case "admin_state_up":
 			target = &changes.AdminStateUp
+		case "port_security_enabled":
+			target = &changes.PortSecurityEnabled
 		default:
 			return app.NetworkUpdate{}, errInvalidCreateRequest
 		}

@@ -43,12 +43,36 @@ func (s *Service) CreatePortWithOptions(
 	address *netip.Addr,
 	securityGroups *[]string,
 ) (domain.Port, error) {
+	return s.CreatePortWithSecurity(
+		projectID, networkID, name, adminDown,
+		subnetID, address, securityGroups, PortSecurity{},
+	)
+}
+
+func (s *Service) CreatePortWithSecurity(
+	projectID, networkID, name string,
+	adminDown bool,
+	subnetID *string,
+	address *netip.Addr,
+	securityGroups *[]string,
+	security PortSecurity,
+) (domain.Port, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	network, ok := s.networks[networkID]
 	if !ok || network.ProjectID != projectID {
 		return domain.Port{}, ErrNetworkNotFound
+	}
+	enabled := !network.PortSecurityDisabled
+	if security.Enabled != nil {
+		enabled = *security.Enabled
+	}
+	if err := checkCreatePortSecurity(enabled, security, securityGroups); err != nil {
+		return domain.Port{}, err
+	}
+	if !enabled && securityGroups == nil {
+		securityGroups = &[]string{}
 	}
 	groupIDs, err := s.portSecurityGroups(projectID, securityGroups)
 	if err != nil {
@@ -73,14 +97,20 @@ func (s *Service) CreatePortWithOptions(
 	if err != nil {
 		return domain.Port{}, err
 	}
+	var pairs []domain.AddressPair
+	if security.AllowedAddressPairs != nil {
+		pairs = *security.AllowedAddressPairs
+	}
 	return s.createPort(domain.Port{
-		NetworkID:      networkID,
-		ProjectID:      network.ProjectID,
-		Name:           name,
-		SubnetID:       subnet.ID,
-		FixedIP:        fixedIP,
-		AdminDown:      adminDown,
-		SecurityGroups: groupIDs,
+		NetworkID:            networkID,
+		ProjectID:            network.ProjectID,
+		Name:                 name,
+		SubnetID:             subnet.ID,
+		FixedIP:              fixedIP,
+		AdminDown:            adminDown,
+		SecurityGroups:       groupIDs,
+		PortSecurityDisabled: !enabled,
+		AllowedAddressPairs:  pairs,
 	}, usedMACs)
 }
 
@@ -92,6 +122,10 @@ func (s *Service) createPort(port domain.Port, usedMACs map[string]bool) (domain
 	}
 	port.ID = id
 	port.MACAddress = portMAC(id)
+	port.AllowedAddressPairs, err = resolveAddressPairs(port.AllowedAddressPairs, port.MACAddress)
+	if err != nil {
+		return domain.Port{}, err
+	}
 	s.ports[id] = port
 	return clonePort(port), nil
 }
@@ -109,6 +143,7 @@ func (s *Service) GetPort(projectID, portID string) (domain.Port, error) {
 
 func clonePort(port domain.Port) domain.Port {
 	port.SecurityGroups = slices.Clone(port.SecurityGroups)
+	port.AllowedAddressPairs = slices.Clone(port.AllowedAddressPairs)
 	return port
 }
 

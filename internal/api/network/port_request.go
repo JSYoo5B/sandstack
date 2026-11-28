@@ -20,6 +20,7 @@ type createPortParams struct {
 	subnetID       *string
 	fixedIP        netip.Addr
 	securityGroups *[]string
+	security       app.PortSecurity
 	requestOwnership
 }
 
@@ -38,7 +39,7 @@ func parseCreatePort(data []byte) (createPortParams, error) {
 			target = &params.name
 		case "admin_state_up":
 			target = &params.adminStateUp
-		case "fixed_ips", "security_groups":
+		case "fixed_ips", "security_groups", "port_security_enabled", "allowed_address_pairs":
 			continue
 		case "project_id":
 			target = &params.projectID
@@ -63,6 +64,14 @@ func parseCreatePort(data []byte) (createPortParams, error) {
 		return createPortParams{}, err
 	}
 	params.securityGroups, err = parsePortSecurityGroups(fields["security_groups"])
+	if err != nil {
+		return createPortParams{}, err
+	}
+	params.security.Enabled, err = parsePortSecurityEnabled(fields["port_security_enabled"])
+	if err != nil {
+		return createPortParams{}, err
+	}
+	params.security.AllowedAddressPairs, err = parseAllowedAddressPairs(fields["allowed_address_pairs"])
 	if err != nil {
 		return createPortParams{}, err
 	}
@@ -112,6 +121,20 @@ func parseUpdatePort(data []byte) (app.PortUpdate, error) {
 				return app.PortUpdate{}, err
 			}
 			changes.SecurityGroups = groups
+			continue
+		case "port_security_enabled":
+			enabled, err := parsePortSecurityEnabled(value)
+			if err != nil {
+				return app.PortUpdate{}, err
+			}
+			changes.PortSecurityEnabled = enabled
+			continue
+		case "allowed_address_pairs":
+			pairs, err := parseAllowedAddressPairs(value)
+			if err != nil {
+				return app.PortUpdate{}, err
+			}
+			changes.AllowedAddressPairs = pairs
 			continue
 		case "fixed_ips":
 			subnetID, address, err := parsePortFixedIP(value)

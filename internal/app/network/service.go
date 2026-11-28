@@ -137,6 +137,13 @@ func (s *Service) ListNetworksPage(projectID string, filter ListFilter, options 
 }
 
 func (s *Service) Create(projectID, name string, adminDown bool) (domain.Network, error) {
+	return s.CreateWithPortSecurity(projectID, name, adminDown, true)
+}
+
+func (s *Service) CreateWithPortSecurity(
+	projectID, name string,
+	adminDown, portSecurityEnabled bool,
+) (domain.Network, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -144,14 +151,21 @@ func (s *Service) Create(projectID, name string, adminDown bool) (domain.Network
 	if err != nil {
 		return domain.Network{}, err
 	}
-	network := domain.Network{ID: id, Name: name, ProjectID: projectID, AdminDown: adminDown}
+	network := domain.Network{
+		ID:                   id,
+		Name:                 name,
+		ProjectID:            projectID,
+		AdminDown:            adminDown,
+		PortSecurityDisabled: !portSecurityEnabled,
+	}
 	s.networks[id] = network
 	return network, nil
 }
 
 type NetworkUpdate struct {
-	Name         *string
-	AdminStateUp *bool
+	Name                *string
+	AdminStateUp        *bool
+	PortSecurityEnabled *bool
 }
 
 func (s *Service) Update(projectID, networkID string, changes NetworkUpdate) (domain.Network, error) {
@@ -167,6 +181,9 @@ func (s *Service) Update(projectID, networkID string, changes NetworkUpdate) (do
 	}
 	if changes.AdminStateUp != nil {
 		network.AdminDown = !*changes.AdminStateUp
+	}
+	if changes.PortSecurityEnabled != nil {
+		network.PortSecurityDisabled = !*changes.PortSecurityEnabled
 	}
 	s.networks[networkID] = network
 	return snapshot(network), nil

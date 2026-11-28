@@ -53,7 +53,9 @@ func (h handler) createNetwork(w http.ResponseWriter, r *http.Request, projectID
 		return
 	}
 
-	network, err := h.service.Create(projectID, params.name, !params.adminStateUp)
+	network, err := h.service.CreateWithPortSecurity(
+		projectID, params.name, !params.adminStateUp, params.portSecurity,
+	)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "HTTPInternalServerError", "Unable to create the network.")
 		return

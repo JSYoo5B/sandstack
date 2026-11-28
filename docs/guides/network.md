@@ -48,11 +48,15 @@ may be empty or contain up to 255 printable characters with no surrounding
 whitespace. The administrative state defaults to up. You can also pass
 `shared: false` and set `project_id` or `tenant_id` to the token's project.
 A network created with `admin_state_up: false` reports `DOWN`.
+The `port_security_enabled` boolean defaults to `true` and sets the
+default for new ports on the network. See
+[Disable port security and allow address pairs](network-ports.md#disable-port-security-and-allow-address-pairs).
 
 ## Update network metadata
 
 Send `PUT /network/v2.0/networks/{network_id}` with a `network` object
-to change `name` or `admin_state_up`. Omit a field to keep its value or
+to change `name`, `admin_state_up`, or `port_security_enabled`. Changing
+`port_security_enabled` does not affect existing ports. Omit a field to keep its value or
 send an empty object for a no-op. An empty string clears the name, and
 `false` disables the network administratively. With Gophercloud v2.15.0,
 pass `Name` or `AdminStateUp` pointers in `networks.UpdateOpts` to

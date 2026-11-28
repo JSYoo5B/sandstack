@@ -21,6 +21,12 @@ type Port struct {
 	AdminDown            bool
 	SecurityGroups       []string
 	PortSecurityDisabled bool
+	AllowedAddressPairs  []AddressPair
+}
+
+type AddressPair struct {
+	IPAddress  string
+	MACAddress string
 }
 
 // DeviceInterface describes a port as the device it is bound to reports it.

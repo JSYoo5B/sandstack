@@ -34,6 +34,60 @@ as a router interface from a subnet rejects a nonempty group list with
 adopted by a router keeps its ability to use groups. See the
 [Neutron port security update check].
 
+## Disable port security and allow address pairs
+
+Ports report `port_security_enabled` and `allowed_address_pairs`. A new
+port inherits `port_security_enabled` from its network, which defaults to
+`true`. Pass the field on create to override the network value. Router
+and floating IP ports report `false`. In Gophercloud v2.15.0, wrap
+`ports.CreateOpts` or `ports.UpdateOpts` in
+`portsecurity.PortCreateOptsExt` or `portsecurity.PortUpdateOptsExt`, and
+the network options in `portsecurity.NetworkCreateOptsExt` or
+`portsecurity.NetworkUpdateOptsExt`. Decode responses into a struct that
+embeds `portsecurity.PortSecurityExt`. See the [Neutron port security
+extension driver] and the [Neutron port security attributes].
+
+A port created with port security disabled receives no default security
+group. Combining it with a nonempty `security_groups` list returns
+`400 PortSecurityAndIPRequiredForSecurityGroups`. Combining it with
+nonempty address pairs returns `409 AddressPairAndPortSecurityRequired`.
+To disable port security on an existing port, clear both lists in the same
+request or beforehand. Remaining address pairs return
+`409 AddressPairAndPortSecurityRequired`. Remaining security groups return
+`409 PortSecurityPortHasSecurityGroup`. The address pair check runs first.
+A rejected update changes no field. See the [Neutron port security create
+check] and [Neutron port security disable check].
+
+Each `allowed_address_pairs` entry requires `ip_address`, either an IP
+address or a CIDR, and accepts an optional `mac_address`. If `mac_address`
+is omitted, the port's MAC address is used. The response keeps both
+strings as sent. A list replaces the current pairs on update, and `[]` or
+`null` clears them. In Gophercloud, use `ports.CreateOpts.AllowedAddressPairs`
+or pass a pointer to a slice in `ports.UpdateOpts.AllowedAddressPairs`.
+A pair may repeat the port's own fixed IP and MAC address. See the
+[Neutron allowed address pair storage].
+
+The following requests return `400`:
+
+- A value that is not a list, or an entry that is not an object.
+- An invalid, multicast, or zoned IP address. An IPv4 address with a
+  leading zero is also rejected.
+- An invalid CIDR, a CIDR that overlaps the multicast range, or `::/0`.
+- An invalid, all-zero, broadcast, or multicast MAC address.
+- An unknown key in an entry.
+- An entry without `ip_address`, which returns `AllowedAddressPairsMissingIP`.
+- A repeated pair, which returns `DuplicateAddressPairInRequest`. A pair
+  without `mac_address` duplicates a pair that names the port's MAC
+  address.
+- More than 10 pairs, which returns `AllowedAddressPairExhausted`. This
+  is Neutron's default `max_allowed_address_pair`.
+
+Other validation failures use the `HTTPBadRequest` type. See the [Neutron
+address pair validator] and [Neutron address pair limit].
+SandStack accepts only JSON booleans for `port_security_enabled`. It
+parses MAC addresses with Go's `net.ParseMAC`, which accepts colon,
+hyphen, and dotted 48-bit forms.
+
 ## Allocate and release a port address
 
 Use `POST /network/v2.0/ports` with a `port` object containing `network_id`.
@@ -194,9 +248,10 @@ port, err := ports.Update(ctx, client, portID, ports.UpdateOpts{
 
 Run `go test ./internal/api/server -run 'Test.*Port' -count=1` to exercise
 port operations against the SandStack HTTP handler. Gophercloud scenarios
-check allocation, release and reuse, updates, and filters applied before
-and after changing addresses. Raw HTTP tests cover request validation,
-response fields, and error codes for address and deletion conflicts.
+check allocation, release and reuse, updates, filters applied before
+and after changing addresses, and port security with address pairs. Raw
+HTTP tests cover request validation, response fields, and error codes for
+address, deletion, port security, and address pair conflicts.
 The [Neutron database implementation] and [exception types] describe pool
 exhaustion and resource-in-use errors.
 
@@ -209,6 +264,13 @@ exhaustion and resource-in-use errors.
 [port create reference]: https://docs.openstack.org/api-ref/network/v2/#create-port
 [Neutron port security group binding]: https://github.com/openstack/neutron/blob/ba84fbf374cc7f5055eb2ff4ebc34d2a19cbbc3d/neutron/db/securitygroups_db.py#L1207-L1302
 [Neutron port security update check]: https://github.com/openstack/neutron/blob/ba84fbf374cc7f5055eb2ff4ebc34d2a19cbbc3d/neutron/plugins/ml2/plugin.py#L1746-L1850
+[Neutron port security extension driver]: https://github.com/openstack/neutron/blob/ba84fbf374cc7f5055eb2ff4ebc34d2a19cbbc3d/neutron/plugins/ml2/extensions/port_security.py#L38-L81
+[Neutron port security attributes]: https://github.com/openstack/neutron-lib/blob/5.0.0/neutron_lib/api/definitions/port_security.py#L59-L74
+[Neutron port security create check]: https://github.com/openstack/neutron/blob/ba84fbf374cc7f5055eb2ff4ebc34d2a19cbbc3d/neutron/plugins/ml2/plugin.py#L1584-L1600
+[Neutron port security disable check]: https://github.com/openstack/neutron/blob/ba84fbf374cc7f5055eb2ff4ebc34d2a19cbbc3d/neutron/plugins/ml2/plugin.py#L1900-L1936
+[Neutron allowed address pair storage]: https://github.com/openstack/neutron/blob/ba84fbf374cc7f5055eb2ff4ebc34d2a19cbbc3d/neutron/db/allowedaddresspairs_db.py#L90-L128
+[Neutron address pair validator]: https://github.com/openstack/neutron-lib/blob/5.0.0/neutron_lib/api/validators/allowedaddresspairs.py#L23-L93
+[Neutron address pair limit]: https://github.com/openstack/neutron/blob/ba84fbf374cc7f5055eb2ff4ebc34d2a19cbbc3d/neutron/conf/extensions/allowedaddresspairs.py#L19-L29
 [port list reference]: https://docs.openstack.org/api-ref/network/v2/#list-ports
 [Neutron port filter schema]: https://github.com/openstack/neutron-lib/blob/master/neutron_lib/api/definitions/port.py#L37-L60
 [Gophercloud port list options]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/networking/v2/ports/requests.go#L24-L47

@@ -25,6 +25,13 @@ type portBody struct {
 	DeviceOwner    string        `json:"device_owner"`
 	FixedIPs       []portFixedIP `json:"fixed_ips"`
 	SecurityGroups []string      `json:"security_groups"`
+	PortSecurity   bool          `json:"port_security_enabled"`
+	AddressPairs   []addressPair `json:"allowed_address_pairs"`
+}
+
+type addressPair struct {
+	IPAddress  string `json:"ip_address"`
+	MACAddress string `json:"mac_address"`
 }
 
 type portFixedIP struct {
@@ -45,6 +52,10 @@ func describePort(port domain.Port) portBody {
 	if securityGroups == nil {
 		securityGroups = []string{}
 	}
+	addressPairs := make([]addressPair, len(port.AllowedAddressPairs))
+	for i, pair := range port.AllowedAddressPairs {
+		addressPairs[i] = addressPair{IPAddress: pair.IPAddress, MACAddress: pair.MACAddress}
+	}
 	return portBody{
 		ID:             port.ID,
 		Name:           port.Name,
@@ -58,6 +69,8 @@ func describePort(port domain.Port) portBody {
 		DeviceOwner:    port.DeviceOwner,
 		FixedIPs:       fixedIPs,
 		SecurityGroups: securityGroups,
+		PortSecurity:   !port.PortSecurityDisabled,
+		AddressPairs:   addressPairs,
 	}
 }
 
@@ -68,7 +81,7 @@ func (h handler) createPort(w http.ResponseWriter, r *http.Request, projectID st
 	}
 	params, err := parseCreatePort(data)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "BadRequest", err.Error())
+		writePortRequestError(w, err)
 		return
 	}
 	if !params.matches(projectID) {
@@ -80,9 +93,9 @@ func (h handler) createPort(w http.ResponseWriter, r *http.Request, projectID st
 	if params.fixedIP.IsValid() {
 		address = &params.fixedIP
 	}
-	port, err := h.service.CreatePortWithOptions(
+	port, err := h.service.CreatePortWithSecurity(
 		projectID, params.networkID, params.name, !params.adminStateUp,
-		params.subnetID, address, params.securityGroups,
+		params.subnetID, address, params.securityGroups, params.security,
 	)
 	switch {
 	case errors.Is(err, app.ErrNetworkNotFound):
@@ -106,10 +119,31 @@ func writePortFieldError(w http.ResponseWriter, err error) bool {
 		writeError(w, http.StatusConflict, "SecurityGroupConflict", err.Error())
 	case errors.Is(err, app.ErrPortSecurityRequired):
 		writeError(w, http.StatusBadRequest, "PortSecurityAndIPRequiredForSecurityGroups", err.Error())
+	case errors.Is(err, app.ErrPortHasSecurityGroup):
+		writeError(w, http.StatusConflict, "PortSecurityPortHasSecurityGroup", err.Error())
+	case errors.Is(err, app.ErrAddressPairRequiresPortSecurity):
+		writeError(w, http.StatusConflict, "AddressPairAndPortSecurityRequired", err.Error())
+	case errors.Is(err, app.ErrDuplicateAddressPair):
+		writeError(w, http.StatusBadRequest, "DuplicateAddressPairInRequest", err.Error())
 	default:
 		return writePortAddressError(w, err)
 	}
 	return true
+}
+
+func writePortRequestError(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, errInvalidAddressPairs):
+		writeError(w, http.StatusBadRequest, "HTTPBadRequest", err.Error())
+	case errors.Is(err, errAddressPairsExhausted):
+		writeError(w, http.StatusBadRequest, "AllowedAddressPairExhausted", err.Error())
+	case errors.Is(err, errAddressPairMissingIP):
+		writeError(w, http.StatusBadRequest, "AllowedAddressPairsMissingIP", err.Error())
+	case errors.Is(err, errDuplicateAddressPair):
+		writeError(w, http.StatusBadRequest, "DuplicateAddressPairInRequest", err.Error())
+	default:
+		writeError(w, http.StatusBadRequest, "BadRequest", err.Error())
+	}
 }
 
 func writePortAddressError(w http.ResponseWriter, err error) bool {
@@ -193,7 +227,7 @@ func (h handler) updatePort(w http.ResponseWriter, r *http.Request, projectID st
 	}
 	changes, err := parseUpdatePort(data)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "BadRequest", err.Error())
+		writePortRequestError(w, err)
 		return
 	}
 	portID := chi.URLParam(r, "portID")
