@@ -20,13 +20,13 @@ import (
 const maxUserData = 65535
 
 var unsupportedCreateFields = []string{
-	"personality", "availability_zone", "block_device_mapping", "block_device_mapping_v2",
+	"personality", "availability_zone", "block_device_mapping",
 	"config_drive", "accessIPv4", "accessIPv6", "return_reservation_id",
 }
 
 var supportedCreateFields = []string{
 	"name", "imageRef", "flavorRef", "adminPass", "metadata", "networks", "key_name",
-	"security_groups", "OS-DCF:diskConfig", "user_data", "min_count", "max_count",
+	"security_groups", "OS-DCF:diskConfig", "user_data", "min_count", "max_count", blockDeviceField,
 }
 
 type createdServerBody struct {
@@ -178,8 +178,15 @@ func parseServerCreate(data []byte) (appcompute.ServerCreate, []json.RawMessage,
 	if err != nil {
 		return appcompute.ServerCreate{}, nil, err
 	}
+	blockDevices, err := parseBlockDeviceItems(fields[blockDeviceField])
+	if err != nil {
+		return appcompute.ServerCreate{}, nil, err
+	}
 
-	if imageRef == "" {
+	if spec.BlockDevices, err = requestedBlockDevices(blockDevices, imageRef); err != nil {
+		return appcompute.ServerCreate{}, nil, err
+	}
+	if imageRef == "" && len(spec.BlockDevices) == 0 {
 		return appcompute.ServerCreate{}, nil, badCreateRequest("Missing imageRef attribute")
 	}
 	spec.ImageID = imageRef

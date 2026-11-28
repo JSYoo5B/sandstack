@@ -46,7 +46,7 @@ type serverCore struct {
 	Fault     *instanceFault             `json:"fault,omitempty"`
 	Links     []resourceLink             `json:"links"`
 	Flavor    resourceRef                `json:"flavor"`
-	Image     resourceRef                `json:"image"`
+	Image     any                        `json:"image"`
 	Metadata  map[string]string          `json:"metadata"`
 	Addresses map[string][]serverAddress `json:"addresses"`
 }
@@ -163,14 +163,17 @@ func (h handler) serverCore(r *http.Request, server appcompute.ServerDetail, pat
 				Rel: "bookmark", Href: h.endpointURL(r, bookmark+"/flavors/"+appcompute.FixtureFlavorID),
 			}},
 		},
-		Image: resourceRef{
+		Image:     "",
+		Metadata:  metadata,
+		Addresses: serverAddresses(server.Networks, false),
+	}
+	if server.ImageID != "" {
+		body.Image = resourceRef{
 			ID: server.ImageID,
 			Links: []resourceLink{{
 				Rel: "bookmark", Href: h.endpointURL(r, bookmark+"/images/"+server.ImageID),
 			}},
-		},
-		Metadata:  metadata,
-		Addresses: serverAddresses(server.Networks, false),
+		}
 	}
 	if status == domaincompute.StatusError {
 		body.Fault = &instanceFault{

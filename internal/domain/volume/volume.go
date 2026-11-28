@@ -9,6 +9,7 @@ const (
 	StateCreating        State = "creating"
 	StateError           State = "error"
 	StateInUse           State = "in-use"
+	StateReserved        State = "reserved"
 	StateExtending       State = "extending"
 	StateErrorExtending  State = "error_extending"
 	StateBackingUp       State = "backing-up"

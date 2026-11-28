@@ -52,9 +52,9 @@ func (s *ServersSuite) SetupTest() {
 	s.images = appimage.New(imagedomain.Image{
 		ID: serverImage, Name: "fixture-image", ProjectID: serverProject,
 	}, now, "image", sequence("10000000-0000-4000-8000-"))
-	s.volumes = appvolume.New(volumedomain.Volume{
+	s.volumes = appvolume.NewWithImageLookup(volumedomain.Volume{
 		ID: serverVolume, ProjectID: serverProject, Size: 1,
-	}, now, sequence("20000000-0000-4000-8000-"))
+	}, now, sequence("20000000-0000-4000-8000-"), s.images)
 	s.compute = app.New(domain.Server{
 		ID: "fixture", ProjectID: serverProject, UserID: serverUser, CreatedAt: s.start.Add(-time.Hour),
 	}, now, s.volumes)
@@ -304,8 +304,8 @@ func (s *ServersSuite) TestHeldBuildHidesAddressesUntilFinished() {
 	s.Equal([]string{"default"}, building.SecurityGroups)
 
 	s.start = s.start.Add(time.Minute)
-	s.Require().NoError(s.compute.FinishBuild(completed.Server.ID, false))
-	s.Require().NoError(s.compute.FinishBuild(failed.Server.ID, true))
+	s.Require().NoError(s.servers.FinishBuild(completed.Server.ID, false))
+	s.Require().NoError(s.servers.FinishBuild(failed.Server.ID, true))
 
 	active, err := s.servers.Get(serverProject, completed.Server.ID)
 	s.Require().NoError(err)
@@ -318,9 +318,9 @@ func (s *ServersSuite) TestHeldBuildHidesAddressesUntilFinished() {
 	s.Equal(&domain.Fault{
 		Code: 500, Message: "No valid host was found. There are not enough hosts available.", CreatedAt: s.start,
 	}, errored.Fault)
-	s.NoError(s.compute.FinishBuild(completed.Server.ID, false))
-	s.ErrorIs(s.compute.FinishBuild(completed.Server.ID, true), app.ErrBuildNotPending)
-	s.ErrorIs(s.compute.FinishBuild("missing", true), app.ErrServerNotFound)
+	s.NoError(s.servers.FinishBuild(completed.Server.ID, false))
+	s.ErrorIs(s.servers.FinishBuild(completed.Server.ID, true), app.ErrBuildNotPending)
+	s.ErrorIs(s.servers.FinishBuild("missing", true), app.ErrServerNotFound)
 
 	s.compute.Reset()
 

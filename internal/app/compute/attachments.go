@@ -78,6 +78,12 @@ func (a *Attachments) Detach(request ActionRequest, serverID, volumeID string) e
 		return ErrServerNotFound
 	}
 	server := record.server
+	if server.BootVolume != nil && server.BootVolume.VolumeID == volumeID {
+		if _, err := a.volumes.GetAttachment(projectID, serverID, volumeID); err != nil {
+			return err
+		}
+		return ErrRootVolumeDetach
+	}
 	if server.Locked || server.Status() == computedomain.StatusSuspended {
 		if _, err := a.volumes.GetAttachment(projectID, serverID, volumeID); err != nil {
 			return err

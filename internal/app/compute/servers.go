@@ -10,6 +10,7 @@ import (
 	domain "github.com/JSYoo5B/sandstack/internal/domain/compute"
 	imagedomain "github.com/JSYoo5B/sandstack/internal/domain/image"
 	networkdomain "github.com/JSYoo5B/sandstack/internal/domain/network"
+	volumedomain "github.com/JSYoo5B/sandstack/internal/domain/volume"
 )
 
 var (
@@ -62,7 +63,13 @@ type serverNetworks interface {
 
 type serverVolumes interface {
 	attachmentLookup
+	Lookup(projectID, volumeID string) (volumedomain.Volume, error)
+	ReserveRoot(projectID, serverID, volumeID string) (volumedomain.Attachment, error)
+	CompleteReservation(projectID, volumeID string) error
+	CreateServerVolume(projectID, imageID string, size int) (volumedomain.Volume, error)
+	CompleteCreation(volumeID string) error
 	Detach(projectID, serverID, volumeID string) error
+	Delete(projectID, volumeID string) error
 }
 
 // ServerCreate is a validated server creation request. A nil Networks
@@ -77,6 +84,7 @@ type ServerCreate struct {
 	Metadata       map[string]string
 	Networks       []NetworkRequest
 	SecurityGroups []string
+	BlockDevices   []BlockDevice
 }
 
 // NetworkRequest selects either an existing port or a network for a new port.
@@ -145,9 +153,9 @@ func (s *Servers) Create(request ActionRequest, spec ServerCreate) (CreatedServe
 	if _, err := s.compute.GetFlavor(projectID, spec.FlavorID); err != nil {
 		return CreatedServer{}, createError(ErrFlavorNotFound, "Flavor %s could not be found.", spec.FlavorID)
 	}
-	image, err := s.images.Get(projectID, spec.ImageID)
+	source, err := s.bootSource(projectID, spec)
 	if err != nil {
-		return CreatedServer{}, createError(ErrImageNotFound, "Can not find requested image")
+		return CreatedServer{}, err
 	}
 	groupIDs, err := s.resolveSecurityGroups(projectID, spec.SecurityGroups)
 	if err != nil {
@@ -166,17 +174,41 @@ func (s *Servers) Create(request ActionRequest, spec ServerCreate) (CreatedServe
 		return CreatedServer{}, createError(ErrServerMetadataQuota,
 			"Maximum number of metadata items exceeds %d", maxMetadataItems)
 	}
-	if image.Status() != "active" {
-		return CreatedServer{}, createError(ErrImageNotActive, "Image %s is not active.", image.ID)
+	if err := checkBootImage(source); err != nil {
+		return CreatedServer{}, err
 	}
+	if len(spec.BlockDevices) > 0 {
+		if err := s.validateBlockDevices(projectID, spec.BlockDevices); err != nil {
+			return CreatedServer{}, err
+		}
+	}
+	bootVolume := newBootVolume(spec.BlockDevices)
 
 	serverID, err := s.allocateServerID()
 	if err != nil {
 		return CreatedServer{}, err
 	}
+	if err := s.reserveBootVolume(projectID, serverID, bootVolume); err != nil {
+		return CreatedServer{}, err
+	}
 	ports, failure, err := s.allocatePorts(projectID, serverID, plan, groupIDs)
 	if err != nil {
+		if bootVolume != nil && bootVolume.VolumeID != "" {
+			_ = s.volumes.Detach(projectID, serverID, bootVolume.VolumeID)
+		}
 		return CreatedServer{}, err
+	}
+	s.compute.mu.RLock()
+	held := s.compute.holdBuilds
+	s.compute.mu.RUnlock()
+	switch {
+	case failure != "":
+		s.releaseBootVolume(projectID, serverID, bootVolume)
+	case !held:
+		if failure = s.prepareBootVolume(projectID, serverID, bootVolume); failure != "" {
+			s.releasePorts(projectID, serverID, ports)
+			ports = nil
+		}
 	}
 	password := spec.AdminPass
 	if password == "" {
@@ -191,7 +223,7 @@ func (s *Servers) Create(request ActionRequest, spec ServerCreate) (CreatedServe
 		Name:           spec.Name,
 		ProjectID:      projectID,
 		UserID:         request.UserID,
-		ImageID:        image.ID,
+		ImageID:        source.imageID,
 		KeyName:        spec.KeyName,
 		AutoDiskConfig: spec.AutoDiskConfig,
 		CreatedAt:      now,
@@ -199,6 +231,7 @@ func (s *Servers) Create(request ActionRequest, spec ServerCreate) (CreatedServe
 		State:          domain.StatusActive,
 		Metadata:       copyMetadata(spec.Metadata),
 		Ports:          ports,
+		BootVolume:     bootVolume,
 	}
 	switch {
 	case failure != "":
@@ -208,13 +241,24 @@ func (s *Servers) Create(request ActionRequest, spec ServerCreate) (CreatedServe
 			Message:   fmt.Sprintf("Build of instance %s aborted: %s", serverID, failure),
 			CreatedAt: now,
 		}
-	case s.compute.holdBuilds:
+	case held:
 		server.State = domain.StatusBuild
 	}
 	record := &serverRecord{server: server, console: []byte{}}
 	s.compute.servers[serverID] = record
 	s.compute.recordAction(record, request, domain.ActionCreate)
 	return CreatedServer{Server: cloneServer(server), AdminPass: password}, nil
+}
+
+func (s *Servers) bootSource(projectID string, spec ServerCreate) (bootSource, error) {
+	if spec.ImageID == "" {
+		return s.volumeBootSource(projectID, spec.BlockDevices)
+	}
+	image, err := s.images.Get(projectID, spec.ImageID)
+	if err != nil {
+		return bootSource{}, createError(ErrImageNotFound, "Can not find requested image")
+	}
+	return bootSource{imageID: image.ID, label: image.ID, status: image.Status()}, nil
 }
 
 func (s *Servers) allocateServerID() (string, error) {
@@ -404,7 +448,12 @@ func (s *Servers) Delete(request ActionRequest, serverID string) error {
 		return ErrServerLocked
 	}
 	delete(s.compute.servers, serverID)
+	bootVolume := record.server.BootVolume
 	for _, attachment := range s.volumes.ListAttachments(projectID, serverID) {
+		if bootVolume != nil && bootVolume.VolumeID == attachment.VolumeID {
+			s.releaseBootVolume(projectID, serverID, bootVolume)
+			continue
+		}
 		_ = s.volumes.Detach(projectID, serverID, attachment.VolumeID)
 	}
 	s.releasePorts(projectID, serverID, record.server.Ports)

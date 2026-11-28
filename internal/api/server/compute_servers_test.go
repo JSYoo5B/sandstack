@@ -247,7 +247,7 @@ func TestNovaServerCreateAndDeleteWire(t *testing.T) {
 		withServer(`,"networks":[{"port":"` + missing + `","fixed_ip":"10.0.0.5"}]`),
 		withServer(`,"security_groups":[{"name":"web","id":"x"}]`),
 		withServer(`,"min_count":2`),
-		withServer(`,"block_device_mapping_v2":[]`),
+		withServer(`,"block_device_mapping":[]`),
 	} {
 		status, headers, response := create(body)
 		requireNovaFault(t, http.StatusBadRequest, "badRequest", status, headers, response)

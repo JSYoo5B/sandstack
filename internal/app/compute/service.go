@@ -202,6 +202,10 @@ func (s *Service) sortedRecords() []*serverRecord {
 func cloneServer(server domain.Server) domain.Server {
 	server.Metadata = maps.Clone(server.Metadata)
 	server.Ports = slices.Clone(server.Ports)
+	if server.BootVolume != nil {
+		bootVolume := *server.BootVolume
+		server.BootVolume = &bootVolume
+	}
 	if server.Fault != nil {
 		fault := *server.Fault
 		server.Fault = &fault

@@ -162,7 +162,7 @@ func New(config Config) (http.Handler, error) {
 	apivolume.Register(services, volumeService, identityService.ProjectForToken, endpointURL)
 	registerControlRoutes(router, state, config.AdminToken,
 		func(r chi.Router) { registerIdentityControls(r, identityService) },
-		func(r chi.Router) { registerComputeControls(r, computeService) },
+		func(r chi.Router) { registerComputeControls(r, computeService, servers) },
 		func(r chi.Router) { registerNetworkControls(r, networkService) },
 		func(r chi.Router) { registerImageControls(r, imageService) },
 		func(r chi.Router) { registerVolumeControls(r, volumeService) },

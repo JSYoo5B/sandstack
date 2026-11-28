@@ -2,6 +2,7 @@ package compute
 
 import (
 	"errors"
+	"fmt"
 
 	domain "github.com/JSYoo5B/sandstack/internal/domain/compute"
 )
@@ -20,11 +21,11 @@ func (s *Service) SetHoldBuilds(enabled bool) {
 
 // FinishBuild completes a held build as ACTIVE or fails it as ERROR with a
 // fault. Repeating the same outcome succeeds without changes.
-func (s *Service) FinishBuild(serverID string, failed bool) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+func (s *Servers) FinishBuild(serverID string, failed bool) error {
+	s.compute.mu.Lock()
+	defer s.compute.mu.Unlock()
 
-	record, ok := s.servers[serverID]
+	record, ok := s.compute.servers[serverID]
 	if !ok {
 		return ErrServerNotFound
 	}
@@ -39,12 +40,24 @@ func (s *Service) FinishBuild(serverID string, failed bool) error {
 		}
 		return ErrBuildNotPending
 	}
-	now := s.now().UTC()
+	now := s.compute.now().UTC()
 	server.State = domain.StatusActive
+	server.UpdatedAt = now
 	if failed {
 		server.State = domain.StatusError
 		server.Fault = &domain.Fault{Code: 500, Message: buildFailureMessage, CreatedAt: now}
+		return nil
 	}
-	server.UpdatedAt = now
+	if failure := s.prepareBootVolume(server.ProjectID, serverID, server.BootVolume); failure != "" {
+		s.releasePorts(server.ProjectID, serverID, server.Ports)
+		server.Ports = nil
+		s.releaseBootVolume(server.ProjectID, serverID, server.BootVolume)
+		server.State = domain.StatusError
+		server.Fault = &domain.Fault{
+			Code:      500,
+			Message:   fmt.Sprintf("Build of instance %s aborted: %s", serverID, failure),
+			CreatedAt: now,
+		}
+	}
 	return nil
 }

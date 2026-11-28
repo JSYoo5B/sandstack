@@ -14,27 +14,71 @@ var (
 	ErrAttachmentDeviceConflict = errors.New("requested volume attachment device is in use or none is free")
 )
 
-const devicePrefix = "/dev/vd"
+const (
+	devicePrefix = "/dev/vd"
+	rootDevice   = devicePrefix + "a"
+)
 
 // Attach associates an available volume with a server validated by the caller.
 func (s *Service) Attach(projectID, serverID, volumeID, device string) (domain.Attachment, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	volume, ok := s.volumes[volumeID]
-	if !ok || volume.ProjectID != projectID {
-		return domain.Attachment{}, ErrVolumeNotFound
-	}
-	if serverID == "" {
-		return domain.Attachment{}, ErrAttachmentNotFound
-	}
-	if volume.State != domain.StateAvailable {
-		return domain.Attachment{}, ErrVolumeStateConflict
-	}
-	device, err := s.attachmentDevice(serverID, device)
+	volume, err := s.attachableVolume(projectID, serverID, volumeID)
 	if err != nil {
 		return domain.Attachment{}, err
 	}
+	device, err = s.attachmentDevice(serverID, device)
+	if err != nil {
+		return domain.Attachment{}, err
+	}
+	return s.attach(volume, serverID, device, domain.StateInUse)
+}
+
+func (s *Service) ReserveRoot(projectID, serverID, volumeID string) (domain.Attachment, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	volume, err := s.attachableVolume(projectID, serverID, volumeID)
+	if err != nil {
+		return domain.Attachment{}, err
+	}
+	return s.attach(volume, serverID, rootDevice, domain.StateReserved)
+}
+
+func (s *Service) CompleteReservation(projectID, volumeID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	volume, ok := s.volumes[volumeID]
+	if !ok || volume.ProjectID != projectID {
+		return ErrVolumeNotFound
+	}
+	switch volume.State {
+	case domain.StateReserved:
+		s.updateState(volume, domain.StateInUse)
+	case domain.StateInUse:
+	default:
+		return ErrVolumeStateConflict
+	}
+	return nil
+}
+
+func (s *Service) attachableVolume(projectID, serverID, volumeID string) (domain.Volume, error) {
+	volume, ok := s.volumes[volumeID]
+	if !ok || volume.ProjectID != projectID {
+		return domain.Volume{}, ErrVolumeNotFound
+	}
+	if serverID == "" {
+		return domain.Volume{}, ErrAttachmentNotFound
+	}
+	if volume.State != domain.StateAvailable {
+		return domain.Volume{}, ErrVolumeStateConflict
+	}
+	return volume, nil
+}
+
+func (s *Service) attach(volume domain.Volume, serverID, device string, state domain.State) (domain.Attachment, error) {
 	id, err := s.allocateID()
 	if err != nil {
 		return domain.Attachment{}, err
@@ -42,16 +86,16 @@ func (s *Service) Attach(projectID, serverID, volumeID, device string) (domain.A
 	attachedAt := s.now().UTC()
 	attachment := domain.Attachment{
 		ID:         id,
-		VolumeID:   volumeID,
+		VolumeID:   volume.ID,
 		ServerID:   serverID,
 		Device:     device,
 		AttachedAt: attachedAt,
 	}
 	volume.Attachment = attachment
-	volume.State = domain.StateInUse
+	volume.State = state
 	volume.UpdatedAt = attachedAt
-	s.volumes[volumeID] = volume
-	s.attachmentVolumes[id] = volumeID
+	s.volumes[volume.ID] = volume
+	s.attachmentVolumes[id] = volume.ID
 	return attachment, nil
 }
 

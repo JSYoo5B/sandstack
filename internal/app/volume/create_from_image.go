@@ -27,6 +27,20 @@ func (s *Service) CreateFromImage(
 	return s.createFromImage(projectID, "", imageID, name, description, size, metadata)
 }
 
+func (s *Service) CreateServerVolume(projectID, imageID string, size int) (domain.Volume, error) {
+	volume, err := s.CreateVolume(projectID, CreateRequest{ImageID: imageID, Size: size})
+	if err != nil {
+		return domain.Volume{}, err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	stored := s.volumes[volume.ID]
+	stored.Name = domain.NullableText{Valid: true}
+	stored.Description = domain.NullableText{Valid: true}
+	s.volumes[volume.ID] = stored
+	return cloneVolume(stored), nil
+}
+
 func (s *Service) createFromImage(
 	projectID, typeID, imageID, name, description string,
 	size int,

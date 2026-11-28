@@ -68,6 +68,19 @@ func (s *Service) Get(projectID, volumeID string) (domain.Volume, error) {
 	return cloneVolume(volume), nil
 }
 
+func (s *Service) Lookup(projectID, volumeID string) (domain.Volume, error) {
+	if s.seed.ProjectID != projectID {
+		return domain.Volume{}, ErrVolumeNotFound
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	volume, ok := s.volumes[volumeID]
+	if !ok {
+		return domain.Volume{}, ErrVolumeNotFound
+	}
+	return cloneVolume(volume), nil
+}
+
 // allocateID runs with the service's write lock held.
 func (s *Service) allocateID() (string, error) {
 	if s.newID == nil {

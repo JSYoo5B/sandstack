@@ -63,7 +63,7 @@ type attachmentBody struct {
 
 func (h handler) describeVolume(r *http.Request, volume domain.Volume) volumeBody {
 	attachments := []attachmentBody{}
-	if attachment := volume.Attachment; attachment.ID != "" {
+	if attachment := volume.Attachment; attachment.ID != "" && volume.State != domain.StateReserved {
 		attachments = append(attachments, attachmentBody{
 			ID:           attachment.VolumeID,
 			AttachmentID: attachment.ID,

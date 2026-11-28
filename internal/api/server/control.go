@@ -58,7 +58,7 @@ func registerIdentityControls(router chi.Router, service *appidentity.Service) {
 
 const maxConsoleOutput = 1 << 20
 
-func registerComputeControls(router chi.Router, service *appcompute.Service) {
+func registerComputeControls(router chi.Router, service *appcompute.Service, servers *appcompute.Servers) {
 	const serverPath = "/compute/servers/{resourceID}"
 	registerFixtureControl(router, serverPath+"/fault", "Server not found", service.SetFault)
 	registerFixtureControl(router, serverPath+"/stale-detail", "Server not found", service.SetStaleDetail)
@@ -94,7 +94,7 @@ func registerComputeControls(router chi.Router, service *appcompute.Service) {
 	router.Delete("/compute/hold-builds", holdBuilds)
 	finishBuild := func(failed bool) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
-			err := service.FinishBuild(chi.URLParam(r, "resourceID"), failed)
+			err := servers.FinishBuild(chi.URLParam(r, "resourceID"), failed)
 			switch {
 			case errors.Is(err, appcompute.ErrServerNotFound):
 				http.Error(w, "Server not found", http.StatusNotFound)

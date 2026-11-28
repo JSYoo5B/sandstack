@@ -28,6 +28,14 @@ type Server struct {
 	Fault          *Fault
 	Metadata       map[string]string
 	Ports          []ServerPort
+	BootVolume     *BootVolume
+}
+
+type BootVolume struct {
+	VolumeID            string
+	ImageID             string
+	Size                int
+	DeleteOnTermination bool
 }
 
 // ServerPort is a Neutron port bound to the server. Nova unbinds preserved
