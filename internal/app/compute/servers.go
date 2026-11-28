@@ -59,6 +59,7 @@ type serverNetworks interface {
 	UnbindPort(projectID, portID, deviceID string) error
 	DeletePort(projectID, portID string) error
 	DescribePort(projectID, portID string) (networkdomain.DeviceInterface, error)
+	SetPortSecurityGroups(projectID, portID string, groupIDs []string) (networkdomain.Port, error)
 	AddressDevice(projectID, networkID string, address netip.Addr) (string, bool)
 }
 

@@ -64,7 +64,8 @@ A successful request records one of these actions:
 Nova checks the lock, server state, and volume state before it records an
 action, so a request that returns `400`, `404`, or `409` adds no record.
 Locking a server that the owner already locked returns `202` without a
-record. Unlock records every accepted request. Rename and metadata writes
+record. Unlock records every accepted request. Rename, metadata writes, and
+[security group changes](compute-servers.md#change-a-servers-security-groups)
 do not record actions. The start time comes from the sandbox clock when
 the action is accepted. See the [Nova action recording], [Nova power
 action recording], [Nova lock recording], [Nova attach recording], and

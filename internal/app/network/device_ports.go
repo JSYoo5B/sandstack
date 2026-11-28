@@ -137,3 +137,8 @@ func (s *Service) AddressDevice(projectID, networkID string, address netip.Addr)
 	}
 	return "", false
 }
+
+func (s *Service) SetPortSecurityGroups(projectID, portID string, groupIDs []string) (domain.Port, error) {
+	groups := slices.Clone(groupIDs)
+	return s.UpdatePort(projectID, portID, PortUpdate{SecurityGroups: &groups})
+}

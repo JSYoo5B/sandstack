@@ -257,7 +257,8 @@ and [fault controls](compute-faults.md) as the fixture server. Its
 [console log](compute-console.md) starts empty. To snapshot a server into
 an image and boot from it, see [Snapshot servers](compute-snapshots.md).
 To change its flavor, see [Resize servers](compute-resize.md). To replace
-its image, see [Rebuild a server](#rebuild-a-server).
+its image, see [Rebuild a server](#rebuild-a-server). To change its
+security groups, see [Change a server's security groups](#change-a-servers-security-groups).
 
 ## Rebuild a server
 
@@ -323,6 +324,69 @@ service works, so its response shows `REBUILD`. SandStack does not report
 this transient status. Wait with `servers.WaitForStatus` for `ACTIVE` or
 `SHUTOFF`.
 
+## Change a server's security groups
+
+Use `secgroups.AddServer` and `secgroups.RemoveServer` from
+`openstack/compute/v2/secgroups` in Gophercloud v2.15.0 with a group name
+or ID. They send `POST /servers/{server_id}/action` with
+`{"addSecurityGroup":{"name":"..."}}` or
+`{"removeSecurityGroup":{"name":"..."}}`. A successful request returns
+`202` with an empty body. `name` is a required nonempty string and the
+action object accepts no other field. See the [Nova security group
+action controller], [Nova security group action schema], and
+[Gophercloud server security group operations].
+
+Nova resolves the value through Neutron in the token's project. A group
+whose ID equals the value wins. Otherwise the value must match exactly one
+group name. Add appends the group to every port bound to the server, in
+the server's port order, and remove takes it off every port that has it.
+Neither action checks the lock, the server state, or a task in progress,
+and neither records a [server action](compute-actions.md). See [Nova add
+to instance], [Nova remove from instance], and [neutronclient name or ID
+lookup].
+
+Use `secgroups.ListByServer` to read
+`GET /servers/{server_id}/os-security-groups`. It returns `200` with a
+`security_groups` array that repeats each group once per port that has
+it, ordered by `tenant_id` and then `name`. Each group has `id`, `name`,
+`description`, `tenant_id`, and `rules`. Only ingress rules appear, each
+with `id`, `parent_group_id`, `ip_protocol`, `from_port`, `to_port`,
+`group`, and `ip_range`. A rule with a remote group sets `group` to the
+remote group's `name` and `tenant_id` and leaves `ip_range` empty. Other
+rules set `ip_range.cidr` to the remote prefix, or `0.0.0.0/0` without
+one, and leave `group` empty. A TCP or UDP rule without a port range
+reports `1` to `65535`, another protocol without a range reports `-1`,
+and a rule without a protocol reports `null` ports. Version 2.1 ignores
+query parameters. See the [Nova server security group list], [Nova
+security group format], [Nova Neutron group conversion], and [Nova
+instance group bindings].
+
+[Server detail](#read-the-server) lists the changed groups in
+`security_groups` on the next read.
+
+### Rejected security group requests
+
+Nova checks the request in this order:
+
+| Condition | Status and message |
+| --- | --- |
+| Invalid request body | `400` |
+| Unknown server | `404` |
+| Name of only whitespace | `400` `Security group name cannot be empty` |
+| No group matches | `404` `Security group {name} is not found for project {project_id}` |
+| More than one group has the name | `409` `Multiple security_group matches found for name '{name}', use an ID to be more specific.` |
+| No port is bound to the server | `404` `instance_id {server_id} could not be found as device id on any ports` |
+| Add to a port with port security disabled or no fixed IP | `400` `Network requires port_security_enabled and subnet associated in order to apply security groups.` |
+| Add a group a port already has | `400` `Invalid input for operation: Invalid input for security_groups. Reason: Duplicate items in the list: '{group_id}'..` |
+| Add a stateless group to a port with a stateful group, or the reverse | `409` with the Neutron conflict message |
+| Remove a group that no port has | `404` `Security group {name} not associated with the instance {server_id}` |
+
+Nova updates the ports one at a time, so an add rejected on a later port
+leaves the group on the earlier ports. See the [Nova security group
+requirements], [Nova security group exceptions], [Neutron port security
+group attribute], [neutron-lib list validation], [neutron-lib input
+error], and [neutronclient unique match error].
+
 ## Delete a server
 
 Use `servers.Delete`, which sends `DELETE /servers/{server_id}`. Nova
@@ -371,6 +435,15 @@ after v2.1, such as `description`, `key_name`, `user_data`, and
 reimage boot volumes, reject images uploaded from encrypted volumes, or
 check image architecture, NUMA, or trusted certificates on rebuild.
 
+The security group actions answer the duplicate and connection state
+cases with the Neutron message alone. Nova appends the Neutron request IDs
+to these messages, which SandStack omits because no separate Neutron
+request takes place. An unknown server returns `404` with SandStack's
+usual Compute message rather than Nova's `Instance {server_id} could not
+be found.` Schema errors return `400` without Nova's JSON Schema message
+text. Neutron groups shared from other projects are not modeled, so the
+lookup and the list see only the project's groups.
+
 ## Verification
 
 Run `go test ./internal/api/server -run 'Boots|ServerCreateAndDelete|BuildControls|BootFromVolume|HeldVolume' -count=1`
@@ -401,6 +474,18 @@ generated password, disk config, and action record for a stopped server
 that stays `SHUTOFF`. The application tests check the validation order,
 metadata replacement, the image properties, stopped and failed servers,
 and the volume-backed image check against the pinned Nova source.
+
+For security groups, run `go test ./internal/api/server -run 'ServerSecurityGroup' -count=1`
+and `go test ./internal/app/compute -run 'TestServersSuite/.*SecurityGroup' -count=1`.
+The Gophercloud test adds a group by name, checks the Neutron port, the
+listed groups and rule fields, and server detail, then removes the group
+by ID and checks the `404` for a second remove. Raw HTTP checks the schema
+`400` cases before the server lookup, each rejection in the table, the
+`202` empty bodies on a locked server, and the list fields, `null` ports,
+and remote group of the default group's rules. The
+application tests check two ports, the repeated and ordered list, the
+rule port defaults, and that rejected requests leave the ports unchanged,
+against the pinned Nova source.
 
 [Nova create schema]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/api/openstack/compute/schemas/servers.py#L154-L230
 [Nova create handler]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/api/openstack/compute/servers.py#L700-L923
@@ -453,3 +538,19 @@ and the volume-backed image check against the pinned Nova source.
 [Nova delete handler]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/api/openstack/compute/servers.py#L925-L957
 [Nova delete checks]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/compute/api.py#L2818-L2824
 [Nova network deallocation]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/network/neutron.py#L1841-L1876
+[Nova security group action controller]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/api/openstack/compute/security_groups.py#L401-L468
+[Nova security group action schema]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/api/openstack/compute/schemas/security_groups.py#L106-L144
+[Gophercloud server security group operations]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/compute/v2/secgroups/requests.go#L182-L193
+[Nova add to instance]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/network/security_group_api.py#L587-L647
+[Nova remove from instance]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/network/security_group_api.py#L650-L709
+[neutronclient name or ID lookup]: https://github.com/openstack/python-neutronclient/blob/11.6.0/neutronclient/v2_0/client.py#L418-L492
+[Nova server security group list]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/api/openstack/compute/security_groups.py#L363-L398
+[Nova security group format]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/api/openstack/compute/security_groups.py#L46-L135
+[Nova Neutron group conversion]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/network/security_group_api.py#L257-L290
+[Nova instance group bindings]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/network/security_group_api.py#L521-L575
+[Nova security group requirements]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/network/security_group_api.py#L578-L584
+[Nova security group exceptions]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/exception.py#L1131-L1158
+[Neutron port security group attribute]: https://github.com/openstack/neutron/blob/ba84fbf374cc7f5055eb2ff4ebc34d2a19cbbc3d/neutron/extensions/securitygroup.py#L288-L295
+[neutron-lib list validation]: https://github.com/openstack/neutron-lib/blob/5.0.0/neutron_lib/api/validators/__init__.py#L194-L209
+[neutron-lib input error]: https://github.com/openstack/neutron-lib/blob/5.0.0/neutron_lib/api/attributes.py#L208-L237
+[neutronclient unique match error]: https://github.com/openstack/python-neutronclient/blob/11.6.0/neutronclient/common/exceptions.py#L258-L260

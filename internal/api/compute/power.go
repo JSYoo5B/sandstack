@@ -12,7 +12,8 @@ import (
 )
 
 const actionFault = "Expected a single os-start, os-stop, reboot, pause, unpause, suspend, resume, lock, unlock, " +
-	"createImage, rebuild, resize, confirmResize, revertResize, or os-getConsoleOutput action."
+	"createImage, rebuild, resize, confirmResize, revertResize, addSecurityGroup, removeSecurityGroup, " +
+	"or os-getConsoleOutput action."
 
 func (h handler) changeServerPower(w http.ResponseWriter, r *http.Request, scope requestScope) {
 	data, ok := readRequestBody(w, r, "server action")
@@ -48,6 +49,13 @@ func (h handler) changeServerPower(w http.ResponseWriter, r *http.Request, scope
 	if _, ok := actions["revertResize"]; ok {
 		h.finishServerResize(w, r, scope, true)
 		return
+	}
+
+	for _, action := range []string{"addSecurityGroup", "removeSecurityGroup"} {
+		if body, ok := actions[action]; ok {
+			h.changeServerSecurityGroup(w, r, scope, action, body)
+			return
+		}
 	}
 
 	serverID := chi.URLParam(r, "serverID")

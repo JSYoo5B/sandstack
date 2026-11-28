@@ -71,6 +71,7 @@ func Register(
 	deleteKeyPair := h.withProject(h.deleteKeyPair)
 	listActions := h.withProject(h.listServerActions)
 	showAction := h.withProject(h.showServerAction)
+	listSecurityGroups := h.withProject(h.listServerSecurityGroups)
 	for _, prefix := range []string{Path, Path + "/{projectID}"} {
 		server := prefix + "/servers/{serverID}"
 		router.Get(server, show)
@@ -86,6 +87,7 @@ func Register(
 		router.Delete(item, deleteMetadatum)
 		router.Get(server+"/os-instance-actions", listActions)
 		router.Get(server+"/os-instance-actions/{requestID}", showAction)
+		router.Get(server+"/os-security-groups", listSecurityGroups)
 		router.Get(prefix+"/servers", listBasic)
 		router.Post(prefix+"/servers", create)
 		router.Get(prefix+"/servers/detail", list)

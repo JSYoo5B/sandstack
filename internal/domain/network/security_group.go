@@ -1,6 +1,12 @@
 package network
 
-import "net/netip"
+import (
+	"errors"
+	"net/netip"
+)
+
+var ErrSecurityGroupConflict = errors.New(
+	"cannot apply both stateful and stateless security groups on the same port")
 
 type SecurityGroup struct {
 	ID          string

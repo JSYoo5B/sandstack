@@ -268,6 +268,10 @@ See [Snapshot servers in the Compute sandbox](compute-snapshots.md).
 
 See [Rebuild a server](compute-servers.md#rebuild-a-server).
 
+## Change a server's security groups
+
+See [Change a server's security groups](compute-servers.md#change-a-servers-security-groups).
+
 ## Resize a server
 
 See [Resize servers in the Compute sandbox](compute-resize.md).

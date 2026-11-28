@@ -20,7 +20,7 @@ const (
 var (
 	ErrSecurityGroupNotFound      = errors.New("security group not found")
 	ErrSecurityGroupInUse         = errors.New("security group is bound to a port")
-	ErrSecurityGroupConflict      = errors.New("cannot apply both stateful and stateless security groups on the same port")
+	ErrSecurityGroupConflict      = domain.ErrSecurityGroupConflict
 	ErrSecurityGroupDefaultName   = errors.New("the default security group name is reserved")
 	ErrSecurityGroupDefaultDelete = errors.New("the default security group cannot be deleted")
 )
