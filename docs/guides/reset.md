@@ -5,9 +5,9 @@ test case can use the same endpoint. It invalidates all issued Identity
 tokens and restores the original fixture values and timestamps. It also
 removes [application credentials](identity-application-credentials.md),
 [Nova servers](compute-servers.md), Nova key pairs, Glance image members,
-networks, subnets, ports, routers, volumes, volume snapshots, and volume
-backups created by clients, including pending backup creations and
-restores. Reset also restores a deleted fixture server, stops holding
+networks, subnets, ports, routers, volumes, volume snapshots, volume
+backups, and volume transfers created by clients, including pending
+backup creations and restores. Reset also restores a deleted fixture server, stops holding
 server builds and [server snapshots](compute-snapshots.md), and clears volume attachments, server locks,
 [server action history](compute-actions.md) except the fixture `create`
 record, replaced [console output](compute-console.md), service faults,

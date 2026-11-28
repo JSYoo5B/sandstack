@@ -194,6 +194,10 @@ See [Merge snapshot metadata](volume-snapshots.md#merge-snapshot-metadata).
 
 See [Back up and restore a volume](volume-backups.md).
 
+## Transfer a volume
+
+See [Transfer a volume](volume-transfers.md).
+
 ## Read the attachment state
 
 After [Nova attaches a volume](compute.md#attach-and-detach-a-cinder-volume),
@@ -202,7 +206,7 @@ volume ID, assigned device, and attachment timestamp. The `id` is the volume
 ID and `attachment_id` identifies this particular attachment. An `in-use`
 volume returns `400` on Cinder delete and `409` when the volume fault control
 tries to set it to `error`. The fault control also returns `409` for a
-volume in `backing-up` or `restoring-backup`. After detach, the volume
+volume in `backing-up`, `restoring-backup`, or `awaiting-transfer`. After detach, the volume
 becomes `available` with an empty `attachments` array. See the [volume details reference].
 
 ## Extend an available volume

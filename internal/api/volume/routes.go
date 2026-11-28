@@ -58,6 +58,13 @@ func Register(
 	router.Get(backups+"/{backupID}", h.withProject(withoutQuery(h.showBackup)))
 	router.Delete(backups+"/{backupID}", h.withProject(withoutQuery(h.deleteBackup)))
 	router.Post(backups+"/{backupID}/restore", h.withProject(withoutQuery(h.restoreBackup)))
+	transfers := Path + "/{projectID}/" + transferCollection
+	router.Get(transfers, h.withProject(withoutQuery(h.listTransfers(false))))
+	router.Get(transfers+"/detail", h.withProject(withoutQuery(h.listTransfers(true))))
+	router.Post(transfers, h.withProject(withoutQuery(h.createTransfer)))
+	router.Get(transfers+"/{transferID}", h.withProject(withoutQuery(h.showTransfer)))
+	router.Delete(transfers+"/{transferID}", h.withProject(withoutQuery(h.deleteTransfer)))
+	router.Post(transfers+"/{transferID}/accept", h.withProject(withoutQuery(h.acceptTransfer)))
 	metadata := snapshots + "/{snapshotID}/metadata"
 	router.Get(metadata, h.withProject(withoutQuery(h.showSnapshotMetadata)))
 	router.Put(metadata, h.withProject(withoutQuery(changeSnapshotMetadata(service.ReplaceSnapshotMetadata))))

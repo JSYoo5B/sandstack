@@ -3,6 +3,7 @@ package server
 import (
 	"crypto/rand"
 	"encoding/base64"
+	"encoding/hex"
 	"fmt"
 	"math/big"
 	"net/http"
@@ -94,7 +95,7 @@ func New(config Config) (http.Handler, error) {
 		Size:      1,
 		CreatedAt: created,
 		UpdatedAt: created,
-	}, now, randomUUID, imageService)
+	}, now, randomUUID, imageService).WithTransferKeys(randomTransferKey)
 	serverFixture := compute.Server{
 		ID:        "d8ba25c2-8224-4e09-88ef-fab16c654770",
 		Name:      "fixture-server",
@@ -216,6 +217,16 @@ func randomIndex(n int) int {
 		return 0
 	}
 	return int(value.Int64())
+}
+
+const transferKeyLength = 16
+
+func randomTransferKey() string {
+	var entropy [transferKeyLength / 2]byte
+	if _, err := rand.Read(entropy[:]); err != nil {
+		return ""
+	}
+	return hex.EncodeToString(entropy[:])
 }
 
 func computeRequestID() string {

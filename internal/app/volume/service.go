@@ -30,6 +30,8 @@ type Service struct {
 	volumes            map[string]domain.Volume
 	snapshots          map[string]domain.Snapshot
 	backups            map[string]domain.Backup
+	transfers          map[string]domain.Transfer
+	newAuthKey         func() string
 	attachmentVolumes  map[string]string
 	extensions         map[string]int
 	unavailableDetails sync.Map
@@ -101,6 +103,9 @@ func (s *Service) allocateID() (string, error) {
 			continue
 		}
 		if _, exists := s.backups[id]; exists {
+			continue
+		}
+		if _, exists := s.transfers[id]; exists {
 			continue
 		}
 		return id, nil
@@ -187,7 +192,8 @@ func (s *Service) SetFailed(volumeID string, failed bool) error {
 	}
 	switch {
 	case failed && (volume.State == domain.StateInUse || volume.State == domain.StateExtending ||
-		volume.State == domain.StateBackingUp || volume.State == domain.StateRestoringBackup):
+		volume.State == domain.StateBackingUp || volume.State == domain.StateRestoringBackup ||
+		volume.State == domain.StateAwaitingTransfer):
 		return ErrVolumeStateConflict
 	case failed && (volume.State == domain.StateCreating || volume.State == domain.StateAvailable):
 		volume.BootableOnProvision = false
@@ -210,6 +216,7 @@ func (s *Service) Reset() {
 	s.volumes = map[string]domain.Volume{s.seed.ID: s.seed}
 	s.snapshots = make(map[string]domain.Snapshot)
 	s.backups = make(map[string]domain.Backup)
+	s.transfers = make(map[string]domain.Transfer)
 	s.attachmentVolumes = make(map[string]string)
 	s.extensions = make(map[string]int)
 	s.unavailableDetails.Clear()
