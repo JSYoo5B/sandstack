@@ -11,7 +11,7 @@ import (
 	appcompute "github.com/JSYoo5B/sandstack/internal/app/compute"
 )
 
-const actionFault = "Expected a single os-start, os-stop, reboot, pause, unpause, suspend, or resume action."
+const actionFault = "Expected a single os-start, os-stop, reboot, pause, unpause, suspend, resume, lock, or unlock action."
 
 func (h handler) changeServerPower(w http.ResponseWriter, r *http.Request, scope requestScope) {
 	data, ok := readRequestBody(w, r, "server action")
@@ -45,6 +45,10 @@ func (h handler) changeServerPower(w http.ResponseWriter, r *http.Request, scope
 		err = h.service.Suspend(scope.projectID, serverID)
 	case actions["resume"] != nil:
 		err = h.service.Resume(scope.projectID, serverID)
+	case actions["lock"] != nil:
+		err = h.service.Lock(scope.projectID, serverID)
+	case actions["unlock"] != nil:
+		err = h.service.Unlock(scope.projectID, serverID)
 	default:
 		writeFault(w, http.StatusBadRequest, "badRequest", actionFault)
 		return
@@ -52,7 +56,7 @@ func (h handler) changeServerPower(w http.ResponseWriter, r *http.Request, scope
 	switch {
 	case errors.Is(err, appcompute.ErrServerNotFound):
 		writeFault(w, http.StatusNotFound, "itemNotFound", "The server could not be found.")
-	case errors.Is(err, appcompute.ErrServerPowerState):
+	case errors.Is(err, appcompute.ErrServerPowerState), errors.Is(err, appcompute.ErrServerLocked):
 		writeFault(w, http.StatusConflict, "conflictingRequest", err.Error())
 	case err != nil:
 		writeFault(w, http.StatusInternalServerError, "computeFault", "Unable to change the server's power state.")

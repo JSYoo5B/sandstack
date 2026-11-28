@@ -108,7 +108,7 @@ func writeAttachmentError(w http.ResponseWriter, err error) {
 	case errors.Is(err, appvolume.ErrAttachmentNotFound):
 		writeFault(w, http.StatusNotFound, "itemNotFound", "The volume attachment could not be found.")
 	case errors.Is(err, appvolume.ErrVolumeStateConflict), errors.Is(err, appvolume.ErrAttachmentDeviceConflict),
-		errors.Is(err, appcompute.ErrServerAttachmentState):
+		errors.Is(err, appcompute.ErrServerAttachmentState), errors.Is(err, appcompute.ErrServerLocked):
 		writeFault(w, http.StatusConflict, "conflictingRequest", err.Error())
 	case errors.Is(err, appvolume.ErrInvalidAttachmentDevice):
 		writeFault(w, http.StatusBadRequest, "badRequest", err.Error())

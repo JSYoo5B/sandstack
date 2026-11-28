@@ -49,6 +49,9 @@ func (s *Service) writeMetadata(
 	if s.server.ProjectID != projectID || s.server.ID != serverID {
 		return nil, ErrServerNotFound
 	}
+	if s.server.Locked {
+		return nil, ErrServerLocked
+	}
 	if !slices.Contains(metadataWriteStates, s.server.Status()) {
 		return nil, ErrServerMetadataState
 	}

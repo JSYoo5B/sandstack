@@ -21,6 +21,7 @@ type Server struct {
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	State     Status
+	Locked    bool
 	Fault     *Fault
 	Metadata  map[string]string
 }

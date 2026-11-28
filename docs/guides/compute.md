@@ -183,6 +183,43 @@ detachment with `409`. Detaching a volume that is not attached returns
 [Nova detach request order]. Existing attachments, stale detail
 snapshots, and scheduled detail failures remain in place.
 
+## Lock and unlock a server
+
+Use `servers.Lock` and `servers.Unlock` with the fixture server ID in
+Gophercloud v2.15.0. They send `POST /servers/{server_id}/action` with
+`{"lock":null}` or `{"unlock":null}`. Nova v2.1 accepts any value for the
+action key. A `locked_reason` requires microversion 2.73, so SandStack
+accepts and ignores it. A second action key or an extra field returns
+`400`. An accepted action returns `202` with an empty body. See the [Nova
+lock reference], [Nova unlock reference], [Nova lock schema], and
+[Gophercloud lock operations].
+
+Lock and unlock work in any server state, including an injected `ERROR`.
+Repeating lock leaves the server unchanged. Unlock succeeds on an unlocked
+server and updates the server timestamp each time it runs. Lock updates
+the timestamp when it locks the server. See the [Nova lock operations].
+
+A locked server rejects requests from the fixture project with `409`
+`conflictingRequest`. The lock applies to stop, start, reboot, pause,
+unpause, suspend, resume, metadata writes, and volume attachment and
+detachment. Nova checks the lock before the server state. Deleting a
+missing metadata item or detaching a volume that is not attached returns
+`404` before the lock check. Rename and reads are unaffected. See the
+[Nova lock check], [Nova detach request order], and [Nova metadata delete
+order].
+
+Nova records whether the owner or an administrator set the lock. The
+fixture project owns the server, so its token can always unlock a lock it
+set. SandStack has no administrator role for Compute requests and does not
+model administrator locks or the `unlock_override` policy. See the [Nova
+lock policies].
+
+Nova reports `locked` in server detail from microversion 2.9 and
+`locked_reason` from 2.73. SandStack serves v2.1, so responses omit both
+fields and Gophercloud leaves `Server.Locked` nil. Check the lock through a
+guarded action that returns `409`. See the [Nova lock representation].
+Reset unlocks the server.
+
 ## Attach and detach a Cinder volume
 
 Use Gophercloud's `volumeattach.Create` with the fixture server ID and an
@@ -204,7 +241,7 @@ shows the corresponding `in-use` state in Cinder. A stopped server stays
 `SHUTOFF` after attachment. `volumeattach.Delete` returns `202` and removes
 the attachment immediately, making the volume `available` again. Existing
 attachments remain readable and detachable while the server reports `ERROR`.
-Detaching from a `SUSPENDED` server returns `409`.
+Detaching from a `SUSPENDED` or locked server returns `409`.
 Attachment operations leave server detail faults pending. Reset clears the
 attachments. See the [Nova volume attachment reference].
 
@@ -248,6 +285,11 @@ The suspend tests use the SDK to check the suspended state through detail
 and the `SUSPENDED` filter, conflicts with power and detach actions, and
 hard reboot recovery. Raw HTTP also checks the attachment conflict and the
 `404` for detaching a volume that is not attached.
+The lock tests use the SDK to check conflicts for power, metadata, and
+detach requests, rename while locked, the missing `locked` field, unlock,
+and reset. Raw HTTP checks the action schema, `202` empty responses, `409`
+faults for guarded actions, and `404` ordering against the pinned Nova
+source.
 The rename tests compare the Nova v2.1 update response with SDK detail and
 list reads and check that a pending detail outage still fires.
 The name filter test uses Gophercloud to find the renamed fixture and
@@ -295,6 +337,15 @@ The raw HTTP checks follow the [Compute list reference] and
 [Nova detach request order]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/api/openstack/compute/volume_attachments.py#L394-L440
 [Gophercloud suspend operations]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/compute/v2/servers/requests.go#L1393-L1405
 [Gophercloud server actions]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/compute/v2/servers/requests.go#L1379-L1391
+[Nova lock reference]: https://docs.openstack.org/api-ref/compute/#lock-server-lock-action
+[Nova unlock reference]: https://docs.openstack.org/api-ref/compute/#unlock-server-unlock-action
+[Nova lock schema]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/api/openstack/compute/schemas/lock_server.py#L13-L47
+[Nova lock operations]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/compute/api.py#L5046-L5098
+[Nova lock check]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/compute/api.py#L247-L253
+[Nova metadata delete order]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/api/openstack/compute/server_metadata.py#L147-L169
+[Nova lock policies]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/api/openstack/compute/lock_server.py#L52-L67
+[Nova lock representation]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/api/openstack/compute/views/servers.py#L410-L452
+[Gophercloud lock operations]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/compute/v2/servers/requests.go#L1174-L1186
 [Nova volume attachment reference]: https://docs.openstack.org/api-ref/compute/#attach-a-volume-to-an-instance
 [Nova attachment state checks]: https://github.com/openstack/nova/blob/18898d20148c48b4671dbae0a461d723859380c5/nova/compute/api.py#L5225-L5230
 [Nova attachment representation]: https://github.com/openstack/nova/blob/master/nova/api/openstack/compute/views/servers.py#L709-L727

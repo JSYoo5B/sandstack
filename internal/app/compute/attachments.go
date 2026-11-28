@@ -39,6 +39,9 @@ func (a *Attachments) Attach(projectID, serverID, volumeID, device string) (volu
 	// Hold the live server state steady until the volume mutation completes.
 	a.compute.mu.RLock()
 	defer a.compute.mu.RUnlock()
+	if a.compute.server.Locked {
+		return volumedomain.Attachment{}, ErrServerLocked
+	}
 	if !slices.Contains(attachStates, a.compute.server.Status()) {
 		return volumedomain.Attachment{}, ErrServerAttachmentState
 	}
@@ -66,9 +69,13 @@ func (a *Attachments) Detach(projectID, serverID, volumeID string) error {
 
 	a.compute.mu.RLock()
 	defer a.compute.mu.RUnlock()
-	if a.compute.server.Status() == computedomain.StatusSuspended {
+	server := a.compute.server
+	if server.Locked || server.Status() == computedomain.StatusSuspended {
 		if _, err := a.volumes.GetAttachment(projectID, serverID, volumeID); err != nil {
 			return err
+		}
+		if server.Locked {
+			return ErrServerLocked
 		}
 		return ErrServerAttachmentState
 	}

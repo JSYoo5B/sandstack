@@ -38,6 +38,9 @@ func (s *Service) DeleteMetadatum(projectID, serverID, key string) error {
 	if _, found := s.server.Metadata[key]; !found {
 		return ErrServerMetadatumNotFound
 	}
+	if s.server.Locked {
+		return ErrServerLocked
+	}
 	if !slices.Contains(metadataWriteStates, s.server.Status()) {
 		return ErrServerMetadataState
 	}

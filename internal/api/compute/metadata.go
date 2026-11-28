@@ -48,7 +48,7 @@ func writeMetadataResult(w http.ResponseWriter, status int, body any, err error)
 		writeFault(w, http.StatusNotFound, "itemNotFound", "The server could not be found.")
 	case errors.Is(err, appcompute.ErrServerMetadatumNotFound):
 		writeFault(w, http.StatusNotFound, "itemNotFound", "The metadata item could not be found.")
-	case errors.Is(err, appcompute.ErrServerMetadataState):
+	case errors.Is(err, appcompute.ErrServerMetadataState), errors.Is(err, appcompute.ErrServerLocked):
 		writeFault(w, http.StatusConflict, "conflictingRequest", err.Error())
 	case errors.Is(err, appcompute.ErrServerMetadataQuota):
 		writeFault(w, http.StatusForbidden, "forbidden", err.Error())

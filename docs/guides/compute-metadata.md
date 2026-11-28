@@ -21,7 +21,9 @@ Nova's default limit of 128 entries per server. Exceeding it returns
 
 Read metadata in any fixture state. Replace it while the server is
 `ACTIVE`, `PAUSED`, `SUSPENDED`, or `SHUTOFF`. A replacement while the
-server reports an injected `ERROR` returns `409`. Use the detailed list or
+server reports an injected `ERROR` or is
+[locked](compute.md#lock-and-unlock-a-server) returns `409`. Use the
+detailed list or
 ordinary detail to read the same metadata fields. A stale detail snapshot
 keeps the earlier map. The metadata endpoint operates on live state and
 leaves a scheduled detail failure pending. SandStack updates the server

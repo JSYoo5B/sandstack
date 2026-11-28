@@ -50,6 +50,9 @@ func (s *Service) transition(projectID, serverID string, target domain.Status, a
 	if s.server.ProjectID != projectID || s.server.ID != serverID {
 		return ErrServerNotFound
 	}
+	if s.server.Locked {
+		return ErrServerLocked
+	}
 	if !slices.Contains(allowed, s.server.Status()) {
 		return ErrServerPowerState
 	}
