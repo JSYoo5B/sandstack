@@ -116,6 +116,10 @@ including every tag value. SandStack emits `next` relative to the Image
 catalog endpoint, as expected by Gophercloud v2.15.0. See the [Glance image
 list serializer] and [Gophercloud image next links].
 
+## Share an image with another project
+
+See [Image members in the Glance sandbox](image-members.md).
+
 ## Discover image schemas
 
 Follow the `schema` link in an image detail or list response using the

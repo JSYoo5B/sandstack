@@ -36,12 +36,20 @@ func Register(
 	router.Post(imageListPath, h.withProject(h.createImage))
 	router.Get(imageSchemaPath, h.withProject(showSchema(imageSchema)))
 	router.Get(imageListSchemaPath, h.withProject(showSchema(imageListSchema)))
+	router.Get(memberSchemaPath, h.withProject(showSchema(memberSchema)))
+	router.Get(memberListSchemaPath, h.withProject(showSchema(memberListSchema)))
 	resource := Path + "/images/{imageID}"
 	router.Get(resource, h.withProject(h.showImage))
 	router.Patch(resource, h.withProject(h.updateImage))
 	router.Delete(resource, h.withProject(h.deleteImage))
 	router.Get(resource+"/file", h.withProject(h.downloadImage))
 	router.Put(resource+"/file", h.withProject(h.uploadImage))
+	router.Get(resource+"/members", h.withProject(h.listMembers))
+	router.Post(resource+"/members", h.withProject(h.addMember))
+	member := resource + "/members/{memberID}"
+	router.Get(member, h.withProject(h.showMember))
+	router.Put(member, h.withProject(h.updateMember))
+	router.Delete(member, h.withProject(h.removeMember))
 }
 
 func (h handler) withProject(next func(http.ResponseWriter, *http.Request, string)) http.HandlerFunc {

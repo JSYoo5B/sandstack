@@ -23,6 +23,7 @@ type Service struct {
 	images              map[string]domain.Image
 	deletedIDs          map[string]struct{}
 	payloads            map[string]string
+	members             map[string]map[string]domain.Member
 	now                 func() time.Time
 	seedData            string
 	newID               func() string
@@ -100,6 +101,7 @@ func (s *Service) Delete(projectID, imageID string) error {
 	}
 	delete(s.images, imageID)
 	delete(s.payloads, imageID)
+	delete(s.members, imageID)
 	if imageID == s.seed.ID {
 		s.downloadUnavailable = false
 	} else {
@@ -185,6 +187,7 @@ func (s *Service) Reset() {
 	s.images = map[string]domain.Image{s.seed.ID: s.seed}
 	s.payloads = map[string]string{s.seed.ID: s.seedData}
 	s.deletedIDs = make(map[string]struct{})
+	s.members = make(map[string]map[string]domain.Member)
 	s.downloadUnavailable = false
 }
 

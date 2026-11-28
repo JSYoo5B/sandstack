@@ -20,7 +20,7 @@ type schemaBody struct {
 	Name                 string                `json:"name"`
 	Properties           map[string]schemaType `json:"properties"`
 	AdditionalProperties *schemaType           `json:"additionalProperties,omitempty"`
-	Links                []schemaLink          `json:"links"`
+	Links                []schemaLink          `json:"links,omitempty"`
 }
 
 type schemaLink struct {
@@ -75,6 +75,30 @@ var imageListSchema = schemaBody{
 		{Rel: "next", Href: "{next}"},
 		{Rel: "describedby", Href: "{schema}"},
 	},
+}
+
+var memberSchema = schemaBody{
+	Name: "member",
+	Properties: map[string]schemaType{
+		"member_id": {Type: "string"},
+		"image_id": {
+			Type:    "string",
+			Pattern: "^([0-9a-fA-F]){8}-([0-9a-fA-F]){4}-([0-9a-fA-F]){4}-([0-9a-fA-F]){4}-([0-9a-fA-F]){12}$",
+		},
+		"created_at": {Type: "string"},
+		"updated_at": {Type: "string"},
+		"status":     {Type: "string", Enum: []any{"pending", "accepted", "rejected"}},
+		"schema":     {Type: "string", ReadOnly: true},
+	},
+}
+
+var memberListSchema = schemaBody{
+	Name: "members",
+	Properties: map[string]schemaType{
+		"members": {Type: "array", Items: memberSchema},
+		"schema":  {Type: "string"},
+	},
+	Links: []schemaLink{{Rel: "describedby", Href: "{schema}"}},
 }
 
 func showSchema(schema schemaBody) func(http.ResponseWriter, *http.Request, string) {

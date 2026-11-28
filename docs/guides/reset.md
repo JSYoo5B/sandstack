@@ -3,7 +3,7 @@
 Reset returns a running sandbox to its starting fixture state so the next
 test case can use the same endpoint. It invalidates all issued Identity
 tokens and restores the original fixture values and timestamps. It also
-removes Nova key pairs, networks, subnets, ports, routers, volumes, and
+removes Nova key pairs, Glance image members, networks, subnets, ports, routers, volumes, and
 volume snapshots created by clients. Reset also clears volume attachments, server locks,
 [server action history](compute-actions.md) except the fixture `create`
 record, replaced [console output](compute-console.md), service faults,

@@ -4,7 +4,7 @@ SandStack is a lightweight OpenStack test sandbox with programmable faults.
 It runs as an ephemeral dependency for automated tests of OpenStack clients.
 The fixture supports Keystone authentication and catalog discovery.
 Nova covers server reads, power actions, locks, action history, console
-output, metadata, flavor lookup, volume attachment, and key pairs. Glance covers image creation, upload, download, and deletion.
+output, metadata, flavor lookup, volume attachment, and key pairs. Glance covers image creation, upload, download, deletion, and sharing.
 Lifecycle operations cover Neutron networks, IPv4 subnets, ports, and
 logical routers, as well as Cinder volumes and snapshots.
 Tests can alter fixture state, observe stale reads, and reset the sandbox
@@ -37,7 +37,8 @@ links to the [fault controls](docs/guides/compute-faults.md),
 [console output guide](docs/guides/compute-console.md). The
 [Networking guide](docs/guides/network.md) covers Neutron resources and
 network downtime. The [Image guide](docs/guides/image.md) covers Glance
-downloads and image deactivation. The [Block Storage guide](docs/guides/volume.md)
+downloads and image deactivation and links to the
+[member guide](docs/guides/image-members.md). The [Block Storage guide](docs/guides/volume.md)
 covers provisioning, metadata, and errors, with a separate
 [snapshot guide](docs/guides/volume-snapshots.md).
 [Inspect recent requests](docs/guides/requests.md) to verify what a client
