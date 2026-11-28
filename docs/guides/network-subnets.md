@@ -110,7 +110,8 @@ and an omitted key leaves that field unrestricted. Supply CIDRs as an
 address and prefix length. For a subnet with CIDR `192.0.2.0/24`,
 `192.0.2.0/24` matches and
 `192.0.2.10/24` returns no match. SandStack returns `400` for unsupported
-query keys and invalid CIDR or DHCP filter values. See the
+query keys and invalid CIDR or DHCP filter values. The
+[tag filters](network-tags.md#filter-lists-by-tag) also apply. See the
 [subnet list reference], [Neutron subnet schema], [Neutron filter parser],
 and [Neutron query filters].
 

@@ -108,11 +108,13 @@ func (s *Service) UpdateRouter(projectID, routerID string, changes RouterUpdate)
 type RouterListFilter struct {
 	Names       []string
 	AdminStates []bool
+	Tags        TagFilter
 }
 
 func (f RouterListFilter) matches(router domain.Router) bool {
 	return (len(f.Names) == 0 || slices.Contains(f.Names, router.Name)) &&
-		(len(f.AdminStates) == 0 || slices.Contains(f.AdminStates, router.AdminStateUp))
+		(len(f.AdminStates) == 0 || slices.Contains(f.AdminStates, router.AdminStateUp)) &&
+		f.Tags.matches(router.Tags)
 }
 
 // ListRouters returns the project's matching routers ordered by ID.
@@ -152,6 +154,7 @@ func (s *Service) ListRoutersPage(
 func cloneRouter(router domain.Router) domain.Router {
 	router.Routes = slices.Clone(router.Routes)
 	router.Gateway = cloneGateway(router.Gateway)
+	router.Tags = slices.Clone(router.Tags)
 	return router
 }
 

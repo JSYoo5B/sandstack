@@ -144,6 +144,7 @@ func (s *Service) GetPort(projectID, portID string) (domain.Port, error) {
 func clonePort(port domain.Port) domain.Port {
 	port.SecurityGroups = slices.Clone(port.SecurityGroups)
 	port.AllowedAddressPairs = slices.Clone(port.AllowedAddressPairs)
+	port.Tags = slices.Clone(port.Tags)
 	return port
 }
 
@@ -156,6 +157,7 @@ type PortListFilter struct {
 	DeviceOwners   []string
 	FixedAddresses []string
 	FixedSubnetIDs []string
+	Tags           TagFilter
 }
 
 func (f PortListFilter) matches(port domain.Port) bool {
@@ -168,7 +170,8 @@ func (f PortListFilter) matches(port domain.Port) bool {
 		(len(f.FixedAddresses) == 0 ||
 			(port.FixedIP.IsValid() && slices.Contains(f.FixedAddresses, port.FixedIP.String()))) &&
 		(len(f.FixedSubnetIDs) == 0 ||
-			(port.SubnetID != "" && slices.Contains(f.FixedSubnetIDs, port.SubnetID)))
+			(port.SubnetID != "" && slices.Contains(f.FixedSubnetIDs, port.SubnetID))) &&
+		f.Tags.matches(port.Tags)
 }
 
 func (s *Service) DeletePort(projectID, portID string) error {

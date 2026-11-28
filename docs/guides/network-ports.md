@@ -110,6 +110,7 @@ each key. Omit a key to leave it unrestricted. In a raw query, `name=`,
 `device_id=`, or `device_owner=` matches ports with the corresponding
 empty field. A malformed ID that decodes successfully matches no ports.
 An invalid `admin_state_up` value returns `400` with `InvalidInput`.
+The [tag filters](network-tags.md#filter-lists-by-tag) also apply.
 Unsupported query keys return `400`. See the [port list reference],
 [Neutron port filter schema], and [Neutron filtering reference].
 

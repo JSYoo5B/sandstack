@@ -15,7 +15,7 @@ func parsePortListQuery(query url.Values) (app.PortListFilter, error) {
 	for key := range query {
 		switch key {
 		case "id", "name", "admin_state_up", "network_id", "device_id", "device_owner", "fixed_ips",
-			"limit", "marker", "page_reverse", "sort_key", "sort_dir":
+			"limit", "marker", "page_reverse", "sort_key", "sort_dir", "tags", "tags-any", "not-tags", "not-tags-any":
 		default:
 			return app.PortListFilter{}, errors.New("The port list query contains an unsupported parameter.")
 		}
@@ -31,6 +31,7 @@ func parsePortListQuery(query url.Values) (app.PortListFilter, error) {
 		NetworkIDs:   query["network_id"],
 		DeviceIDs:    query["device_id"],
 		DeviceOwners: query["device_owner"],
+		Tags:         parseTagFilter(query),
 	}
 	for _, entry := range query["fixed_ips"] {
 		key, value, ok := strings.Cut(entry, "=")

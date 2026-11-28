@@ -22,6 +22,7 @@ type routerBody struct {
 	Status              string             `json:"status"`
 	ExternalGatewayInfo *routerGatewayBody `json:"external_gateway_info"`
 	Routes              []routerRouteBody  `json:"routes"`
+	Tags                []string           `json:"tags"`
 }
 
 type routerGatewayBody struct {
@@ -72,6 +73,7 @@ func describeRouter(router domain.Router) routerBody {
 		Status:              "ACTIVE",
 		ExternalGatewayInfo: gateway,
 		Routes:              routes,
+		Tags:                describeTags(router.Tags),
 	}
 }
 

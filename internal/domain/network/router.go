@@ -10,6 +10,7 @@ type Router struct {
 	AdminStateUp bool
 	Routes       []RouterRoute
 	Gateway      *RouterGateway
+	Tags         []string
 }
 
 type RouterGateway struct {

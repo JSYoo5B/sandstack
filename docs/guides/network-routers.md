@@ -36,7 +36,8 @@ and [Neutron response attribute filtering]. A new router starts with
 Filter the token's routers by exact `name` or `admin_state_up`. A repeated
 key matches any of its values. Supplying both keys requires both fields
 to match. Omitted keys leave those fields unrestricted. SandStack accepts
-these filters and the pagination options below. A `status` query returns
+these filters, the [tag filters](network-tags.md#filter-lists-by-tag), and
+the pagination options below. A `status` query returns
 `400`. The fixture reports operational `status: ACTIVE` for both
 administrative states. See the [router list reference] and [Neutron router
 filter schema].

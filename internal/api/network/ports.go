@@ -27,6 +27,7 @@ type portBody struct {
 	SecurityGroups []string      `json:"security_groups"`
 	PortSecurity   bool          `json:"port_security_enabled"`
 	AddressPairs   []addressPair `json:"allowed_address_pairs"`
+	Tags           []string      `json:"tags"`
 }
 
 type addressPair struct {
@@ -71,6 +72,7 @@ func describePort(port domain.Port) portBody {
 		SecurityGroups: securityGroups,
 		PortSecurity:   !port.PortSecurityDisabled,
 		AddressPairs:   addressPairs,
+		Tags:           describeTags(port.Tags),
 	}
 }
 

@@ -152,6 +152,7 @@ type FloatingIPListFilter struct {
 	Statuses          []string
 	FixedAddresses    []string
 	FloatingAddresses []string
+	Tags              TagFilter
 }
 
 func (f FloatingIPListFilter) matches(floatingIP domain.FloatingIP) bool {
@@ -162,7 +163,8 @@ func (f FloatingIPListFilter) matches(floatingIP domain.FloatingIP) bool {
 		(len(f.Statuses) == 0 || slices.Contains(f.Statuses, floatingIP.Status)) &&
 		(len(f.FixedAddresses) == 0 ||
 			(floatingIP.FixedIP.IsValid() && slices.Contains(f.FixedAddresses, floatingIP.FixedIP.String()))) &&
-		(len(f.FloatingAddresses) == 0 || slices.Contains(f.FloatingAddresses, floatingIP.FloatingAddress.String()))
+		(len(f.FloatingAddresses) == 0 || slices.Contains(f.FloatingAddresses, floatingIP.FloatingAddress.String())) &&
+		f.Tags.matches(floatingIP.Tags)
 }
 
 func (s *Service) ListFloatingIPs(projectID string, filter FloatingIPListFilter) []domain.FloatingIP {

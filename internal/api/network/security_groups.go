@@ -20,6 +20,7 @@ type securityGroupBody struct {
 	Stateful    bool                    `json:"stateful"`
 	Shared      bool                    `json:"shared"`
 	Rules       []securityGroupRuleBody `json:"security_group_rules"`
+	Tags        []string                `json:"tags"`
 }
 
 type securityGroupRuleBody struct {
@@ -52,7 +53,7 @@ func (h handler) listSecurityGroups(w http.ResponseWriter, r *http.Request, proj
 	}
 	for field := range query {
 		switch field {
-		case "id", "name", "tenant_id", "project_id":
+		case "id", "name", "tenant_id", "project_id", "tags", "tags-any", "not-tags", "not-tags-any":
 		default:
 			writeError(w, http.StatusBadRequest, "BadRequest", "The security group list query contains an unsupported filter.")
 			return
@@ -64,6 +65,7 @@ func (h handler) listSecurityGroups(w http.ResponseWriter, r *http.Request, proj
 	}
 	groups := h.service.ListSecurityGroups(projectID, app.SecurityGroupFilter{
 		IDs: query["id"], Names: query["name"], ProjectIDs: query["project_id"], TenantIDs: tenantIDs,
+		Tags: parseTagFilter(query),
 	})
 	items := make([]securityGroupBody, len(groups))
 	for i, group := range groups {
@@ -99,6 +101,7 @@ func describeSecurityGroup(group domain.SecurityGroup) securityGroupBody {
 		TenantID:    group.ProjectID,
 		Stateful:    group.Stateful,
 		Rules:       rules,
+		Tags:        describeTags(group.Tags),
 	}
 }
 

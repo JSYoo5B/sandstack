@@ -14,7 +14,8 @@ var errSubnetListDHCP = errors.New("the subnet list enable_dhcp filter requires 
 func parseSubnetListQuery(query url.Values) (app.SubnetListFilter, error) {
 	for field := range query {
 		switch field {
-		case "id", "name", "network_id", "cidr", "gateway_ip", "enable_dhcp", "limit", "marker", "page_reverse":
+		case "id", "name", "network_id", "cidr", "gateway_ip", "enable_dhcp", "limit", "marker", "page_reverse",
+			"tags", "tags-any", "not-tags", "not-tags-any":
 		default:
 			return app.SubnetListFilter{}, errors.New("the subnet list query contains an unsupported parameter")
 		}
@@ -24,6 +25,7 @@ func parseSubnetListQuery(query url.Values) (app.SubnetListFilter, error) {
 		Names:      query["name"],
 		NetworkIDs: query["network_id"],
 		GatewayIPs: query["gateway_ip"],
+		Tags:       parseTagFilter(query),
 	}
 	for _, value := range query["cidr"] {
 		prefix, err := netip.ParsePrefix(value)

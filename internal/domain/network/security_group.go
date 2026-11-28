@@ -15,6 +15,7 @@ type SecurityGroup struct {
 	ProjectID   string
 	Stateful    bool
 	Rules       []SecurityGroupRule
+	Tags        []string
 }
 
 type SecurityGroupRule struct {

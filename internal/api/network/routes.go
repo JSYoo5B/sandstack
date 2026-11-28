@@ -77,6 +77,7 @@ func Register(
 		h.withProject(withEmptyQuery(changeRouterRoutes(h.service.AddRouterRoutes))))
 	router.Put(Path+"/routers/{routerID}/remove_extraroutes",
 		h.withProject(withEmptyQuery(changeRouterRoutes(h.service.RemoveRouterRoutes))))
+	h.registerTags(router)
 }
 
 func (h handler) withProject(next projectHandler) http.HandlerFunc {

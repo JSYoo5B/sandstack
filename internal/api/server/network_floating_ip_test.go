@@ -88,6 +88,7 @@ func TestGophercloudAssociatesFloatingIPWithServerPort(t *testing.T) {
 		ProjectID:         projectID,
 		Status:            "DOWN",
 		RouterID:          resources.routerID,
+		Tags:              []string{},
 	}, *created)
 	active := *created
 	active.Status = "ACTIVE"
@@ -271,7 +272,7 @@ func TestFloatingIPWire(t *testing.T) {
 		return fmt.Sprintf(`{"floatingip":{
 			"id":%q,"project_id":%q,"tenant_id":%q,"description":"",
 			"floating_network_id":%q,"floating_ip_address":"203.0.113.3",
-			"router_id":%q,"port_id":%q,"fixed_ip_address":%q,"status":%q
+			"router_id":%q,"port_id":%q,"fixed_ip_address":%q,"status":%q,"tags":[]
 		}}`, floatingIPID, projectID, projectID, resources.externalNetworkID,
 			resources.routerID, resources.portID, resources.fixedIP, status)
 	}
@@ -369,7 +370,7 @@ func TestFloatingIPWire(t *testing.T) {
 	assert.JSONEq(t, fmt.Sprintf(`{"floatingip":{
 		"id":%q,"project_id":%q,"tenant_id":%q,"description":"idle",
 		"floating_network_id":%q,"floating_ip_address":"203.0.113.3",
-		"router_id":null,"port_id":null,"fixed_ip_address":null,"status":"ACTIVE"
+		"router_id":null,"port_id":null,"fixed_ip_address":null,"status":"ACTIVE","tags":[]
 	}}`, floatingIPID, projectID, projectID, resources.externalNetworkID), string(body))
 	status, body = send(http.MethodGet, path, "")
 	require.Equal(t, http.StatusOK, status, "%s", body)

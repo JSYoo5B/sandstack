@@ -94,7 +94,9 @@ Filter by `id`, `floating_network_id`, `port_id`, `router_id`, `status`,
 `fixed_ip_address`, or `floating_ip_address`. Matches are exact. A repeated
 key matches any of its values, and different keys must all match.
 Unassociated floating IPs never match `port_id`, `router_id`, or
-`fixed_ip_address` filters. Other query parameters return `400`. In
+`fixed_ip_address` filters. The
+[tag filters](network-tags.md#filter-lists-by-tag) also apply.
+Other query parameters return `400`. In
 Gophercloud, set the matching fields in `floatingips.ListOpts`. See the
 [floating IP list reference].
 

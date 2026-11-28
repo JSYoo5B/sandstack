@@ -20,4 +20,5 @@ type FloatingIP struct {
 	FixedIP           netip.Addr
 	RouterID          string
 	Status            string
+	Tags              []string
 }

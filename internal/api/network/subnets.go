@@ -26,6 +26,7 @@ type subnetBody struct {
 	AllocationPools []allocationPool `json:"allocation_pools"`
 	DNSNameservers  []string         `json:"dns_nameservers"`
 	HostRoutes      []hostRouteBody  `json:"host_routes"`
+	Tags            []string         `json:"tags"`
 }
 
 type hostRouteBody struct {
@@ -73,6 +74,7 @@ func describeSubnet(subnet domain.Subnet) subnetBody {
 		AllocationPools: pools,
 		DNSNameservers:  nameservers,
 		HostRoutes:      hostRoutes,
+		Tags:            describeTags(subnet.Tags),
 	}
 }
 

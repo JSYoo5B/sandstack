@@ -173,6 +173,7 @@ type SubnetListFilter struct {
 	CIDRs      []netip.Prefix
 	GatewayIPs []string
 	DHCPStates []bool
+	Tags       TagFilter
 }
 
 func (f SubnetListFilter) matches(subnet domain.Subnet) bool {
@@ -183,7 +184,8 @@ func (f SubnetListFilter) matches(subnet domain.Subnet) bool {
 		(len(f.NetworkIDs) == 0 || slices.Contains(f.NetworkIDs, subnet.NetworkID)) &&
 		(len(f.CIDRs) == 0 || slices.Contains(f.CIDRs, subnet.CIDR)) &&
 		gatewayMatches &&
-		(len(f.DHCPStates) == 0 || slices.Contains(f.DHCPStates, subnet.EnableDHCP))
+		(len(f.DHCPStates) == 0 || slices.Contains(f.DHCPStates, subnet.EnableDHCP)) &&
+		f.Tags.matches(subnet.Tags)
 }
 
 // ListSubnets returns the matching subnets visible to the project ordered by ID.
@@ -217,6 +219,7 @@ func copySubnet(subnet domain.Subnet) domain.Subnet {
 	subnet.DNSNameservers = slices.Clone(subnet.DNSNameservers)
 	subnet.HostRoutes = slices.Clone(subnet.HostRoutes)
 	subnet.AllocationPools = slices.Clone(subnet.AllocationPools)
+	subnet.Tags = slices.Clone(subnet.Tags)
 	return subnet
 }
 

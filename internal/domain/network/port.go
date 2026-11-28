@@ -30,6 +30,7 @@ type Port struct {
 	SecurityGroups       []string
 	PortSecurityDisabled bool
 	AllowedAddressPairs  []AddressPair
+	Tags                 []string
 }
 
 func (p Port) Status() string { return "DOWN" }

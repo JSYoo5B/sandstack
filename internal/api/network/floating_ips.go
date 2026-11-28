@@ -25,16 +25,17 @@ var (
 )
 
 type floatingIPBody struct {
-	ID                string  `json:"id"`
-	ProjectID         string  `json:"project_id"`
-	TenantID          string  `json:"tenant_id"`
-	Description       string  `json:"description"`
-	FloatingNetworkID string  `json:"floating_network_id"`
-	FloatingIPAddress string  `json:"floating_ip_address"`
-	RouterID          *string `json:"router_id"`
-	PortID            *string `json:"port_id"`
-	FixedIPAddress    *string `json:"fixed_ip_address"`
-	Status            string  `json:"status"`
+	ID                string   `json:"id"`
+	ProjectID         string   `json:"project_id"`
+	TenantID          string   `json:"tenant_id"`
+	Description       string   `json:"description"`
+	FloatingNetworkID string   `json:"floating_network_id"`
+	FloatingIPAddress string   `json:"floating_ip_address"`
+	RouterID          *string  `json:"router_id"`
+	PortID            *string  `json:"port_id"`
+	FixedIPAddress    *string  `json:"fixed_ip_address"`
+	Status            string   `json:"status"`
+	Tags              []string `json:"tags"`
 }
 
 type floatingIPResponse struct {
@@ -63,6 +64,7 @@ func describeFloatingIP(floatingIP domain.FloatingIP) floatingIPBody {
 		PortID:            optional(floatingIP.PortID),
 		FixedIPAddress:    fixedIP,
 		Status:            floatingIP.Status,
+		Tags:              describeTags(floatingIP.Tags),
 	}
 }
 
@@ -184,11 +186,12 @@ func (h handler) listFloatingIPs(w http.ResponseWriter, r *http.Request, project
 		Statuses:          query["status"],
 		FixedAddresses:    query["fixed_ip_address"],
 		FloatingAddresses: query["floating_ip_address"],
+		Tags:              parseTagFilter(query),
 	}
 	for field := range query {
 		switch field {
 		case "id", "floating_network_id", "port_id", "router_id", "status", "fixed_ip_address",
-			"floating_ip_address", "limit", "marker", "page_reverse":
+			"floating_ip_address", "limit", "marker", "page_reverse", "tags", "tags-any", "not-tags", "not-tags-any":
 		default:
 			writeError(w, http.StatusBadRequest, "BadRequest",
 				"The floating IP list query contains an unsupported parameter.")

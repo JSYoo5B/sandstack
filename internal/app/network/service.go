@@ -41,6 +41,7 @@ type ListFilter struct {
 	Statuses    []string
 	AdminStates []bool
 	External    []bool
+	Tags        TagFilter
 }
 
 // New starts a service with one private network and its default security group.
@@ -124,7 +125,8 @@ func (s *Service) ListNetworksPage(projectID string, filter ListFilter, options 
 			(len(filter.External) > 0 && !slices.Contains(filter.External, network.External)) ||
 			(len(filter.Names) > 0 && !slices.Contains(filter.Names, network.Name)) ||
 			(len(filter.Statuses) > 0 && !slices.Contains(filter.Statuses, network.Status())) ||
-			(len(filter.AdminStates) > 0 && !slices.Contains(filter.AdminStates, !network.AdminDown)) {
+			(len(filter.AdminStates) > 0 && !slices.Contains(filter.AdminStates, !network.AdminDown)) ||
+			!filter.Tags.matches(network.Tags) {
 			continue
 		}
 		networks = append(networks, snapshot(network))
@@ -271,5 +273,6 @@ func (s *Service) Reset() {
 
 func snapshot(network domain.Network) domain.Network {
 	network.SubnetIDs = append([]string(nil), network.SubnetIDs...)
+	network.Tags = slices.Clone(network.Tags)
 	return network
 }

@@ -9,6 +9,7 @@ type Network struct {
 	External             bool
 	SubnetIDs            []string
 	PortSecurityDisabled bool
+	Tags                 []string
 }
 
 func (n Network) Status() string {

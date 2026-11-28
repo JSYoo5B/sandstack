@@ -13,6 +13,7 @@ type Subnet struct {
 	HostRoutes      []SubnetHostRoute
 	Gateway         netip.Addr
 	AllocationPools []AllocationPool
+	Tags            []string
 }
 
 type AllocationPool struct {

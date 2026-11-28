@@ -61,13 +61,15 @@ type SecurityGroupFilter struct {
 	Names      []string
 	ProjectIDs []string
 	TenantIDs  []string
+	Tags       TagFilter
 }
 
 func (f SecurityGroupFilter) matches(group domain.SecurityGroup) bool {
 	return (len(f.IDs) == 0 || slices.Contains(f.IDs, group.ID)) &&
 		(len(f.Names) == 0 || slices.Contains(f.Names, group.Name)) &&
 		(len(f.ProjectIDs) == 0 || slices.Contains(f.ProjectIDs, group.ProjectID)) &&
-		(len(f.TenantIDs) == 0 || slices.Contains(f.TenantIDs, group.ProjectID))
+		(len(f.TenantIDs) == 0 || slices.Contains(f.TenantIDs, group.ProjectID)) &&
+		f.Tags.matches(group.Tags)
 }
 
 func (s *Service) ListSecurityGroups(projectID string, filter SecurityGroupFilter) []domain.SecurityGroup {
@@ -194,6 +196,7 @@ func egressSecurityGroupRules(ipv4ID, ipv6ID string) []domain.SecurityGroupRule 
 
 func cloneSecurityGroup(group domain.SecurityGroup) domain.SecurityGroup {
 	group.Rules = slices.Clone(group.Rules)
+	group.Tags = slices.Clone(group.Tags)
 	return group
 }
 

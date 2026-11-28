@@ -21,7 +21,9 @@ List filters accept `id`, `name`, `project_id`, and `tenant_id`.
 Repeated values for the same filter are alternatives. When both project
 aliases are supplied, `project_id` takes precedence. A list with no
 matches returns `200` with an empty `security_groups` array. A missing
-group returns `404` on detail. See the [Gophercloud group operations].
+group returns `404` on detail. The
+[tag filters](network-tags.md#filter-lists-by-tag) also apply. See the
+[Gophercloud group operations].
 
 ## Create and delete a security group
 

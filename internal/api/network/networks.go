@@ -23,6 +23,7 @@ type networkBody struct {
 	External     bool     `json:"router:external"`
 	Subnets      []string `json:"subnets"`
 	PortSecurity bool     `json:"port_security_enabled"`
+	Tags         []string `json:"tags"`
 }
 
 type networkResponse struct {
@@ -45,6 +46,7 @@ func describeNetwork(network domain.Network) networkBody {
 		External:     network.External,
 		Subnets:      subnets,
 		PortSecurity: !network.PortSecurityDisabled,
+		Tags:         describeTags(network.Tags),
 	}
 }
 
@@ -56,11 +58,12 @@ func (h handler) listNetworks(w http.ResponseWriter, r *http.Request, projectID 
 	}
 	for field := range query {
 		switch field {
-		case "name", "status", "admin_state_up", "router:external", "limit", "marker", "page_reverse":
+		case "name", "status", "admin_state_up", "router:external", "limit", "marker", "page_reverse",
+			"tags", "tags-any", "not-tags", "not-tags-any":
 		default:
 			writeError(w, http.StatusBadRequest, "BadRequest",
-				"Network lists accept only name, status, admin_state_up, router:external, limit, marker, "+
-					"and page_reverse query parameters.")
+				"Network lists accept only name, status, admin_state_up, router:external, tags, tags-any, "+
+					"not-tags, not-tags-any, limit, marker, and page_reverse query parameters.")
 			return
 		}
 	}
@@ -81,6 +84,7 @@ func (h handler) listNetworks(w http.ResponseWriter, r *http.Request, projectID 
 	}
 	filter := app.ListFilter{
 		Names: query["name"], Statuses: query["status"], AdminStates: adminStates, External: external,
+		Tags: parseTagFilter(query),
 	}
 	page, err := h.service.ListNetworksPage(projectID, filter, options)
 	if errors.Is(err, app.ErrNetworkNotFound) {

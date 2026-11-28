@@ -77,6 +77,7 @@ must all match. For example,
 `?status=ACTIVE&status=DOWN` selects either status. Omit a key to leave it
 unrestricted. An explicit `name=` matches unnamed networks, and `status=`
 matches no networks. A list without matches returns `{"networks":[]}`.
+The [tag filters](network-tags.md#filter-lists-by-tag) also apply.
 See the [Neutron list reference] and [Neutron network filter schema].
 
 `?status=DOWN&admin_state_up=false` selects administratively disabled
@@ -142,6 +143,11 @@ to discover the external network and connect a router to it.
 
 Use the [floating IP guide](network-floating-ips.md) to allocate a public
 address from the external network and associate it with a port.
+
+### Tag resources
+
+Use the [tag guide](network-tags.md) to tag networks, subnets, ports,
+routers, security groups, and floating IPs, and to filter their lists by tag.
 
 ### Attach and remove an IPv4 router interface
 
