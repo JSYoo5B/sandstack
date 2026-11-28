@@ -27,6 +27,8 @@ Images that Nova creates from [server snapshots](compute-snapshots.md)
 also carry additional properties, which appear as top-level string fields
 and in Gophercloud's `Image.Properties`. The create operation does not
 accept additional properties.
+Cinder creates private images when it [uploads a
+volume](volume-upload-image.md).
 A file request for a queued image returns `204` with an empty body.
 Creating an image leaves the startup fixture and its download controls
 intact. A [sandbox reset](reset.md) removes queued images.

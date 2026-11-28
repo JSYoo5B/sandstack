@@ -198,6 +198,10 @@ See [Back up and restore a volume](volume-backups.md).
 
 See [Transfer a volume](volume-transfers.md).
 
+## Upload a volume to an image
+
+See [Upload a volume to an image](volume-upload-image.md).
+
 ## Read the attachment state
 
 After [Nova attaches a volume](compute.md#attach-and-detach-a-cinder-volume),

@@ -27,6 +27,7 @@ type Service struct {
 	now                func() time.Time
 	newID              func() string
 	images             imageLookup
+	uploads            imageUploads
 	volumes            map[string]domain.Volume
 	snapshots          map[string]domain.Snapshot
 	backups            map[string]domain.Backup

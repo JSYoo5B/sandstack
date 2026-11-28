@@ -9,7 +9,8 @@ locks, action history, console output, metadata, flavor lookup, volume
 attachment, key pairs, and server groups. Glance covers image creation, upload, download, deletion, and sharing.
 Lifecycle operations cover Neutron networks, IPv4 subnets, ports, logical
 routers with external gateways, and floating IPs, as well as Cinder volumes,
-snapshots, backups with restore, and volume transfers.
+snapshots, backups with restore, volume transfers, and uploads to Glance
+images.
 Tests can alter fixture state, observe stale reads, and reset the sandbox
 between cases.
 
@@ -50,8 +51,9 @@ downloads and image deactivation and links to the
 covers provisioning, metadata, and errors, with separate
 [snapshot](docs/guides/volume-snapshots.md),
 [retype](docs/guides/volume-retype.md),
-[backup](docs/guides/volume-backups.md), and
-[transfer](docs/guides/volume-transfers.md) guides.
+[backup](docs/guides/volume-backups.md),
+[transfer](docs/guides/volume-transfers.md), and
+[image upload](docs/guides/volume-upload-image.md) guides.
 [Inspect recent requests](docs/guides/requests.md) to verify what a client
 attempted. [Reset the sandbox](docs/guides/reset.md) between test cases to
 restore fixtures and invalidate issued tokens.

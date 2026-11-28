@@ -4,6 +4,7 @@ Reset returns a running sandbox to its starting fixture state so the next
 test case can use the same endpoint. It invalidates all issued Identity
 tokens and restores the original fixture values and timestamps. It also
 removes [application credentials](identity-application-credentials.md),
+[uploaded volume images](volume-upload-image.md),
 [Nova servers](compute-servers.md), Nova key pairs,
 [server groups](compute-server-groups.md), Glance image members,
 networks, subnets, ports, routers, volumes, volume snapshots, volume

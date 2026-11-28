@@ -95,7 +95,9 @@ func New(config Config) (http.Handler, error) {
 		Size:      1,
 		CreatedAt: created,
 		UpdatedAt: created,
-	}, now, randomUUID, imageService).WithTransferKeys(randomTransferKey)
+	}, now, randomUUID, imageService).
+		WithTransferKeys(randomTransferKey).
+		WithImageUploads(imageService)
 	serverFixture := compute.Server{
 		ID:        "d8ba25c2-8224-4e09-88ef-fab16c654770",
 		Name:      "fixture-server",
