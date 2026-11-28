@@ -34,6 +34,33 @@ func (h handler) createSecurityGroup(w http.ResponseWriter, r *http.Request, pro
 	}
 }
 
+func (h handler) updateSecurityGroup(w http.ResponseWriter, r *http.Request, projectID string) {
+	data, ok := readCreateBody(w, r, "security group")
+	if !ok {
+		return
+	}
+	changes, err := parseUpdateSecurityGroup(data)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "BadRequest", err.Error())
+		return
+	}
+	group, err := h.service.UpdateSecurityGroup(projectID, chi.URLParam(r, "groupID"), changes)
+	switch {
+	case errors.Is(err, app.ErrSecurityGroupDefaultName):
+		writeError(w, http.StatusConflict, "SecurityGroupDefaultAlreadyExists", "Default security group already exists.")
+	case errors.Is(err, app.ErrSecurityGroupNotFound):
+		writeError(w, http.StatusNotFound, "SecurityGroupNotFound", "The security group could not be found.")
+	case errors.Is(err, app.ErrSecurityGroupInUse):
+		writeError(w, http.StatusConflict, "SecurityGroupInUse", "The security group is bound to a port.")
+	case errors.Is(err, app.ErrSecurityGroupDefaultUpdate):
+		writeError(w, http.StatusConflict, "SecurityGroupCannotUpdateDefault", "Updating default security group not allowed.")
+	case err != nil:
+		writeError(w, http.StatusInternalServerError, "NeutronError", "Unable to update the security group.")
+	default:
+		writeJSON(w, http.StatusOK, securityGroupResponse{Group: describeSecurityGroup(group)})
+	}
+}
+
 func (h handler) deleteSecurityGroup(w http.ResponseWriter, r *http.Request, projectID string) {
 	err := h.service.DeleteSecurityGroup(projectID, chi.URLParam(r, "groupID"))
 	switch {

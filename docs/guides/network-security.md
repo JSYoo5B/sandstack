@@ -41,6 +41,24 @@ Use `groups.Delete` to remove a custom group and its rules. It returns
 Deleting the project's default group with the project token returns
 `409`. See the [Neutron group name tests] and [Neutron group deletion].
 
+## Update a security group
+
+Use `groups.Update` with `groups.UpdateOpts` to change a group's name,
+description, or stateful mode. It sends
+`PUT /security-groups/{security_group_id}` and returns `200` with the
+updated `security_group` object. Omitted fields keep their values and the
+rules are unchanged. A raw request can send an empty name, which
+Gophercloud omits. Ownership fields and rules cannot be updated and return
+`400`. See the [Neutron group update] and [Gophercloud group operations].
+
+A new name of `default` in any case returns `409
+SecurityGroupDefaultAlreadyExists`. The default group keeps its name and
+returns `409 SecurityGroupCannotUpdateDefault` when a name is supplied, but
+its description and mode can change. Changing the mode of a group bound to
+a port returns `409 SecurityGroupInUse`. Sending the current mode
+succeeds. A rejected update changes no field. SandStack does not expose
+revision numbers, so `UpdateOpts.RevisionNumber` is not supported.
+
 ## Read security group rules
 
 Use `rules.List` with `rules.ListOpts{SecGroupID: groupID}` and follow a
@@ -78,10 +96,11 @@ See the [Neutron rule port ranges] and [Neutron rule deletion].
 ## Verification
 
 Run `go test ./...` to exercise default discovery, custom group and
-rule lifecycles, and the standalone and inline rule views with
+rule lifecycles, group updates, and the standalone and inline rule views with
 Gophercloud v2.15.0. Raw HTTP tests cover project scoping, invalid
 selectors, CIDR normalization, and deletion responses.
 
+[Neutron group update]: https://github.com/openstack/neutron/blob/ba84fbf374cc7f5055eb2ff4ebc34d2a19cbbc3d/neutron/db/securitygroups_db.py#L303-L344
 [Neutron default group]: https://github.com/openstack/neutron/blob/ba84fbf374cc7f5055eb2ff4ebc34d2a19cbbc3d/neutron/db/securitygroups_db.py#L166-L231
 [Neutron default rule templates]: https://github.com/openstack/neutron/blob/ba84fbf374cc7f5055eb2ff4ebc34d2a19cbbc3d/neutron/db/migration/alembic_migrations/versions/2023.2/expand/c33da356b165_security_group_default_rules.py#L35-L78
 [Gophercloud group operations]: https://github.com/gophercloud/gophercloud/blob/v2.15.0/openstack/networking/v2/extensions/security/groups/requests.go

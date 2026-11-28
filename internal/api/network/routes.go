@@ -38,6 +38,7 @@ func Register(
 	router.Get(Path+"/security-groups", h.withProject(h.listSecurityGroups))
 	router.Post(Path+"/security-groups", h.withProject(withEmptyQuery(h.createSecurityGroup)))
 	router.Get(Path+"/security-groups/{groupID}", h.withProject(withEmptyQuery(h.showSecurityGroup)))
+	router.Put(Path+"/security-groups/{groupID}", h.withProject(withEmptyQuery(h.updateSecurityGroup)))
 	router.Delete(Path+"/security-groups/{groupID}", h.withProject(withEmptyQuery(h.deleteSecurityGroup)))
 	router.Get(Path+"/security-group-rules", h.withProject(h.listSecurityGroupRules))
 	router.Post(Path+"/security-group-rules", h.withProject(withEmptyQuery(h.createSecurityGroupRule)))
