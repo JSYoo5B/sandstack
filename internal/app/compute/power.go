@@ -58,7 +58,7 @@ func (s *Service) transition(
 	if server.Locked {
 		return ErrServerLocked
 	}
-	if !slices.Contains(allowed, server.Status()) {
+	if !slices.Contains(allowed, server.Status()) || server.TaskState != "" {
 		return ErrServerPowerState
 	}
 	server.State = target

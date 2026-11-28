@@ -2,6 +2,7 @@ package image
 
 import (
 	"errors"
+	"maps"
 	"slices"
 	"sync"
 	"time"
@@ -199,5 +200,6 @@ func normalizeTags(tags []string) []string {
 
 func snapshot(image domain.Image) domain.Image {
 	image.Tags = slices.Clone(image.Tags)
+	image.Properties = maps.Clone(image.Properties)
 	return image
 }

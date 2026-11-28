@@ -56,6 +56,7 @@ A successful request records one of these actions:
 | `lock` and `unlock` | `lock` and `unlock` |
 | Volume attachment create | `attach_volume` |
 | Volume attachment delete | `detach_volume` |
+| [`createImage`](compute-snapshots.md) | `createImage` |
 
 Nova checks the lock, server state, and volume state before it records an
 action, so a request that returns `400`, `404`, or `409` adds no record.

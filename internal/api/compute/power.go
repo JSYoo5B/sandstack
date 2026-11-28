@@ -12,7 +12,7 @@ import (
 )
 
 const actionFault = "Expected a single os-start, os-stop, reboot, pause, unpause, suspend, resume, lock, unlock, " +
-	"or os-getConsoleOutput action."
+	"createImage, or os-getConsoleOutput action."
 
 func (h handler) changeServerPower(w http.ResponseWriter, r *http.Request, scope requestScope) {
 	data, ok := readRequestBody(w, r, "server action")
@@ -27,6 +27,10 @@ func (h handler) changeServerPower(w http.ResponseWriter, r *http.Request, scope
 
 	if console, ok := actions["os-getConsoleOutput"]; ok {
 		h.showConsoleOutput(w, r, scope, console)
+		return
+	}
+	if snapshot, ok := actions["createImage"]; ok {
+		h.createServerImage(w, r, scope, snapshot)
 		return
 	}
 

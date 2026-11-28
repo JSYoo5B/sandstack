@@ -8,7 +8,7 @@ removes [application credentials](identity-application-credentials.md),
 networks, subnets, ports, routers, volumes, volume snapshots, and volume
 backups created by clients, including pending backup creations and
 restores. Reset also restores a deleted fixture server, stops holding
-server builds, and clears volume attachments, server locks,
+server builds and [server snapshots](compute-snapshots.md), and clears volume attachments, server locks,
 [server action history](compute-actions.md) except the fixture `create`
 record, replaced [console output](compute-console.md), service faults,
 stale detail snapshots, and the [request journal](requests.md).

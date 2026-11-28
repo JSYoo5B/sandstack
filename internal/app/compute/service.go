@@ -25,6 +25,7 @@ type Service struct {
 	seedActions []domain.Action
 	servers     map[string]*serverRecord
 	holdBuilds  bool
+	holdImages  bool
 	now         func() time.Time
 	attachments attachmentLookup
 }
@@ -73,6 +74,7 @@ func (s *Service) restoreSeed() {
 		},
 	}
 	s.holdBuilds = false
+	s.holdImages = false
 }
 
 // find returns the project's server with the compute lock already held.
@@ -205,6 +207,11 @@ func cloneServer(server domain.Server) domain.Server {
 	if server.BootVolume != nil {
 		bootVolume := *server.BootVolume
 		server.BootVolume = &bootVolume
+	}
+	if server.ImageMeta != nil {
+		imageMeta := *server.ImageMeta
+		imageMeta.Properties = maps.Clone(imageMeta.Properties)
+		server.ImageMeta = &imageMeta
 	}
 	if server.Fault != nil {
 		fault := *server.Fault

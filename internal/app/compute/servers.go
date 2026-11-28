@@ -44,6 +44,7 @@ func createError(kind error, format string, args ...any) error {
 
 type serverImages interface {
 	Get(projectID, imageID string) (imagedomain.Image, error)
+	snapshotImages
 }
 
 type serverNetworks interface {
@@ -70,6 +71,7 @@ type serverVolumes interface {
 	CompleteCreation(volumeID string) error
 	Detach(projectID, serverID, volumeID string) error
 	Delete(projectID, volumeID string) error
+	CreateServerSnapshot(projectID, volumeID, name string) (volumedomain.Snapshot, error)
 }
 
 // ServerCreate is a validated server creation request. A nil Networks
@@ -150,7 +152,8 @@ type plannedPort struct {
 // server in ERROR with a fault.
 func (s *Servers) Create(request ActionRequest, spec ServerCreate) (CreatedServer, error) {
 	projectID := request.ProjectID
-	if _, err := s.compute.GetFlavor(projectID, spec.FlavorID); err != nil {
+	flavor, err := s.compute.GetFlavor(projectID, spec.FlavorID)
+	if err != nil {
 		return CreatedServer{}, createError(ErrFlavorNotFound, "Flavor %s could not be found.", spec.FlavorID)
 	}
 	source, err := s.bootSource(projectID, spec)
@@ -183,6 +186,7 @@ func (s *Servers) Create(request ActionRequest, spec ServerCreate) (CreatedServe
 		}
 	}
 	bootVolume := newBootVolume(spec.BlockDevices)
+	imageMeta := s.bootImageMeta(projectID, spec, source, flavor.DiskGiB)
 
 	serverID, err := s.allocateServerID()
 	if err != nil {
@@ -232,6 +236,7 @@ func (s *Servers) Create(request ActionRequest, spec ServerCreate) (CreatedServe
 		Metadata:       copyMetadata(spec.Metadata),
 		Ports:          ports,
 		BootVolume:     bootVolume,
+		ImageMeta:      imageMeta,
 	}
 	switch {
 	case failure != "":
@@ -257,6 +262,10 @@ func (s *Servers) bootSource(projectID string, spec ServerCreate) (bootSource, e
 	image, err := s.images.Get(projectID, spec.ImageID)
 	if err != nil {
 		return bootSource{}, createError(ErrImageNotFound, "Can not find requested image")
+	}
+	if _, ok := image.Properties["block_device_mapping"]; ok {
+		return bootSource{}, createError(ErrImageBlockDevices,
+			"Booting from an image with a block device mapping is not supported.")
 	}
 	return bootSource{imageID: image.ID, label: image.ID, status: image.Status()}, nil
 }
@@ -448,6 +457,9 @@ func (s *Servers) Delete(request ActionRequest, serverID string) error {
 		return ErrServerLocked
 	}
 	delete(s.compute.servers, serverID)
+	if record.server.PendingImageID != "" {
+		_ = s.images.Delete(projectID, record.server.PendingImageID)
+	}
 	bootVolume := record.server.BootVolume
 	for _, attachment := range s.volumes.ListAttachments(projectID, serverID) {
 		if bootVolume != nil && bootVolume.VolumeID == attachment.VolumeID {

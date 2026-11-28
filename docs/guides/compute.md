@@ -255,6 +255,10 @@ array. Gophercloud reads the field as `Server.AttachedVolumes`. See the
 
 See [Boot and delete servers in the Compute sandbox](compute-servers.md).
 
+## Snapshot a server
+
+See [Snapshot servers in the Compute sandbox](compute-snapshots.md).
+
 ## Manage key pairs
 
 See [Key pairs in the Compute sandbox](compute-keypairs.md).

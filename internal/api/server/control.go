@@ -109,6 +109,29 @@ func registerComputeControls(router chi.Router, service *appcompute.Service, ser
 	}
 	router.Put(serverPath+"/complete-create", finishBuild(false))
 	router.Put(serverPath+"/fail-create", finishBuild(true))
+	holdImages := func(w http.ResponseWriter, r *http.Request) {
+		service.SetHoldImages(r.Method == http.MethodPut)
+		noContent(w, r)
+	}
+	router.Put("/compute/hold-images", holdImages)
+	router.Delete("/compute/hold-images", holdImages)
+	finishImage := func(failed bool) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			err := servers.FinishImage(chi.URLParam(r, "resourceID"), failed)
+			switch {
+			case errors.Is(err, appcompute.ErrServerNotFound):
+				http.Error(w, "Server not found", http.StatusNotFound)
+			case errors.Is(err, appcompute.ErrSnapshotNotPending):
+				http.Error(w, "Server has no pending image", http.StatusConflict)
+			case err != nil:
+				http.Error(w, "Unable to finish the server image", http.StatusInternalServerError)
+			default:
+				noContent(w, r)
+			}
+		}
+	}
+	router.Put(serverPath+"/complete-image", finishImage(false))
+	router.Put(serverPath+"/fail-image", finishImage(true))
 }
 
 func registerNetworkControls(router chi.Router, service *appnetwork.Service) {

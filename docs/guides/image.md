@@ -23,6 +23,10 @@ reference], [Glance v2.0 image defaults], and [Gophercloud image create
 options].
 
 Read the new image through `images.Get` and find it in `images.List`.
+Images that Nova creates from [server snapshots](compute-snapshots.md)
+also carry additional properties, which appear as top-level string fields
+and in Gophercloud's `Image.Properties`. The create operation does not
+accept additional properties.
 A file request for a queued image returns `204` with an empty body.
 Creating an image leaves the startup fixture and its download controls
 intact. A [sandbox reset](reset.md) removes queued images.

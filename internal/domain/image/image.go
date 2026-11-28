@@ -5,6 +5,7 @@ import "time"
 const (
 	ContainerFormatBare = "bare"
 	DiskFormatQCOW2     = "qcow2"
+	DiskFormatRaw       = "raw"
 )
 
 type Image struct {
@@ -23,6 +24,7 @@ type Image struct {
 	DiskFormat      string
 	MinDiskGiB      int
 	MinRAMMiB       int
+	Properties      map[string]string
 }
 
 func (i Image) Status() string {

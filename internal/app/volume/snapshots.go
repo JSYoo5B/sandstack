@@ -240,3 +240,13 @@ func (s *Service) FinishSnapshotCreation(snapshotID string, failed bool) error {
 	s.snapshots[snapshotID] = snapshot
 	return nil
 }
+
+func (s *Service) CreateServerSnapshot(projectID, volumeID, name string) (domain.Snapshot, error) {
+	volume, err := s.Lookup(projectID, volumeID)
+	if err != nil {
+		return domain.Snapshot{}, err
+	}
+	return s.CreateSnapshot(projectID, volumeID, SnapshotCreateOptions{
+		Name: name, Description: volume.Description.Value, Force: true,
+	})
+}

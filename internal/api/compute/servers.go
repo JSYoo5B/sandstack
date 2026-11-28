@@ -137,6 +137,10 @@ func (h handler) serverBody(r *http.Request, server appcompute.ServerDetail, pat
 		body.PowerState = powerNoState
 		body.TaskState = &taskState
 	}
+	if server.TaskState != "" && status != domaincompute.StatusBuild {
+		taskState := server.TaskState
+		body.TaskState = &taskState
+	}
 	return body
 }
 

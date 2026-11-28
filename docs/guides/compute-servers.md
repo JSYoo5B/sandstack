@@ -254,7 +254,8 @@ view].
 
 A created server supports the same actions, metadata, volume attachments,
 and [fault controls](compute-faults.md) as the fixture server. Its
-[console log](compute-console.md) starts empty.
+[console log](compute-console.md) starts empty. To snapshot a server into
+an image and boot from it, see [Snapshot servers](compute-snapshots.md).
 
 ## Delete a server
 

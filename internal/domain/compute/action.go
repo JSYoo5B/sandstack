@@ -15,6 +15,7 @@ const (
 	ActionUnlock       = "unlock"
 	ActionAttachVolume = "attach_volume"
 	ActionDetachVolume = "detach_volume"
+	ActionCreateImage  = "createImage"
 )
 
 // Action is a server action record keyed by the request that started it.

@@ -1,6 +1,7 @@
 package image
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/url"
@@ -19,25 +20,50 @@ const (
 )
 
 type imageBody struct {
-	ID              string    `json:"id"`
-	Name            string    `json:"name"`
-	Owner           string    `json:"owner"`
-	Status          string    `json:"status"`
-	Visibility      string    `json:"visibility"`
-	CreatedAt       time.Time `json:"created_at"`
-	UpdatedAt       time.Time `json:"updated_at"`
-	ContainerFormat *string   `json:"container_format"`
-	DiskFormat      *string   `json:"disk_format"`
-	MinDisk         int       `json:"min_disk"`
-	MinRAM          int       `json:"min_ram"`
-	Protected       bool      `json:"protected"`
-	Tags            []string  `json:"tags"`
-	Checksum        *string   `json:"checksum"`
-	Size            *int64    `json:"size"`
-	VirtualSize     *int64    `json:"virtual_size"`
-	Self            string    `json:"self"`
-	File            string    `json:"file"`
-	Schema          string    `json:"schema"`
+	ID              string            `json:"id"`
+	Name            string            `json:"name"`
+	Owner           string            `json:"owner"`
+	Status          string            `json:"status"`
+	Visibility      string            `json:"visibility"`
+	CreatedAt       time.Time         `json:"created_at"`
+	UpdatedAt       time.Time         `json:"updated_at"`
+	ContainerFormat *string           `json:"container_format"`
+	DiskFormat      *string           `json:"disk_format"`
+	MinDisk         int               `json:"min_disk"`
+	MinRAM          int               `json:"min_ram"`
+	Protected       bool              `json:"protected"`
+	Tags            []string          `json:"tags"`
+	Checksum        *string           `json:"checksum"`
+	Size            *int64            `json:"size"`
+	VirtualSize     *int64            `json:"virtual_size"`
+	Self            string            `json:"self"`
+	File            string            `json:"file"`
+	Schema          string            `json:"schema"`
+	Properties      map[string]string `json:"-"`
+}
+
+type imageCoreBody imageBody
+
+func (b imageBody) MarshalJSON() ([]byte, error) {
+	core, err := json.Marshal(imageCoreBody(b))
+	if err != nil || len(b.Properties) == 0 {
+		return core, err
+	}
+	fields := map[string]json.RawMessage{}
+	if err := json.Unmarshal(core, &fields); err != nil {
+		return nil, err
+	}
+	for key, value := range b.Properties {
+		if _, exists := fields[key]; exists {
+			continue
+		}
+		encoded, err := json.Marshal(value)
+		if err != nil {
+			return nil, err
+		}
+		fields[key] = encoded
+	}
+	return json.Marshal(fields)
 }
 
 func describeImage(image domain.Image) imageBody {
@@ -59,6 +85,7 @@ func describeImage(image domain.Image) imageBody {
 		Self:            self,
 		File:            self + "/file",
 		Schema:          imageSchemaPath,
+		Properties:      image.Properties,
 	}
 	if image.Checksum != "" {
 		body.Checksum = &image.Checksum

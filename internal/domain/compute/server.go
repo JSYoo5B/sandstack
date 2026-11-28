@@ -13,6 +13,8 @@ const (
 	StatusSuspended Status = "suspended"
 )
 
+const TaskImageSnapshotPending = "image_snapshot_pending"
+
 type Server struct {
 	ID             string
 	Name           string
@@ -29,6 +31,17 @@ type Server struct {
 	Metadata       map[string]string
 	Ports          []ServerPort
 	BootVolume     *BootVolume
+	ImageMeta      *ImageMeta
+	TaskState      string
+	PendingImageID string
+}
+
+type ImageMeta struct {
+	MinRAMMiB       int
+	MinDiskGiB      int
+	ContainerFormat string
+	DiskFormat      string
+	Properties      map[string]string
 }
 
 type BootVolume struct {
