@@ -130,6 +130,7 @@ func registerVolumeControls(router chi.Router, service *appvolume.Service) {
 		}
 	})
 	registerSnapshotControls(router, service)
+	registerBackupControls(router, service)
 	registerVolumeExtensionControls(router, service)
 }
 

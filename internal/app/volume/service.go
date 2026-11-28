@@ -29,6 +29,7 @@ type Service struct {
 	images             imageLookup
 	volumes            map[string]domain.Volume
 	snapshots          map[string]domain.Snapshot
+	backups            map[string]domain.Backup
 	attachmentVolumes  map[string]string
 	extensions         map[string]int
 	unavailableDetails sync.Map
@@ -86,6 +87,9 @@ func (s *Service) allocateID() (string, error) {
 		if _, exists := s.snapshots[id]; exists {
 			continue
 		}
+		if _, exists := s.backups[id]; exists {
+			continue
+		}
 		return id, nil
 	}
 	return "", ErrVolumeIDGeneration
@@ -108,7 +112,7 @@ func (s *Service) Delete(projectID, volumeID string) error {
 		}
 	}
 	if volume.State != domain.StateAvailable && volume.State != domain.StateError &&
-		volume.State != domain.StateErrorExtending {
+		volume.State != domain.StateErrorExtending && volume.State != domain.StateErrorRestoring {
 		return ErrVolumeStateConflict
 	}
 	delete(s.volumes, volumeID)
@@ -169,7 +173,8 @@ func (s *Service) SetFailed(volumeID string, failed bool) error {
 		return ErrVolumeNotFound
 	}
 	switch {
-	case failed && (volume.State == domain.StateInUse || volume.State == domain.StateExtending):
+	case failed && (volume.State == domain.StateInUse || volume.State == domain.StateExtending ||
+		volume.State == domain.StateBackingUp || volume.State == domain.StateRestoringBackup):
 		return ErrVolumeStateConflict
 	case failed && (volume.State == domain.StateCreating || volume.State == domain.StateAvailable):
 		volume.BootableOnProvision = false
@@ -191,6 +196,7 @@ func (s *Service) Reset() {
 	defer s.mu.Unlock()
 	s.volumes = map[string]domain.Volume{s.seed.ID: s.seed}
 	s.snapshots = make(map[string]domain.Snapshot)
+	s.backups = make(map[string]domain.Backup)
 	s.attachmentVolumes = make(map[string]string)
 	s.extensions = make(map[string]int)
 	s.unavailableDetails.Clear()

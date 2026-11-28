@@ -92,7 +92,7 @@ func (h handler) deleteVolume(w http.ResponseWriter, r *http.Request, projectID 
 	case errors.Is(err, app.ErrVolumeHasSnapshots):
 		writeFault(w, http.StatusBadRequest, "badRequest", "The volume has snapshots.")
 	case errors.Is(err, app.ErrVolumeStateConflict):
-		writeFault(w, http.StatusBadRequest, "badRequest", "Volume deletion requires the available, error, or error_extending state.")
+		writeFault(w, http.StatusBadRequest, "badRequest", "Volume deletion requires the available, error, error_extending, or error_restoring state.")
 	case err != nil:
 		writeFault(w, http.StatusInternalServerError, "computeFault", "Unable to delete the volume.")
 	default:

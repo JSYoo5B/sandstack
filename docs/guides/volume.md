@@ -85,10 +85,11 @@ it for an available volume keeps its update timestamp. To exercise a
 failed create, inject the volume fault instead to move it to `error`.
 
 Use `volumes.Delete` for `DELETE /volumes/{volume_id}`. Deleting a volume
-in `creating` or `extending` returns `400`. An `available`, `error`, or
-`error_extending` volume can be deleted once its dependent snapshots are
-removed. The response is `202` with an empty body and the volume is absent
-from subsequent reads. Reset discards created volumes and restores the
+in `creating` or `extending` returns `400`. An `available`, `error`,
+`error_extending`, or `error_restoring` volume can be deleted once its
+dependent snapshots are removed. Backups do not block deletion. The
+response is `202` with an empty body and the volume is absent from
+subsequent reads. Reset discards created volumes and restores the
 initial fixture.
 
 ## Update a volume name or description
@@ -189,6 +190,10 @@ See [Read and replace snapshot metadata](volume-snapshots.md#read-and-replace-sn
 
 See [Merge snapshot metadata](volume-snapshots.md#merge-snapshot-metadata).
 
+## Back up and restore a volume
+
+See [Back up and restore a volume](volume-backups.md).
+
 ## Read the attachment state
 
 After [Nova attaches a volume](compute.md#attach-and-detach-a-cinder-volume),
@@ -196,8 +201,9 @@ Cinder lists it as `in-use`. Its `attachments` array contains the server ID,
 volume ID, assigned device, and attachment timestamp. The `id` is the volume
 ID and `attachment_id` identifies this particular attachment. An `in-use`
 volume returns `400` on Cinder delete and `409` when the volume fault control
-tries to set it to `error`. After detach, the volume becomes `available` with
-an empty `attachments` array. See the [volume details reference].
+tries to set it to `error`. The fault control also returns `409` for a
+volume in `backing-up` or `restoring-backup`. After detach, the volume
+becomes `available` with an empty `attachments` array. See the [volume details reference].
 
 ## Extend an available volume
 

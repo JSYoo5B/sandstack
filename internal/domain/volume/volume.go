@@ -5,12 +5,16 @@ import "time"
 type State string
 
 const (
-	StateAvailable      State = "available"
-	StateCreating       State = "creating"
-	StateError          State = "error"
-	StateInUse          State = "in-use"
-	StateExtending      State = "extending"
-	StateErrorExtending State = "error_extending"
+	StateAvailable       State = "available"
+	StateCreating        State = "creating"
+	StateError           State = "error"
+	StateInUse           State = "in-use"
+	StateExtending       State = "extending"
+	StateErrorExtending  State = "error_extending"
+	StateBackingUp       State = "backing-up"
+	StateRestoring       State = "restoring"
+	StateRestoringBackup State = "restoring-backup"
+	StateErrorRestoring  State = "error_restoring"
 )
 
 type Volume struct {
@@ -26,6 +30,7 @@ type Volume struct {
 	CreatedAt           time.Time
 	UpdatedAt           time.Time
 	State               State
+	PreviousState       State
 	Attachment          Attachment
 	Metadata            map[string]string
 	ImageSource         ImageSource

@@ -7,8 +7,8 @@ authentication, application credential management, and catalog discovery.
 Nova covers server reads, power actions, locks, action history, console
 output, metadata, flavor lookup, volume attachment, and key pairs. Glance covers image creation, upload, download, deletion, and sharing.
 Lifecycle operations cover Neutron networks, IPv4 subnets, ports, logical
-routers with external gateways, and floating IPs, as well as Cinder volumes
-and snapshots.
+routers with external gateways, and floating IPs, as well as Cinder volumes,
+snapshots, and backups with restore.
 Tests can alter fixture state, observe stale reads, and reset the sandbox
 between cases.
 
@@ -43,8 +43,9 @@ network downtime. The [Image guide](docs/guides/image.md) covers Glance
 downloads and image deactivation and links to the
 [member guide](docs/guides/image-members.md). The [Block Storage guide](docs/guides/volume.md)
 covers provisioning, metadata, and errors, with separate
-[snapshot](docs/guides/volume-snapshots.md) and
-[retype](docs/guides/volume-retype.md) guides.
+[snapshot](docs/guides/volume-snapshots.md),
+[retype](docs/guides/volume-retype.md), and
+[backup](docs/guides/volume-backups.md) guides.
 [Inspect recent requests](docs/guides/requests.md) to verify what a client
 attempted. [Reset the sandbox](docs/guides/reset.md) between test cases to
 restore fixtures and invalidate issued tokens.

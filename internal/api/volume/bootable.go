@@ -33,20 +33,28 @@ func parseBootable(data json.RawMessage) (bool, error) {
 	if err != nil || len(fields) != 1 {
 		return false, errInvalidBootableAction
 	}
-	var value any
-	if json.Unmarshal(fields["bootable"], &value) != nil {
+	bootable, ok := parseCinderBoolean(fields["bootable"])
+	if !ok {
 		return false, errInvalidBootableAction
+	}
+	return bootable, nil
+}
+
+func parseCinderBoolean(data json.RawMessage) (bool, bool) {
+	var value any
+	if json.Unmarshal(data, &value) != nil {
+		return false, false
 	}
 	switch typed := value.(type) {
 	case bool:
-		return typed, nil
+		return typed, true
 	case string:
 		switch typed {
 		case "True", "TRUE", "true", "1", "ON", "On", "on", "YES", "Yes", "yes", "y", "t":
-			return true, nil
+			return true, true
 		case "False", "FALSE", "false", "0", "OFF", "Off", "off", "NO", "No", "no", "n", "f":
-			return false, nil
+			return false, true
 		}
 	}
-	return false, errInvalidBootableAction
+	return false, false
 }

@@ -100,6 +100,9 @@ func (s *Service) Detach(projectID, serverID, volumeID string) error {
 	if volume.Attachment.ID == "" || volume.Attachment.ServerID != serverID {
 		return ErrAttachmentNotFound
 	}
+	if volume.State == domain.StateBackingUp {
+		return ErrVolumeStateConflict
+	}
 	attachmentID := volume.Attachment.ID
 	volume.Attachment = domain.Attachment{}
 	s.updateState(volume, domain.StateAvailable)
